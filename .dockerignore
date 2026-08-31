@@ -1,0 +1,52 @@
+# Source-control and local development metadata
+.git
+.github
+.vscode
+.idea
+
+# Dependency and build artifacts
+node_modules
+.pnpm-store
+dist
+build
+coverage
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Local logs and audit artifacts
+*.log
+logs
+audit-logs
+
+# Runtime data that must live on the mounted volume
+uploads
+private
+
+# OS/editor noise
+.DS_Store
+*.swp
+*.swo
+*~
+
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Package-manager caches
+.npm
+.yarn
+.yarn_cache
+.pnpm-debug.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Temporary directories
+tmp
+temp
+.webdev
+.manus-logs
