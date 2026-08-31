@@ -4,12 +4,13 @@ import { trpc } from "@/lib/trpc";
 import { captureReferralFromLocation } from "@/lib/referral";
 import {
   ArrowRight,
-  ChevronLeft,
-  ChevronRight,
+  ArrowUpRight,
   Heart,
   Search,
+  ShieldCheck,
   ShoppingBag,
   Sparkles,
+  Truck,
 } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import brandPattern from "@/assets/brand/ideal-prime-pattern.png";
@@ -34,17 +35,6 @@ interface CatalogProduct {
   salesChannel?: "SHOP" | "QUASE_ZERO" | "BOTH" | string | null;
   productCondition?: string | null;
 }
-
-type HeroBanner = {
-  title: string;
-  subtitle: string;
-};
-
-const HERO_BANNERS: HeroBanner[] = [
-  { title: "Ideal Prime", subtitle: "Comércio e distribuição para empresas" },
-  { title: "Catálogo empresarial", subtitle: "Produtos, disponibilidade e atendimento" },
-  { title: "Relacionamento B2B", subtitle: "Condições comerciais por empresa" },
-];
 
 const CAT: Record<string, string> = {
   CELULAR: "Celulares",
@@ -71,28 +61,19 @@ const cardPrice = (product: CatalogProduct) =>
 
 const hasStock = (product: CatalogProduct) => (product.stockQuantity ?? 0) > 0;
 
-const isQuaseZeroProduct = (product: CatalogProduct) => {
-  const channel = String(product.salesChannel ?? "SHOP").toUpperCase();
-  return channel === "QUASE_ZERO" || channel === "BOTH";
-};
-
 const isShopProduct = (product: CatalogProduct) => {
   const channel = String(product.salesChannel ?? "SHOP").toUpperCase();
   return channel !== "QUASE_ZERO";
 };
 
-function Logo({ compact = false }: { compact?: boolean }) {
-  return <BrandLogo compact={compact} />;
-}
-
 function ProductSkeleton() {
   return (
     <div className="animate-pulse">
-      <div className="mb-4 bg-neutral-100" style={{ aspectRatio: "4/5" }} />
+      <div className="mb-4 bg-[#E9F3EE]" style={{ aspectRatio: "4/5" }} />
       <div className="space-y-2">
-        <div className="h-2 w-16 rounded bg-neutral-100" />
-        <div className="h-4 w-3/4 rounded bg-neutral-100" />
-        <div className="h-4 w-1/2 rounded bg-neutral-100" />
+        <div className="h-2 w-16 rounded bg-[#E9F3EE]" />
+        <div className="h-4 w-3/4 rounded bg-[#E9F3EE]" />
+        <div className="h-4 w-1/2 rounded bg-[#E9F3EE]" />
       </div>
     </div>
   );
@@ -107,12 +88,15 @@ function ProductCard({ product }: { product: CatalogProduct }) {
   return (
     <Link href={`/vitrine/${product.id}`}>
       <article
-        className={`group cursor-pointer ${!stock ? "opacity-45" : ""}`}
+        className={`group cursor-pointer ${!stock ? "opacity-55" : ""}`}
         style={{ fontFamily: SANS }}
       >
-        <div className="relative mb-4 overflow-hidden border border-[#D5E8E0] bg-white/90" style={{ aspectRatio: "4/5" }}>
+        <div
+          className="relative mb-4 overflow-hidden border border-[#D5E8E0] bg-white"
+          style={{ aspectRatio: "4/5" }}
+        >
           {product.promoTag && stock && (
-            <span className="absolute left-2 top-2 z-10 bg-[#068A5B] px-2.5 py-1 text-[8px] font-semibold uppercase tracking-[0.18em] text-white">
+            <span className="absolute left-3 top-3 z-10 bg-[#068A5B] px-2.5 py-1.5 text-[8px] font-semibold uppercase tracking-[0.18em] text-white">
               {product.promoTag}
             </span>
           )}
@@ -121,41 +105,44 @@ function ProductCard({ product }: { product: CatalogProduct }) {
             <img
               src={product.imageUrl}
               alt={product.name}
-              className="absolute inset-0 h-full w-full object-contain p-3 transition-transform duration-500 group-hover:scale-[1.04]"
+              className="absolute inset-0 h-full w-full object-contain p-5 transition-transform duration-500 group-hover:scale-[1.05]"
             />
           ) : (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <ShoppingBag className="h-8 w-8 text-neutral-200" />
+            <div className="absolute inset-0 flex items-center justify-center bg-[#F7FBF9]">
+              <ShoppingBag className="h-8 w-8 text-[#B9D5C8]" />
             </div>
           )}
 
-          {stock && (
+          {stock ? (
             <div className="absolute inset-x-0 bottom-0 translate-y-full transition-transform duration-300 group-hover:translate-y-0">
-              <div className="bg-[#0C4536] py-3 text-center text-[9px] font-semibold uppercase tracking-[0.22em] text-white">
-                Ver peça
+              <div className="flex items-center justify-center gap-2 bg-[#0C4536] py-3 text-center text-[9px] font-semibold uppercase tracking-[0.22em] text-white">
+                Ver produto <ArrowUpRight className="h-3.5 w-3.5" />
               </div>
             </div>
-          )}
-
-          {!stock && (
-            <div className="absolute inset-0 flex items-center justify-center bg-white/75">
-              <span className="border border-[#C8DED5] bg-white px-3 py-1 text-[9px] uppercase tracking-[0.22em] text-[#5E776D]">
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center bg-white/80">
+              <span className="border border-[#C8DED5] bg-white px-3 py-1.5 text-[9px] uppercase tracking-[0.22em] text-[#5E776D]">
                 Indisponível
               </span>
             </div>
           )}
         </div>
 
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           <p className="text-[8px] font-semibold uppercase tracking-[0.26em] text-[#068A5B]">
             {product.categoryLabel || CAT[product.category] || product.category}
           </p>
           <h3
-            className="line-clamp-2 text-sm text-[#12352B]"
-            style={{ fontFamily: SERIF, fontWeight: 700, lineHeight: 1.22, minHeight: "2.2rem" }}
+            className="line-clamp-2 text-[1.02rem] text-[#12352B]"
+            style={{ fontFamily: SERIF, fontWeight: 700, lineHeight: 1.22, minHeight: "2.45rem" }}
           >
             {product.name}
           </h3>
+          {product.shortDescription && (
+            <p className="line-clamp-2 text-xs leading-relaxed text-[#6C8278]">
+              {product.shortDescription}
+            </p>
+          )}
           {pix ? (
             <div className="pt-1">
               <p className="text-lg font-bold tracking-[-0.04em] text-[#0C4536]">
@@ -168,7 +155,7 @@ function ProductCard({ product }: { product: CatalogProduct }) {
               )}
             </div>
           ) : (
-            <p className="pt-1 text-xs italic text-neutral-400">Consulte o preço</p>
+            <p className="pt-1 text-xs italic text-[#81948B]">Consulte o preço</p>
           )}
         </div>
       </article>
@@ -176,37 +163,17 @@ function ProductCard({ product }: { product: CatalogProduct }) {
   );
 }
 
-function QuaseZeroCard({ product }: { product: CatalogProduct }) {
-  const pix = pixPrice(product);
-
+function Benefit({ icon: Icon, title, description }: { icon: typeof ShieldCheck; title: string; description: string }) {
   return (
-    <Link href={`/vitrine/${product.id}`}>
-      <article
-        className="group cursor-pointer rounded-[1.25rem] border border-amber-100 bg-white p-3 shadow-[0_12px_34px_rgba(120,53,15,0.05)] transition-transform hover:-translate-y-0.5"
-        style={{ fontFamily: SANS }}
-      >
-        <div className="mb-3 overflow-hidden rounded-[1rem] bg-stone-50" style={{ aspectRatio: "4/5" }}>
-          {product.imageUrl ? (
-            <img
-              src={product.imageUrl}
-              alt={product.name}
-              className="h-full w-full object-contain p-3 transition-transform duration-500 group-hover:scale-[1.04]"
-            />
-          ) : (
-            <div className="flex h-full items-center justify-center">
-              <ShoppingBag className="h-8 w-8 text-stone-200" />
-            </div>
-          )}
-        </div>
-        <p className="text-[8px] font-semibold uppercase tracking-[0.22em] text-amber-700">
-          Quase Zero
-        </p>
-        <h3 className="mt-1 line-clamp-2 text-sm font-semibold text-stone-950" style={{ fontFamily: SERIF }}>
-          {product.name}
-        </h3>
-        {pix && <p className="mt-2 text-base font-bold text-stone-950">{fmt(pix)}</p>}
-      </article>
-    </Link>
+    <div className="flex gap-4">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#A8D8C3] bg-white/10 text-[#B9F1D4]">
+        <Icon className="h-4 w-4" />
+      </div>
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white">{title}</p>
+        <p className="mt-1 max-w-[17rem] text-xs leading-relaxed text-white/65">{description}</p>
+      </div>
+    </div>
   );
 }
 
@@ -215,253 +182,222 @@ export default function Marketplace() {
   const products = (data ?? []) as CatalogProduct[];
   const PANEL = import.meta.env.VITE_PANEL_URL ?? "";
 
-  const [activeSlide, setActiveSlide] = useState(0);
   const [category, setCategory] = useState<string | null>(null);
   const [search, setSearch] = useState("");
 
   const shopProducts = useMemo(() => products.filter(isShopProduct), [products]);
-  const quaseZeroProducts = useMemo(() => products.filter(isQuaseZeroProduct), [products]);
+  const inStockProducts = useMemo(() => shopProducts.filter(hasStock), [shopProducts]);
+  const categories = useMemo(
+    () => Array.from(new Set(inStockProducts.map((product) => product.category))),
+    [inStockProducts]
+  );
 
   useEffect(() => {
     captureReferralFromLocation();
   }, []);
 
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      setActiveSlide((current) => (current + 1) % HERO_BANNERS.length);
-    }, 5200);
-    return () => window.clearInterval(timer);
-  }, []);
-
-  const categories = useMemo(
-    () => Array.from(new Set(shopProducts.map((product) => product.category))),
-    [shopProducts]
-  );
-
-  const filteredShopProducts = useMemo(() => {
+  const filteredProducts = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
-    return shopProducts.filter((product) => {
+    return inStockProducts.filter((product) => {
       const byCategory = category ? product.category === category : true;
       const bySearch = normalizedSearch
         ? `${product.name} ${product.shortDescription ?? ""} ${product.categoryLabel ?? ""}`
             .toLowerCase()
             .includes(normalizedSearch)
         : true;
-      return byCategory && bySearch && hasStock(product);
+      return byCategory && bySearch;
     });
-  }, [shopProducts, category, search]);
-
-  const currentBanner = HERO_BANNERS[activeSlide];
+  }, [inStockProducts, category, search]);
 
   return (
-    <div className="min-h-screen bg-transparent" style={{ fontFamily: SANS }}>
-      <header className="sticky top-0 z-40 border-b border-[#D5E8E0] bg-[#FBFDFC]/95 backdrop-blur">
-        <div className="mx-auto flex h-20 max-w-7xl items-center justify-between gap-8 px-6 lg:px-16">
+    <div className="min-h-screen bg-[#F7FBF9]" style={{ fontFamily: SANS }}>
+      <header className="sticky top-0 z-40 border-b border-[#D5E8E0]/80 bg-[#F7FBF9]/95 backdrop-blur-xl">
+        <div className="mx-auto flex h-[5.25rem] max-w-7xl items-center justify-between gap-8 px-6 lg:px-16">
           <Link href="/vitrine">
             <div className="cursor-pointer">
-              <Logo />
+              <BrandLogo />
             </div>
           </Link>
 
-          <nav className="hidden items-center gap-9 md:flex">
+          <nav className="hidden items-center gap-8 md:flex">
             <button
               onClick={() => document.getElementById("catalogo-shop")?.scrollIntoView({ behavior: "smooth" })}
-              className="border-b border-neutral-900 pb-1 text-xs font-medium uppercase tracking-[0.2em] text-neutral-900"
+              className="border-b border-[#068A5B] pb-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-[#12352B]"
             >
               Catálogo
             </button>
-            <Link href="/quase-zero">
-              <span className="cursor-pointer text-xs font-medium uppercase tracking-[0.2em] text-amber-700 hover:text-neutral-900">
-                Quase Zero
-              </span>
-            </Link>
+            <button
+              onClick={() => document.getElementById("experiencia-prime")?.scrollIntoView({ behavior: "smooth" })}
+              className="text-[10px] font-medium uppercase tracking-[0.22em] text-[#6C8278] transition-colors hover:text-[#068A5B]"
+            >
+              A experiência PRIME
+            </button>
             <Link href="/desejos">
-              <span className="cursor-pointer text-xs font-medium uppercase tracking-[0.2em] text-neutral-400 hover:text-neutral-800">
+              <span className="cursor-pointer text-[10px] font-medium uppercase tracking-[0.22em] text-[#6C8278] transition-colors hover:text-[#068A5B]">
                 Lista de desejos
               </span>
             </Link>
-            <a href={`${PANEL}/login`} className="text-xs font-medium uppercase tracking-[0.2em] text-neutral-400 hover:text-neutral-800">
+            <a href={`${PANEL}/login`} className="text-[10px] font-medium uppercase tracking-[0.22em] text-[#6C8278] transition-colors hover:text-[#068A5B]">
               Gerenciar
             </a>
           </nav>
 
           <a
             href={`${PANEL}/login`}
-            className="border border-neutral-900 px-5 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-neutral-900 transition-colors hover:bg-neutral-900 hover:text-white"
+            className="border border-[#12352B] px-5 py-2.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-[#12352B] transition-colors hover:bg-[#12352B] hover:text-white"
           >
             Entrar
           </a>
         </div>
       </header>
 
-      <section className="border-b border-[#D5E8E0] bg-transparent">
-        <div className="mx-auto grid max-w-7xl items-center gap-8 px-6 py-10 lg:grid-cols-[0.74fr_1.26fr] lg:px-16 lg:py-12">
-          <div className="space-y-5">
-            <div className="flex items-center gap-3">
-              <div className="h-px w-10 bg-neutral-300" />
-              <span className="text-[10px] font-medium uppercase tracking-[0.32em] text-neutral-400">
-                Catálogo · Ideal Prime
+      <section className="overflow-hidden border-b border-[#D5E8E0] bg-white">
+        <div className="mx-auto grid max-w-7xl items-stretch gap-8 px-6 py-8 lg:grid-cols-[0.82fr_1.18fr] lg:px-16 lg:py-12">
+          <div className="flex flex-col justify-center py-6 lg:py-10">
+            <div className="mb-6 flex items-center gap-3">
+              <span className="h-px w-10 bg-[#068A5B]" />
+              <span className="text-[10px] font-semibold uppercase tracking-[0.34em] text-[#068A5B]">
+                Ideal Prime · catálogo oficial
               </span>
             </div>
 
             <h1
+              className="max-w-xl text-[#12352B]"
               style={{
                 fontFamily: SERIF,
-                fontSize: "clamp(2.15rem, 4vw, 3.15rem)",
+                fontSize: "clamp(2.7rem, 5vw, 5.2rem)",
                 fontWeight: 800,
-                color: "#111",
-                lineHeight: 1.02,
-                letterSpacing: "-0.05em",
+                lineHeight: 0.98,
+                letterSpacing: "-0.055em",
               }}
             >
-              A sua vitrine
+              Escolhas que elevam
               <br />
-              <span style={{ color: "#068A5B" }}>dos desejos</span>
+              <span className="text-[#068A5B]">o seu negócio.</span>
             </h1>
 
-            <p className="max-w-sm text-sm leading-relaxed text-neutral-500">
-              Produtos selecionados, preço transparente e leitura separada entre Shop e Quase Zero.
+            <p className="mt-6 max-w-md text-[0.98rem] leading-relaxed text-[#6C8278]">
+              Produtos selecionados, disponibilidade transparente e uma experiência de compra pensada para quem exige padrão PRIME.
             </p>
 
-            <div className="grid max-w-sm grid-cols-2 gap-5 pt-1">
-              <div>
-                <p className="text-2xl font-bold text-neutral-950">{shopProducts.length}</p>
-                <p className="text-[9px] uppercase tracking-[0.25em] text-neutral-400">Peças Shop</p>
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-neutral-950">{quaseZeroProducts.length}</p>
-                <p className="text-[9px] uppercase tracking-[0.25em] text-neutral-400">Quase Zero</p>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-3 pt-1">
+            <div className="mt-8 flex flex-wrap gap-3">
               <button
                 onClick={() => document.getElementById("catalogo-shop")?.scrollIntoView({ behavior: "smooth" })}
-                className="border border-[#0C4536] px-6 py-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-[#0C4536] transition-colors hover:bg-[#0C4536] hover:text-white"
+                className="inline-flex items-center gap-2 bg-[#068A5B] px-6 py-3.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-white transition-all hover:bg-[#0C4536] active:scale-[0.97]"
               >
-                Ver peças
+                Explorar produtos <ArrowRight className="h-4 w-4" />
               </button>
-              <Link href="/quase-zero">
-                <button className="border border-[#9ADCF2] px-6 py-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-[#07567A] transition-colors hover:bg-[#E8F7FC]">
-                  Quase Zero
-                </button>
+              <Link href="/desejos">
+                <span className="inline-flex cursor-pointer items-center gap-2 border border-[#C8DED5] bg-white px-6 py-3.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-[#12352B] transition-colors hover:border-[#068A5B] hover:text-[#068A5B]">
+                  Falar com a PRIME
+                </span>
               </Link>
             </div>
-          </div>
 
-          <div className="relative overflow-hidden rounded-[1.5rem] border border-[#0C6D4E] bg-[#068A5B] shadow-[0_18px_70px_rgba(6,138,91,0.20)]">
-            <Link href="/vitrine">
-              <div
-                className="relative flex min-h-[250px] items-center overflow-hidden px-8 py-10 sm:min-h-[310px] sm:px-12"
-                style={{
-                  aspectRatio: "16/7",
-                  backgroundImage: `linear-gradient(120deg, rgba(6,138,91,0.96), rgba(12,69,54,0.88)), url(${brandPattern})`,
-                  backgroundPosition: "center",
-                  backgroundSize: "cover, 420px auto",
-                }}
-              >
-                <div className="relative z-10 max-w-sm text-white">
-                  <BrandLogo variant="white" compact className="mb-8 w-[170px] sm:w-[192px]" />
-                  <p className="mb-2 text-[9px] font-semibold uppercase tracking-[0.3em] text-[#9ADCF2]">Ideal Prime</p>
-                  <h2 className="prime-display text-3xl leading-tight sm:text-4xl">{currentBanner.title}</h2>
-                  <p className="mt-3 max-w-xs text-sm leading-relaxed text-white/80">{currentBanner.subtitle}</p>
-                </div>
-                <div className="absolute -right-8 -top-10 h-48 w-48 rounded-full border border-white/20" />
-                <div className="absolute -bottom-20 right-12 h-52 w-52 rounded-full border border-[#9ADCF2]/30" />
+            <div className="mt-10 grid max-w-lg grid-cols-3 gap-5 border-t border-[#E3EFE9] pt-5">
+              <div>
+                <p className="text-2xl font-bold tracking-[-0.04em] text-[#12352B]">{shopProducts.length}</p>
+                <p className="mt-1 text-[8px] font-semibold uppercase tracking-[0.2em] text-[#81948B]">Produtos no catálogo</p>
               </div>
-            </Link>
-
-            <div className="pointer-events-none absolute left-5 top-5 hidden rounded-full bg-white/15 px-3 py-1.5 text-[8px] font-semibold uppercase tracking-[0.22em] text-white/80 backdrop-blur sm:block">
-              {currentBanner.subtitle}
+              <div>
+                <p className="text-2xl font-bold tracking-[-0.04em] text-[#12352B]">{inStockProducts.length}</p>
+                <p className="mt-1 text-[8px] font-semibold uppercase tracking-[0.2em] text-[#81948B]">Disponíveis agora</p>
+              </div>
+              <div>
+                <p className="text-2xl font-bold tracking-[-0.04em] text-[#12352B]">{categories.length}</p>
+                <p className="mt-1 text-[8px] font-semibold uppercase tracking-[0.2em] text-[#81948B]">Categorias PRIME</p>
+              </div>
             </div>
+          </div>
 
-            <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-[#0C4536]/70 px-3 py-2 backdrop-blur">
-              <button
-                type="button"
-                onClick={() => setActiveSlide((current) => (current - 1 + HERO_BANNERS.length) % HERO_BANNERS.length)}
-                className="flex h-7 w-7 items-center justify-center rounded-full text-neutral-500 hover:bg-white hover:text-neutral-900"
-                aria-label="Banner anterior"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              {HERO_BANNERS.map((banner, index) => (
-                <button
-                  key={banner.title}
-                  type="button"
-                  onClick={() => setActiveSlide(index)}
-                  className={`h-2 rounded-full transition-all ${
-                    index === activeSlide ? "w-6 bg-[#9ADCF2]" : "w-2 bg-white/50 hover:bg-white/80"
-                  }`}
-                  aria-label={`Abrir banner ${index + 1}`}
-                />
-              ))}
-              <button
-                type="button"
-                onClick={() => setActiveSlide((current) => (current + 1) % HERO_BANNERS.length)}
-                className="flex h-7 w-7 items-center justify-center rounded-full text-neutral-500 hover:bg-white hover:text-neutral-900"
-                aria-label="Próximo banner"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
+          <div className="relative min-h-[24rem] overflow-hidden bg-[#0C4536] lg:min-h-[34rem]">
+            <div
+              className="absolute inset-0 opacity-90"
+              style={{
+                backgroundImage: `linear-gradient(135deg, rgba(6,138,91,0.92), rgba(12,69,54,0.98)), url(${brandPattern})`,
+                backgroundPosition: "center",
+                backgroundSize: "cover, 520px auto",
+              }}
+            />
+            <div className="absolute -right-24 -top-20 h-80 w-80 rounded-full border border-white/15" />
+            <div className="absolute -bottom-40 -left-20 h-[28rem] w-[28rem] rounded-full border border-[#9ADCF2]/20" />
+            <div className="relative flex h-full min-h-[24rem] flex-col justify-between p-8 sm:p-12 lg:min-h-[34rem]">
+              <div className="flex items-start justify-between gap-6">
+                <BrandLogo variant="white" compact className="w-[175px] sm:w-[210px]" />
+                <span className="rounded-full border border-white/20 px-3 py-1.5 text-[8px] font-semibold uppercase tracking-[0.22em] text-white/75">
+                  Coleção PRIME
+                </span>
+              </div>
+
+              <div className="max-w-md">
+                <p className="mb-3 text-[9px] font-semibold uppercase tracking-[0.32em] text-[#B9F1D4]">Curadoria comercial</p>
+                <h2 className="prime-display text-4xl leading-[0.98] text-white sm:text-6xl">
+                  A sua próxima escolha começa aqui.
+                </h2>
+                <p className="mt-5 max-w-sm text-sm leading-relaxed text-white/70">
+                  Uma seleção objetiva de produtos para comprar com clareza, confiança e atendimento próximo.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between border-t border-white/15 pt-5 text-[9px] font-semibold uppercase tracking-[0.2em] text-white/65">
+                <span>Comércio e distribuição</span>
+                <span className="flex items-center gap-2 text-[#B9F1D4]">Ver catálogo <ArrowUpRight className="h-3.5 w-3.5" /></span>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="prime-pattern-surface py-3 text-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 lg:px-16">
-          <div className="flex items-center gap-3">
-            <Sparkles className="h-4 w-4 text-[#9ADCF2]" />
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.26em]">Quase Zero</p>
-              <p className="text-xs text-white/75">Usados, seminovos e peças únicas em vitrine separada</p>
-            </div>
-          </div>
-          <Link href="/quase-zero">
-            <span className="cursor-pointer text-sm text-white/90 hover:text-white">→</span>
-          </Link>
+      <section id="experiencia-prime" className="bg-[#0C4536] py-9 text-white">
+        <div className="mx-auto grid max-w-7xl gap-8 px-6 sm:grid-cols-3 lg:px-16">
+          <Benefit icon={ShieldCheck} title="Compra segura" description="Informações claras para você escolher com tranquilidade." />
+          <Benefit icon={Truck} title="Disponibilidade real" description="Catálogo e estoque organizados para uma decisão objetiva." />
+          <Benefit icon={Sparkles} title="Atendimento PRIME" description="Uma experiência comercial próxima, elegante e eficiente." />
         </div>
       </section>
 
-      <main id="catalogo-shop" className="mx-auto max-w-7xl px-6 py-12 lg:px-16">
-        <div className="mb-8 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <div className="mb-3 flex items-center gap-3">
-              <div className="h-px w-6 bg-neutral-300" />
-              <p className="text-[9px] font-semibold uppercase tracking-[0.34em] text-[#068A5B]">
-                Ideal Prime
-              </p>
+      <main id="catalogo-shop" className="mx-auto max-w-7xl px-6 py-16 lg:px-16 lg:py-20">
+        <div className="mb-10 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-xl">
+            <div className="mb-4 flex items-center gap-3">
+              <span className="h-px w-8 bg-[#068A5B]" />
+              <p className="text-[9px] font-semibold uppercase tracking-[0.34em] text-[#068A5B]">Seleção Ideal Prime</p>
             </div>
-            <h2 style={{ fontFamily: SERIF, fontSize: "clamp(1.7rem, 2.7vw, 2.25rem)", fontWeight: 800, color: "#111", letterSpacing: "-0.03em" }}>
-              Produtos em destaque
+            <h2 className="text-[#12352B]" style={{ fontFamily: SERIF, fontSize: "clamp(2rem, 3.5vw, 3.35rem)", fontWeight: 800, lineHeight: 1.02, letterSpacing: "-0.045em" }}>
+              Produtos para vender,
+              <br />
+              <span className="text-[#068A5B]">escolhas para permanecer.</span>
             </h2>
+            <p className="mt-4 max-w-lg text-sm leading-relaxed text-[#6C8278]">
+              Explore a seleção atual da PRIME e encontre produtos com preço, disponibilidade e atendimento apresentados sem ruído.
+            </p>
           </div>
+
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-300" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9CB5A9]" />
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Buscar produto..."
-                className="h-10 w-full border border-neutral-200 bg-white pl-9 pr-3 text-sm outline-none transition-colors focus:border-neutral-500 sm:w-64"
+                aria-label="Buscar produto"
+                className="h-11 w-full border border-[#C8DED5] bg-white pl-9 pr-3 text-sm text-[#12352B] outline-none transition-colors placeholder:text-[#9CB5A9] focus:border-[#068A5B] sm:w-64"
               />
             </div>
-            <p className="text-[10px] uppercase tracking-[0.24em] text-neutral-400">
-              {filteredShopProducts.length} produtos
-            </p>
+            <p className="text-[9px] font-semibold uppercase tracking-[0.24em] text-[#81948B]">{filteredProducts.length} disponíveis</p>
           </div>
         </div>
 
         {categories.length > 1 && (
-          <div className="mb-10 flex flex-wrap gap-2">
+          <div className="mb-10 flex flex-wrap gap-2 border-y border-[#E3EFE9] py-4">
             {[{ key: null, label: "Todos" }, ...categories.map((categoryName) => ({ key: categoryName, label: CAT[categoryName] || categoryName }))].map(({ key, label }) => (
               <button
                 key={String(key)}
                 onClick={() => setCategory(key)}
-                className={`px-4 py-2 text-[10px] font-medium uppercase tracking-[0.2em] transition-colors ${
+                className={`px-4 py-2 text-[9px] font-semibold uppercase tracking-[0.2em] transition-colors ${
                   category === key
-                    ? "bg-neutral-950 text-white"
-                    : "border border-neutral-200 text-neutral-500 hover:border-neutral-400 hover:text-neutral-800"
+                    ? "bg-[#12352B] text-white"
+                    : "border border-transparent text-[#6C8278] hover:border-[#C8DED5] hover:text-[#068A5B]"
                 }`}
               >
                 {label}
@@ -471,91 +407,74 @@ export default function Marketplace() {
         )}
 
         {isLoading ? (
-          <div className="grid grid-cols-2 gap-x-6 gap-y-12 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          <div className="grid grid-cols-2 gap-x-5 gap-y-12 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
             {Array.from({ length: 10 }).map((_, index) => (
               <ProductSkeleton key={index} />
             ))}
           </div>
-        ) : filteredShopProducts.length === 0 ? (
-          <div className="py-20 text-center">
-            <p className="text-sm text-neutral-400">Nenhum produto encontrado.</p>
+        ) : filteredProducts.length === 0 ? (
+          <div className="grid gap-6 border border-[#D5E8E0] bg-white p-8 sm:grid-cols-[0.8fr_1.2fr] sm:p-12">
+            <div>
+              <p className="text-[9px] font-semibold uppercase tracking-[0.3em] text-[#068A5B]">Catálogo PRIME</p>
+              <h3 className="mt-3 text-3xl text-[#12352B]" style={{ fontFamily: SERIF, fontWeight: 800, lineHeight: 1.05 }}>
+                Uma seleção feita para o seu próximo movimento.
+              </h3>
+            </div>
+            <div className="flex flex-col justify-between gap-7 sm:border-l sm:border-[#E3EFE9] sm:pl-10">
+              <p className="max-w-md text-sm leading-relaxed text-[#6C8278]">
+                Estamos organizando os produtos disponíveis para apresentar a melhor seleção PRIME. Enquanto isso, registre sua demanda e nossa equipe acompanha sua procura.
+              </p>
+              <Link href="/desejos">
+                <span className="inline-flex w-fit cursor-pointer items-center gap-2 border border-[#068A5B] px-5 py-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#068A5B] transition-colors hover:bg-[#068A5B] hover:text-white">
+                  Registrar interesse <ArrowRight className="h-4 w-4" />
+                </span>
+              </Link>
+            </div>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-x-6 gap-y-12 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-            {filteredShopProducts.map((product) => (
+          <div className="grid grid-cols-2 gap-x-5 gap-y-14 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+            {filteredProducts.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}
           </div>
         )}
       </main>
 
-      {quaseZeroProducts.length > 0 && (
-        <section className="border-t border-neutral-100 bg-[#fcfaf7] py-12">
-          <div className="mx-auto max-w-7xl px-6 lg:px-16">
-            <div className="mb-8 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-              <div>
-                <div className="mb-3 flex items-center gap-3">
-                  <div className="h-px w-6 bg-amber-300" />
-                  <p className="text-[9px] font-semibold uppercase tracking-[0.34em] text-[#068A5B]">
-                    Separado do catálogo principal
-                  </p>
-                </div>
-                <h2 style={{ fontFamily: SERIF, fontSize: "clamp(1.7rem, 2.7vw, 2.25rem)", fontWeight: 800, color: "#1c1917", letterSpacing: "-0.03em" }}>
-                  Quase Zero
-                </h2>
-                <p className="mt-2 max-w-2xl text-sm leading-relaxed text-stone-500">
-                  Peças usadas, seminovas, mostruário e itens únicos ficam em uma vitrine própria.
-                </p>
-              </div>
-              <Link href="/quase-zero">
-                <button className="inline-flex items-center gap-2 border border-[#068A5B] bg-white px-5 py-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-[#068A5B] transition-colors hover:bg-[#EAF7F2]">
-                  Abrir Quase Zero <ArrowRight className="h-4 w-4" />
-                </button>
-              </Link>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-              {quaseZeroProducts.slice(0, 4).map((product) => (
-                <QuaseZeroCard key={product.id} product={product} />
-              ))}
-            </div>
+      <section className="border-t border-[#D5E8E0] bg-white py-16">
+        <div className="mx-auto grid max-w-7xl items-center gap-8 px-6 lg:grid-cols-[1.1fr_0.9fr] lg:px-16">
+          <div>
+            <p className="text-[9px] font-semibold uppercase tracking-[0.3em] text-[#068A5B]">Relacionamento PRIME</p>
+            <h2 className="mt-3 max-w-2xl text-3xl text-[#12352B] sm:text-4xl" style={{ fontFamily: SERIF, fontWeight: 800, lineHeight: 1.05 }}>
+              Não encontrou o que procurava?
+            </h2>
+            <p className="mt-4 max-w-xl text-sm leading-relaxed text-[#6C8278]">
+              Deixe sua demanda registrada. A equipe Ideal Prime acompanha oportunidades e entra em contato quando encontrar uma opção alinhada ao que você busca.
+            </p>
           </div>
-        </section>
-      )}
-
-      <section className="border-t border-neutral-100 py-20">
-        <div className="mx-auto max-w-lg px-6 text-center">
-          <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-full border border-neutral-200 bg-white">
-            <Heart className="h-4 w-4 text-neutral-400" />
+          <div className="flex lg:justify-end">
+            <Link href="/desejos">
+              <span className="inline-flex cursor-pointer items-center gap-3 bg-[#068A5B] px-6 py-4 text-[10px] font-semibold uppercase tracking-[0.22em] text-white transition-colors hover:bg-[#0C4536]">
+                Criar lista de desejos <Heart className="h-4 w-4" />
+              </span>
+            </Link>
           </div>
-          <h2 style={{ fontFamily: SERIF, fontSize: "clamp(1.45rem, 2.6vw, 1.9rem)", fontWeight: 800, color: "#111", lineHeight: 1.15, letterSpacing: "-0.02em" }}>
-            Sua lista de desejos personalizada
-          </h2>
-          <p className="mx-auto mt-4 max-w-sm text-sm leading-relaxed text-neutral-500">
-            Registre o produto que deseja encontrar e nossa equipe entra em contato quando ele aparecer na vitrine.
-          </p>
-          <Link href="/desejos">
-            <button className="mt-8 border border-neutral-900 px-8 py-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-neutral-900 transition-colors hover:bg-neutral-950 hover:text-white">
-              Registrar demanda
-            </button>
-          </Link>
         </div>
       </section>
 
       <footer className="prime-pattern-surface border-t border-[#0C6D4E] py-10 text-white">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-6 px-6 lg:flex-row lg:px-16">
-          <Logo compact />
+          <BrandLogo variant="white" compact />
           <nav className="flex flex-wrap items-center justify-center gap-7 text-[10px] uppercase tracking-[0.22em] text-white/70">
-            <button onClick={() => document.getElementById("catalogo-shop")?.scrollIntoView({ behavior: "smooth" })} className="hover:text-neutral-800">
+            <button onClick={() => document.getElementById("catalogo-shop")?.scrollIntoView({ behavior: "smooth" })} className="transition-colors hover:text-white">
               Catálogo
             </button>
-            <Link href="/quase-zero">
-              <span className="cursor-pointer text-[#9ADCF2] hover:text-white">Quase Zero</span>
-            </Link>
+            <button onClick={() => document.getElementById("experiencia-prime")?.scrollIntoView({ behavior: "smooth" })} className="transition-colors hover:text-white">
+              A experiência PRIME
+            </button>
             <Link href="/desejos">
-              <span className="cursor-pointer hover:text-neutral-800">Lista de desejos</span>
+              <span className="cursor-pointer transition-colors hover:text-white">Lista de desejos</span>
             </Link>
-            <a href={`${PANEL}/login`} className="hover:text-neutral-800">Entrar</a>
+            <a href={`${PANEL}/login`} className="transition-colors hover:text-white">Entrar</a>
           </nav>
           <p className="text-[10px] text-white/45">© {new Date().getFullYear()} Ideal Prime</p>
         </div>
