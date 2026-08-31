@@ -7,12 +7,15 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Users, Shield, UserCheck, Plus, Pencil, Trash2, Save, X, KeyRound } from "lucide-react";
 import { toast } from "sonner";
+import { ALL_PERMISSIONS, PERMISSION_LABELS, type PermissionKey } from "@shared/permissions";
 
 type UserRow = {
   id: number;
   email: string;
   name: string;
   role: "user" | "admin";
+  accountType: "STAFF" | "BUYER";
+  permissions: PermissionKey[];
   active: boolean;
   createdAt?: string | Date;
   lastSignedIn?: string | Date;
@@ -23,7 +26,37 @@ const emptyNewUser = {
   email: "",
   password: "",
   role: "user" as "user" | "admin",
+  accountType: "STAFF" as "STAFF" | "BUYER",
+  permissions: [...ALL_PERMISSIONS],
 };
+
+function PermissionPicker({ value, onChange }: { value: PermissionKey[]; onChange: (permissions: PermissionKey[]) => void }) {
+  const toggle = (permission: PermissionKey) => {
+    onChange(value.includes(permission) ? value.filter((item) => item !== permission) : [...value, permission]);
+  };
+  return (
+    <fieldset className="mt-4 rounded-xl border border-border bg-muted/20 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <legend className="text-sm font-semibold">Recursos liberados</legend>
+          <p className="text-xs text-muted-foreground">Selecione exatamente o que esta conta poderá acessar.</p>
+        </div>
+        <div className="flex gap-2">
+          <Button type="button" size="sm" variant="outline" onClick={() => onChange([...ALL_PERMISSIONS])}>Liberar todos</Button>
+          <Button type="button" size="sm" variant="ghost" onClick={() => onChange([])}>Limpar</Button>
+        </div>
+      </div>
+      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {ALL_PERMISSIONS.map((permission) => (
+          <label key={permission} className="flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm hover:border-primary/50">
+            <input type="checkbox" checked={value.includes(permission)} onChange={() => toggle(permission)} className="h-4 w-4 accent-primary" />
+            <span>{PERMISSION_LABELS[permission]}</span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
 
 export default function Usuarios() {
   const utils = trpc.useUtils();
@@ -39,6 +72,7 @@ export default function Usuarios() {
     role: "user" as "user" | "admin",
     active: true,
     newPassword: "",
+    permissions: [] as PermissionKey[],
   });
 
   const stats = useMemo(() => {
@@ -88,6 +122,7 @@ export default function Usuarios() {
       role: user.role,
       active: user.active,
       newPassword: "",
+      permissions: [...(user.permissions ?? [])],
     });
   };
 
@@ -218,10 +253,19 @@ export default function Usuarios() {
                   <option value="user">Usuário</option>
                   <option value="admin">Administrador</option>
                 </select>
+                <select
+                  className="h-10 rounded-md border border-border bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-primary"
+                  value={newUser.accountType}
+                  onChange={(e) => setNewUser((v) => ({ ...v, accountType: e.target.value as "STAFF" | "BUYER" }))}
+                >
+                  <option value="STAFF">Equipe interna</option>
+                  <option value="BUYER">Empresa compradora</option>
+                </select>
                 <Button onClick={handleCreate} disabled={createUser.isPending} className="gap-2">
                   <Save className="h-4 w-4" /> Criar
                 </Button>
               </div>
+              <PermissionPicker value={newUser.permissions} onChange={(permissions) => setNewUser((v) => ({ ...v, permissions }))} />
             </CardContent>
           </Card>
         )}
@@ -320,6 +364,7 @@ export default function Usuarios() {
                             onChange={(e) => setEditForm((v) => ({ ...v, newPassword: e.target.value }))}
                           />
                         </div>
+                        <PermissionPicker value={editForm.permissions} onChange={(permissions) => setEditForm((v) => ({ ...v, permissions }))} />
                         <div className="flex flex-wrap justify-between gap-2">
                           <p className="text-xs text-muted-foreground flex items-center gap-1">
                             <KeyRound className="h-3.5 w-3.5" /> Deixe a senha vazia para manter a senha atual.

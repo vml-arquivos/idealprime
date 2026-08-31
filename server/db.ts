@@ -11,6 +11,7 @@ import {
   users,
 } from "../drizzle/schema";
 import { orders, orderStatusEnum } from "../drizzle/schema.orders";
+import { BUYER_DEFAULT_PERMISSIONS, STAFF_DEFAULT_PERMISSIONS } from "../shared/permissions";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 let _pool: Pool | null = null;
@@ -66,6 +67,7 @@ export async function createUser(data: {
   password: string;
   role?: "user" | "admin";
   accountType?: "STAFF" | "BUYER";
+  permissions?: string[];
 }): Promise<SafeUser> {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
@@ -77,6 +79,7 @@ export async function createUser(data: {
     passwordHash,
     role: data.role ?? "user",
     accountType: data.accountType ?? "STAFF",
+    permissions: data.permissions ?? (data.accountType === "BUYER" ? BUYER_DEFAULT_PERMISSIONS : STAFF_DEFAULT_PERMISSIONS),
   };
 
   const result = await db.insert(users).values(insert).returning();
@@ -748,6 +751,7 @@ export async function updateUserAdmin(
     role: "user" | "admin";
     active: boolean;
     newPassword?: string;
+    permissions?: string[];
   }
 ): Promise<SafeUser> {
   const db = await getDb();
@@ -765,6 +769,9 @@ export async function updateUserAdmin(
     active: data.active,
     updatedAt: new Date(),
   };
+
+  if (data.permissions) patch.permissions = data.permissions;
+
 
   if (data.newPassword && data.newPassword.trim()) {
     patch.passwordHash = await bcrypt.hash(data.newPassword.trim(), 12);

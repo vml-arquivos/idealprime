@@ -2,6 +2,8 @@ import { UNAUTHED_ERR_MSG } from "@shared/const";
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import type { TrpcContext } from "./context";
+import type { PermissionKey } from "../../shared/permissions";
+import { hasPermission } from "../../shared/permissions";
 
 const FRIENDLY_ERROR_MESSAGE="Não foi possível processar sua solicitação agora. Tente novamente.";
 const t=initTRPC.context<TrpcContext>().create({transformer:superjson,errorFormatter({shape}){return shape.data.code==="INTERNAL_SERVER_ERROR"?{...shape,message:FRIENDLY_ERROR_MESSAGE}:shape;}});
@@ -13,3 +15,14 @@ const requireAdmin=t.middleware(async({ctx,next})=>{if(!ctx.user)throw new TRPCE
 export const authenticatedProcedure=t.procedure.use(requireAuthenticated);
 export const protectedProcedure=t.procedure.use(requireStaff);
 export const adminProcedure=t.procedure.use(requireAdmin);
+
+export const permissionProcedure = (permission: PermissionKey) =>
+  protectedProcedure.use(async ({ ctx, next }) => {
+    if (!hasPermission(ctx.user.permissions, permission, ctx.user.role)) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Este módulo não está liberado para este usuário.",
+      });
+    }
+    return next({ ctx: { ...ctx, user: ctx.user } });
+  });

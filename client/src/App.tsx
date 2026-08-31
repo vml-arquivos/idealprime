@@ -6,6 +6,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import DashboardLayout from "./components/DashboardLayout";
+import { PERMISSIONS, type PermissionKey } from "@shared/permissions";
 
 // Páginas públicas
 import Marketplace from "./pages/Marketplace";
@@ -51,11 +52,13 @@ import CotacaoLocais from "./pages/CotacaoLocais";
 const PL = ({
   children,
   adminOnly = false,
+  permission,
 }: {
   children: React.ReactNode;
   adminOnly?: boolean;
+  permission?: PermissionKey;
 }) => (
-  <ProtectedRoute adminOnly={adminOnly}>
+  <ProtectedRoute adminOnly={adminOnly} permission={permission}>
     <DashboardLayout>{children}</DashboardLayout>
   </ProtectedRoute>
 );
@@ -64,10 +67,12 @@ const PL = ({
 const P = ({
   children,
   adminOnly = false,
+  permission,
 }: {
   children: React.ReactNode;
   adminOnly?: boolean;
-}) => <ProtectedRoute adminOnly={adminOnly}>{children}</ProtectedRoute>;
+  permission?: PermissionKey;
+}) => <ProtectedRoute adminOnly={adminOnly} permission={permission}>{children}</ProtectedRoute>;
 
 function Router() {
   return (
@@ -87,7 +92,7 @@ function Router() {
       <Route path="/loja/:referralCode" component={Loja} />
       <Route path="/minha-conta" component={MinhaConta} />
 
-      <Route path="/b2b-admin">{() => (<PL><B2BAdmin /></PL>)}</Route>
+      <Route path="/b2b-admin">{() => (<PL permission={PERMISSIONS.B2B_OPERATIONS}><B2BAdmin /></PL>)}</Route>
 
       {/* ── DASHBOARD ─────────────────────────────────────────────────── */}
       <Route path="/dashboard">
@@ -101,7 +106,7 @@ function Router() {
       {/* ── PRODUTOS ──────────────────────────────────────────────────── */}
       <Route path="/produtos">
         {() => (
-          <PL>
+          <PL permission={PERMISSIONS.PRODUCTS}>
             <Products />
           </PL>
         )}
@@ -109,14 +114,14 @@ function Router() {
       {/* ProductForm já inclui DashboardLayout internamente — usar P para evitar duplicação */}
       <Route path="/produtos/novo">
         {() => (
-          <P>
+          <P permission={PERMISSIONS.PRODUCTS}>
             <ProductForm />
           </P>
         )}
       </Route>
       <Route path="/produtos/:id/editar">
         {() => (
-          <P>
+          <P permission={PERMISSIONS.PRODUCTS}>
             <ProductForm />
           </P>
         )}
@@ -125,7 +130,7 @@ function Router() {
       {/* ── ESTOQUE ───────────────────────────────────────────────────── */}
       <Route path="/estoque">
         {() => (
-          <P>
+          <P permission={PERMISSIONS.INVENTORY}>
             <Estoque />
           </P>
         )}
@@ -134,14 +139,14 @@ function Router() {
       {/* ── SIMULAÇÕES ────────────────────────────────────────────────── */}
       <Route path="/simulacoes">
         {() => (
-          <P>
+          <P permission={PERMISSIONS.PRICING}>
             <SimulationsExport />
           </P>
         )}
       </Route>
       <Route path="/simulacoes/:id">
         {(params: any) => (
-          <PL>
+          <PL permission={PERMISSIONS.PRICING}>
             <SimulationDetail id={Number(params.id)} />
           </PL>
         )}
@@ -150,14 +155,14 @@ function Router() {
       {/* ── ENTRADA DE PRODUTOS ─────────────────────────────────────── */}
       <Route path="/entrada-produtos">
         {() => (
-          <PL>
+          <PL permission={PERMISSIONS.INVENTORY}>
             <BatchPricing />
           </PL>
         )}
       </Route>
       <Route path="/entrada-produtos/novo">
         {() => (
-          <PL>
+          <PL permission={PERMISSIONS.INVENTORY}>
             <BatchPricing />
           </PL>
         )}
@@ -166,14 +171,14 @@ function Router() {
       {/* Rotas antigas mantidas por compatibilidade */}
       <Route path="/lotes">
         {() => (
-          <PL>
+          <PL permission={PERMISSIONS.INVENTORY}>
             <BatchPricing />
           </PL>
         )}
       </Route>
       <Route path="/lotes/novo">
         {() => (
-          <PL>
+          <PL permission={PERMISSIONS.INVENTORY}>
             <BatchPricing />
           </PL>
         )}
@@ -182,7 +187,7 @@ function Router() {
       {/* ── RELATÓRIOS ────────────────────────────────────────────────── */}
       <Route path="/relatorios">
         {() => (
-          <P>
+          <P permission={PERMISSIONS.REPORTS}>
             <Relatorios />
           </P>
         )}
@@ -191,7 +196,7 @@ function Router() {
       {/* ── LISTA DE DESEJOS ADMIN ────────────────────────────────────── */}
       <Route path="/desejos-admin">
         {() => (
-          <P>
+          <P permission={PERMISSIONS.SALES}>
             <WishlistAdmin />
           </P>
         )}
@@ -200,7 +205,7 @@ function Router() {
       {/* ── PEDIDOS ───────────────────────────────────────────────────── */}
       <Route path="/pedidos">
         {() => (
-          <PL>
+          <PL permission={PERMISSIONS.SALES}>
             <Pedidos />
           </PL>
         )}
@@ -209,35 +214,35 @@ function Router() {
       {/* ── SOMENTE ADMIN ─────────────────────────────────────────────── */}
       <Route path="/usuarios">
         {() => (
-          <P adminOnly>
+          <P adminOnly permission={PERMISSIONS.USERS}>
             <Usuarios />
           </P>
         )}
       </Route>
       <Route path="/categorias">
         {() => (
-          <P adminOnly>
+          <P adminOnly permission={PERMISSIONS.SETTINGS}>
             <CategoriasAdmin />
           </P>
         )}
       </Route>
       <Route path="/vendedores">
         {() => (
-          <P adminOnly>
+          <P adminOnly permission={PERMISSIONS.USERS}>
             <Vendedores />
           </P>
         )}
       </Route>
       <Route path="/configuracoes">
         {() => (
-          <P>
+          <P permission={PERMISSIONS.SETTINGS}>
             <Configuracoes />
           </P>
         )}
       </Route>
       <Route path="/configuracoes-pagamento">
         {() => (
-          <P>
+          <P permission={PERMISSIONS.SETTINGS}>
             <ConfiguracoesPagamento />
           </P>
         )}
@@ -246,49 +251,49 @@ function Router() {
       {/* ── COTAÇÃO DE PREÇOS (layout próprio mobile-first) ─────────── */}
       <Route path="/cotacoes">
         {() => (
-          <ProtectedRoute>
+          <ProtectedRoute permission={PERMISSIONS.PRICING}>
             <Cotacoes />
           </ProtectedRoute>
         )}
       </Route>
       <Route path="/cotacoes-gestao">
         {() => (
-          <P>
+          <P permission={PERMISSIONS.PRICING}>
             <CotacoesGestao />
           </P>
         )}
       </Route>
       <Route path="/cotacoes/nova">
         {() => (
-          <ProtectedRoute>
+          <ProtectedRoute permission={PERMISSIONS.PRICING}>
             <CotacaoSessaoForm />
           </ProtectedRoute>
         )}
       </Route>
       <Route path="/cotacoes/locais">
         {() => (
-          <ProtectedRoute>
+          <ProtectedRoute permission={PERMISSIONS.PRICING}>
             <CotacaoLocais />
           </ProtectedRoute>
         )}
       </Route>
       <Route path="/cotacoes/:id/editar">
         {() => (
-          <ProtectedRoute>
+          <ProtectedRoute permission={PERMISSIONS.PRICING}>
             <CotacaoSessaoForm />
           </ProtectedRoute>
         )}
       </Route>
       <Route path="/cotacoes/:id/coletar">
         {() => (
-          <ProtectedRoute>
+          <ProtectedRoute permission={PERMISSIONS.PRICING}>
             <CotacaoColeta />
           </ProtectedRoute>
         )}
       </Route>
       <Route path="/cotacoes/:id/comparativo">
         {() => (
-          <ProtectedRoute>
+          <ProtectedRoute permission={PERMISSIONS.PRICING}>
             <CotacaoComparativo />
           </ProtectedRoute>
         )}

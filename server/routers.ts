@@ -28,8 +28,11 @@ import * as dbSellers from "./db.sellers";
 import * as dbCustomers from "./db.customers";
 import * as dbAi from "./db.ai";
 import { transcribeAudio } from "./_core/voiceTranscription";
+import { ALL_PERMISSIONS, type PermissionKey } from "../shared/permissions";
 
 // ─── Schemas reutilizáveis ────────────────────────────────────────────────────
+
+const permissionSchema = z.array(z.enum(ALL_PERMISSIONS as [PermissionKey, ...PermissionKey[]])).max(50);
 
 const productInput = z.object({
   name: z.string().min(1),
@@ -1220,6 +1223,8 @@ export const appRouter = router({
           active: users.active,
           createdAt: users.createdAt,
           lastSignedIn: users.lastSignedIn,
+          permissions: users.permissions,
+          accountType: users.accountType,
         })
         .from(users)
         .orderBy(desc(users.createdAt));
@@ -1232,6 +1237,8 @@ export const appRouter = router({
           name: z.string().min(2),
           password: z.string().min(8),
           role: z.enum(["user", "admin"]).default("user"),
+          accountType: z.enum(["STAFF", "BUYER"]).default("STAFF"),
+          permissions: permissionSchema.optional(),
         })
       )
       .mutation(async ({ input }) => {
@@ -1249,6 +1256,7 @@ export const appRouter = router({
           role: z.enum(["user", "admin"]),
           active: z.boolean(),
           newPassword: z.string().min(8).optional().or(z.literal("")),
+          permissions: permissionSchema,
         })
       )
       .mutation(async ({ input, ctx }) => {
@@ -1266,6 +1274,7 @@ export const appRouter = router({
           role: input.role,
           active: input.active,
           newPassword: input.newPassword || undefined,
+          permissions: input.permissions,
         });
       }),
 

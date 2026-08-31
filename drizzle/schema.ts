@@ -64,6 +64,7 @@ export const users = pgTable("permupay_users", {
   passwordHash: text("passwordHash").notNull(),
   role: roleEnum("role").default("user").notNull(),
   accountType: text("account_type").default("STAFF").notNull(),
+  permissions: jsonb("permissions").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
   active: boolean("active").default(true).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().notNull(),

@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import { Pool, PoolClient } from "pg";
+import { BUYER_DEFAULT_PERMISSIONS } from "../shared/permissions";
 
 let pool: Pool | null = null;
 function getPool() {
@@ -38,7 +39,7 @@ export async function signupBusiness(input:{legalName:string;tradeName?:string;c
     const exists = await c.query("select 1 from permupay_users where lower(email)=$1",[email]);
     if (exists.rowCount) throw new Error("Email já cadastrado");
     const hash = await bcrypt.hash(input.password,12);
-    const u = await c.query(`insert into permupay_users (email,name,"passwordHash",role,account_type,active) values ($1,$2,$3,'user','BUYER',true) returning id,email,name,role,account_type as "accountType",active`,[email,input.name.trim(),hash]);
+    const u = await c.query(`insert into permupay_users (email,name,"passwordHash",role,account_type,permissions,active) values ($1,$2,$3,'user','BUYER',$4::jsonb,true) returning id,email,name,role,account_type as "accountType",permissions,active`,[email,input.name.trim(),hash,JSON.stringify(BUYER_DEFAULT_PERMISSIONS)]);
     const b = await c.query(`insert into permupay_business_accounts (legal_name,trade_name,cnpj,email,phone,status) values ($1,$2,$3,$4,$5,'PENDING') returning *`,[input.legalName.trim(),input.tradeName?.trim()||null,cnpj,email,input.phone?.trim()||null]);
     await c.query(`insert into permupay_business_memberships (business_account_id,user_id,role) values ($1,$2,'MANAGER')`,[b.rows[0].id,u.rows[0].id]);
     await c.query("COMMIT"); return { user:u.rows[0], business:b.rows[0] };
@@ -127,3 +128,160 @@ export async function applyImport(actorUserId:number,input:{hash:string;profileK
  }catch(e){await c.query('ROLLBACK').catch(()=>{});throw e}finally{c.release()}
 }
 export async function listImportJobs(){const {rows}=await getPool().query(`select j.*,u.name as actor_name,p.name as price_list_name from permupay_import_jobs j left join permupay_users u on u.id=j.actor_user_id left join permupay_price_lists p on p.id=j.price_list_id order by j.created_at desc limit 100`);return rows}
+
+
+export type B2BQuoteAction = 'APPROVE' | 'REJECT' | 'CANCEL';
+
+type BasketItem = { productId: number; quantity: number };
+
+async function loadQuoteBasket(c: PoolClient, business: any, items: BasketItem[]) {
+  const v = await resolvePriceListVersion(c, business);
+  const merged = new Map<number, number>();
+  for (const item of items) {
+    merged.set(item.productId, (merged.get(item.productId) || 0) + item.quantity);
+  }
+  if (!merged.size) throw new Error('A cotação precisa ter ao menos um produto');
+
+  const ids = [...merged.keys()];
+  const result = await c.query(
+    `select p.id,p.sku,p.name,p.unit,p.sales_multiple,p.stock_quantity,pli.price_cents
+     from permupay_products p
+     join permupay_price_list_items pli on pli.product_id=p.id and pli.version_id=$1 and pli.active=true
+     where p.id=any($2::int[]) and p.active=true and p.b2b_enabled=true`,
+    [v.versionId, ids],
+  );
+  if (result.rows.length !== ids.length) {
+    throw new Error('Um ou mais produtos não estão disponíveis para cotação');
+  }
+
+  let total = 0;
+  const normalized: any[] = [];
+  for (const product of result.rows) {
+    const quantity = merged.get(product.id)!;
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+      throw new Error(`Quantidade inválida para ${product.name}`);
+    }
+    const multiple = Math.max(1, Number(product.sales_multiple || 1));
+    if (quantity % multiple !== 0) {
+      throw new Error(`${product.name}: quantidade deve ser múltipla de ${multiple}`);
+    }
+    const available = Math.floor(Number(product.stock_quantity || 0));
+    if (quantity > available) {
+      throw new Error(`${product.name}: estoque disponível ${available}`);
+    }
+    const lineTotal = quantity * Number(product.price_cents);
+    total += lineTotal;
+    normalized.push({ ...product, quantity, total: lineTotal });
+  }
+  return { version: v, normalized, total };
+}
+
+export async function createQuote(
+  userId: number,
+  input: { items: BasketItem[]; notes?: string; idempotencyKey: string },
+) {
+  const c = await getPool().connect();
+  try {
+    await c.query('BEGIN');
+    const business = await resolveBusinessContext(c, userId);
+    const previous = await c.query(
+      `select * from permupay_b2b_quotes where business_account_id=$1 and idempotency_key=$2`,
+      [business.id, input.idempotencyKey],
+    );
+    if (previous.rows[0]) {
+      await c.query('COMMIT');
+      return previous.rows[0];
+    }
+
+    const basket = await loadQuoteBasket(c, business, input.items);
+    const quoteNumber = `QC-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
+    const quote = await c.query(
+      `insert into permupay_b2b_quotes(quote_number,business_account_id,buyer_user_id,price_list_version_id,status,notes,total_cents,idempotency_key)
+       values($1,$2,$3,$4,'PENDING',$5,$6,$7) returning *`,
+      [quoteNumber, business.id, userId, basket.version.versionId, input.notes?.trim() || null, basket.total, input.idempotencyKey],
+    );
+
+    for (const product of basket.normalized) {
+      await c.query(
+        `insert into permupay_b2b_quote_items(quote_id,product_id,sku_snapshot,name_snapshot,unit_snapshot,quantity,unit_price_cents,total_cents)
+         values($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [quote.rows[0].id, product.id, product.sku, product.name, product.unit, product.quantity, product.price_cents, product.total],
+      );
+    }
+    if (business.account_manager_user_id) {
+      await c.query(
+        `insert into permupay_b2b_notifications(user_id,title,body) values($1,$2,$3)`,
+        [business.account_manager_user_id, 'Nova cotação empresarial', `Cotação ${quoteNumber} recebida`],
+      );
+    }
+    await c.query('COMMIT');
+    return quote.rows[0];
+  } catch (error) {
+    await c.query('ROLLBACK').catch(() => {});
+    throw error;
+  } finally {
+    c.release();
+  }
+}
+
+export async function myQuotes(userId: number) {
+  const { rows } = await getPool().query(
+    `select q.*,b.legal_name,b.trade_name,
+      coalesce(json_agg(json_build_object('id',qi.id,'productId',qi.product_id,'sku',qi.sku_snapshot,'name',qi.name_snapshot,'unit',qi.unit_snapshot,'quantity',qi.quantity,'unitPriceCents',qi.unit_price_cents,'totalCents',qi.total_cents) order by qi.id) filter (where qi.id is not null),'[]'::json) as items
+     from permupay_b2b_quotes q
+     join permupay_business_accounts b on b.id=q.business_account_id
+     join permupay_business_memberships m on m.business_account_id=q.business_account_id and m.user_id=$1 and m.active=true
+     left join permupay_b2b_quote_items qi on qi.quote_id=q.id
+     group by q.id,b.id order by q.created_at desc`,
+    [userId],
+  );
+  return rows;
+}
+
+export async function listQuotes() {
+  const { rows } = await getPool().query(
+    `select q.*,b.legal_name,b.trade_name,u.name as buyer_name
+     from permupay_b2b_quotes q
+     join permupay_business_accounts b on b.id=q.business_account_id
+     join permupay_users u on u.id=q.buyer_user_id
+     order by q.created_at desc`,
+  );
+  return rows;
+}
+
+export async function transitionQuote(id: number, action: B2BQuoteAction) {
+  const status = { APPROVE: 'APPROVED', REJECT: 'REJECTED', CANCEL: 'CANCELLED' }[action];
+  const { rows } = await getPool().query(
+    `update permupay_b2b_quotes set status=$2,updated_at=now() where id=$1 and status in ('PENDING','APPROVED') returning *`,
+    [id, status],
+  );
+  if (!rows[0]) throw new Error('Cotação não encontrada ou não pode ser alterada');
+  return rows[0];
+}
+
+export async function createOrderFromQuote(userId: number, quoteId: number, idempotencyKey: string) {
+  const { rows } = await getPool().query(
+    `select q.* from permupay_b2b_quotes q
+     join permupay_business_memberships m on m.business_account_id=q.business_account_id and m.user_id=$1 and m.active=true
+     where q.id=$2`,
+    [userId, quoteId],
+  );
+  const quote = rows[0];
+  if (!quote) throw new Error('Cotação não encontrada');
+  if (quote.status !== 'APPROVED') throw new Error('A cotação precisa ser aprovada antes de virar pedido');
+  const itemRows = await getPool().query(
+    `select product_id as "productId",quantity from permupay_b2b_quote_items where quote_id=$1 order by id`,
+    [quoteId],
+  );
+  const order = await createOrder(userId, {
+    items: itemRows.rows,
+    paymentMethod: 'QUOTE',
+    delivery: { quoteId },
+    idempotencyKey,
+  });
+  await getPool().query(
+    `update permupay_b2b_quotes set status='CONVERTED',updated_at=now() where id=$1 and status='APPROVED'`,
+    [quoteId],
+  );
+  return order;
+}

@@ -41,63 +41,70 @@ import {
   Tag,
   ShoppingCart,
   Building2,
+  type LucideIcon,
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from "./DashboardLayoutSkeleton";
 import { BrandSymbol } from "./BrandLogo";
 import { Button } from "./ui/button";
+import { PERMISSIONS, hasPermission } from "@shared/permissions";
 
-const menuModules = [
+type MenuItem = { icon: LucideIcon; label: string; path: string; permission?: import("@shared/permissions").PermissionKey };
+type MenuModule = { label: string; adminOnly?: boolean; items: MenuItem[] };
+
+const menuModules: MenuModule[] = [
   {
     label: "Início",
-    items: [{ icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" }],
+    items: [{ icon: LayoutDashboard, label: "Dashboard", path: "/dashboard", permission: PERMISSIONS.DASHBOARD }],
   },
   {
     label: "Produtos",
     items: [
-      { icon: Package, label: "Produtos", path: "/produtos" },
-      { icon: ShoppingBag, label: "Quase Zero", path: "/produtos" },
-      { icon: Warehouse, label: "Estoque", path: "/estoque" },
-      { icon: Layers, label: "Entrada", path: "/lotes" },
+      { icon: Package, label: "Produtos", path: "/produtos", permission: PERMISSIONS.PRODUCTS },
+      { icon: ShoppingBag, label: "Quase Zero", path: "/produtos", permission: PERMISSIONS.PRODUCTS },
+      { icon: Warehouse, label: "Estoque", path: "/estoque", permission: PERMISSIONS.INVENTORY },
+      { icon: Layers, label: "Entrada", path: "/lotes", permission: PERMISSIONS.INVENTORY },
     ],
   },
   {
     label: "B2B Ideal Prime",
-    items: [{ icon: Building2, label: "Operação B2B", path: "/b2b-admin" }],
+    items: [{ icon: Building2, label: "Operação B2B", path: "/b2b-admin", permission: PERMISSIONS.B2B_OPERATIONS }],
   },
   {
     label: "Vendas",
     items: [
-      { icon: ClipboardList, label: "Pedidos", path: "/pedidos" },
-      { icon: Heart, label: "Desejos", path: "/desejos-admin" },
+      { icon: ClipboardList, label: "Pedidos", path: "/pedidos", permission: PERMISSIONS.SALES },
+      { icon: Heart, label: "Desejos", path: "/desejos-admin", permission: PERMISSIONS.SALES },
     ],
   },
   {
     label: "Financeiro",
     items: [
-      { icon: Calculator, label: "Simulações", path: "/simulacoes" },
-      { icon: ShoppingCart, label: "Cotações", path: "/cotacoes" },
+      { icon: Calculator, label: "Simulações", path: "/simulacoes", permission: PERMISSIONS.PRICING },
+      { icon: ShoppingCart, label: "Cotações", path: "/cotacoes", permission: PERMISSIONS.PRICING },
       {
         icon: BarChart3,
         label: "Gestão de Cotações",
         path: "/cotacoes-gestao",
+        permission: PERMISSIONS.PRICING,
       },
-      { icon: BarChart3, label: "Relatórios", path: "/relatorios" },
+      { icon: BarChart3, label: "Relatórios", path: "/relatorios", permission: PERMISSIONS.REPORTS },
     ],
   },
   {
     label: "Administração",
     adminOnly: true,
     items: [
-      { icon: Users, label: "Usuários", path: "/usuarios" },
-      { icon: Tag, label: "Categorias", path: "/categorias" },
-      { icon: Users, label: "Vendedores", path: "/vendedores" },
-      { icon: Settings, label: "Configurações", path: "/configuracoes" },
+      { icon: Users, label: "Usuários", path: "/usuarios", permission: PERMISSIONS.USERS },
+      { icon: Tag, label: "Categorias", path: "/categorias", permission: PERMISSIONS.SETTINGS },
+      { icon: Users, label: "Vendedores", path: "/vendedores", permission: PERMISSIONS.USERS },
+      { icon: Settings, label: "Configurações", path: "/configuracoes", permission: PERMISSIONS.SETTINGS },
       {
         icon: CreditCard,
         label: "Pagamento",
         path: "/configuracoes-pagamento",
+        permission: PERMISSIONS.SETTINGS,
       },
     ],
   },
@@ -242,6 +249,10 @@ function DashboardLayoutContent({
           <SidebarContent className="gap-1 overflow-y-auto py-2">
             {menuModules.map((module, moduleIndex) => {
               if (module.adminOnly && !isAdmin) return null;
+              const visibleItems = module.items.filter((item) =>
+                item.permission ? hasPermission(user?.permissions, item.permission, user?.role) : true,
+              );
+              if (!visibleItems.length) return null;
               return (
                 <div key={module.label} className="space-y-1">
                   {!isCollapsed ? (
@@ -254,7 +265,7 @@ function DashboardLayoutContent({
                     <div className="mx-4 my-2 border-t" />
                   ) : null}
                   <SidebarMenu className="gap-0.5 px-2">
-                    {module.items.map(item => {
+                    {visibleItems.map(item => {
                       const isActive =
                         location === item.path ||
                         location.startsWith(item.path + "/");
