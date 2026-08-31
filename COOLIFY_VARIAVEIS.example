@@ -1,0 +1,34 @@
+# IDEAL PRIME — TEMPLATE DE VARIÁVEIS PARA COOLIFY
+# NÃO coloque segredos reais no GitHub.
+# Preencha estes valores somente no painel do Coolify.
+
+NODE_ENV=production
+PORT=4000
+
+# Copie a URL INTERNA do PostgreSQL criado no Coolify.
+DATABASE_URL=postgresql://USUARIO:SENHA@HOST_INTERNO:5432/NOME_DO_BANCO
+DB_SSL=false
+
+# Use valores fortes, aleatórios e diferentes.
+JWT_SECRET=SUBSTITUIR_POR_SEGREDO_FORTE_DE_64_CARACTERES
+SESSION_SECRET=SUBSTITUIR_POR_OUTRO_SEGREDO_FORTE_DE_64_CARACTERES
+
+# Domínio público final, sem "/" no final.
+APP_URL=https://SEU-DOMINIO
+VITE_STOREFRONT_URL=https://SEU-DOMINIO
+VITE_PANEL_URL=https://SEU-DOMINIO
+VITE_APP_TITLE=Ideal Prime
+VITE_APP_ID=ideal-prime
+
+DATA_DIR=/var/data/ideal-prime
+UPLOAD_DIR=/var/data/ideal-prime/uploads
+
+# Integrações opcionais — deixe vazias se não forem utilizadas.
+AWS_ACCESS_KEY_ID=
+AWS_SECRET_ACCESS_KEY=
+AWS_REGION=
+S3_BUCKET=
+S3_ENDPOINT=
+BUILT_IN_FORGE_API_URL=
+BUILT_IN_FORGE_API_KEY=
+LLM_MODEL_NAME=
