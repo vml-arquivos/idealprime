@@ -12,6 +12,19 @@
 -- PIX fiscal = ZERO forçado em código; não há coluna tax_cash aqui.
 -- ============================================================
 
+-- A tabela base pode não existir em instalações novas. A migration 0015
+-- também contém esta recuperação, mas ela ocorre depois desta migration;
+-- por isso a criação precisa ser segura aqui antes dos ALTER TABLE.
+CREATE TABLE IF NOT EXISTS permupay_payment_settings (
+  id                           serial PRIMARY KEY,
+  card_debit_fee               real NOT NULL DEFAULT 1.5,
+  card_credit_cash_fee         real NOT NULL DEFAULT 2.5,
+  card_credit_installment_fee  real NOT NULL DEFAULT 3.5,
+  card_installments            integer NOT NULL DEFAULT 6,
+  cash_discount_percent        real NOT NULL DEFAULT 0,
+  updated_at                   timestamptz NOT NULL DEFAULT now()
+);
+
 -- Fiscal
 ALTER TABLE permupay_payment_settings
   ADD COLUMN IF NOT EXISTS tax_regime text NOT NULL DEFAULT 'SIMPLES_NACIONAL',
