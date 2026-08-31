@@ -1,0 +1,15 @@
+import "dotenv/config";
+import pg from "pg";
+import bcrypt from "bcryptjs";
+import readline from "node:readline/promises";
+import { stdin as input, stdout as output } from "node:process";
+if(!process.env.DATABASE_URL) throw new Error("DATABASE_URL não definida");
+const rl=readline.createInterface({input,output});
+const email=(await rl.question("E-mail do administrador: ")).trim().toLowerCase();
+const name=(await rl.question("Nome do administrador: ")).trim();
+const password=(await rl.question("Senha forte: ")).trim(); rl.close();
+if(password.length<12) throw new Error("Use senha com pelo menos 12 caracteres");
+const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.DB_SSL==='true'?{rejectUnauthorized:true}:false});
+const hash=await bcrypt.hash(password,12);
+await pool.query(`insert into permupay_users(email,name,"passwordHash",role,account_type,active) values($1,$2,$3,'admin','STAFF',true) on conflict(email) do update set name=excluded.name,"passwordHash"=excluded."passwordHash",role='admin',account_type='STAFF',active=true,"updatedAt"=now()`,[email,name,hash]);
+await pool.end(); console.log("Administrador Ideal Prime criado/atualizado com sucesso.");

@@ -1,0 +1,49 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ideal_prime
+      POSTGRES_USER: ideal_prime
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatória}
+    volumes:
+      - ideal_prime_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ideal_prime -d ideal_prime"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [ideal_prime_internal]
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgresql://ideal_prime:${POSTGRES_PASSWORD}@postgres:5432/ideal_prime
+      DB_SSL: "false"
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET obrigatória}
+      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET obrigatória}
+      APP_URL: ${APP_URL:?APP_URL obrigatória}
+      DATA_DIR: /var/data/ideal-prime
+      UPLOAD_DIR: /var/data/ideal-prime/uploads
+    volumes:
+      - ideal_prime_data:/var/data/ideal-prime
+    expose: ["4000"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:4000/healthz >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    networks: [ideal_prime_internal]
+
+volumes:
+  ideal_prime_postgres:
+  ideal_prime_data:
+networks:
+  ideal_prime_internal:
+    internal: true

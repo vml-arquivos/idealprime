@@ -1,0 +1,21 @@
+# Checklist de homologação Ideal Prime
+
+- [ ] PostgreSQL exclusivo e backup restaurável
+- [ ] migrations 1:1 com journal
+- [ ] administrador criado sem senha em log
+- [ ] comprador não acessa `/dashboard` / tRPC interno
+- [ ] empresa pendente não compra
+- [ ] aprovação atribui tabela comercial
+- [ ] catálogo mostra somente B2B habilitado e preço da empresa
+- [ ] custo/margem nunca aparecem no payload do comprador
+- [ ] duplo clique/retry não duplica pedido
+- [ ] reserva concorrente impede venda da mesma última unidade
+- [ ] pedido multitem é atômico
+- [ ] importação CSV e XLSX validadas
+- [ ] reenvio do arquivo não duplica produto/estoque
+- [ ] produto importado não é publicado automaticamente
+- [ ] pagamento confirmado manualmente antes da expedição à vista
+- [ ] cancelamento libera reserva
+- [ ] `/healthz` 200
+- [ ] desktop + mobile conferidos
+- [ ] restart/redeploy preserva dados e arquivos
