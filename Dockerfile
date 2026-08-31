@@ -9,7 +9,7 @@ RUN pnpm migrate:verify && pnpm check && pnpm build
 
 FROM node:22-alpine AS runtime
 WORKDIR /app
-RUN apk add --no-cache wget && npm install -g pnpm@10.4.1 --quiet
+RUN apk add --no-cache curl wget && npm install -g pnpm@10.4.1 --quiet
 COPY --from=builder --chown=node:node /app/node_modules ./node_modules
 COPY --from=builder --chown=node:node /app/dist ./dist
 COPY --from=builder --chown=node:node /app/drizzle ./drizzle
