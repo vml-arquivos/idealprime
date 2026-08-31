@@ -10,13 +10,13 @@ RUN pnpm migrate:verify && pnpm check && pnpm build
 FROM node:22-alpine AS runtime
 WORKDIR /app
 RUN apk add --no-cache wget && npm install -g pnpm@10.4.1 --quiet
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/drizzle ./drizzle
-COPY --from=builder /app/scripts ./scripts
-COPY --from=builder /app/package.json ./package.json
-COPY docker-entrypoint.sh ./docker-entrypoint.sh
-RUN chmod +x docker-entrypoint.sh && mkdir -p /var/data/ideal-prime/uploads /var/data/ideal-prime/private && chown -R node:node /var/data/ideal-prime /app
+COPY --from=builder --chown=node:node /app/node_modules ./node_modules
+COPY --from=builder --chown=node:node /app/dist ./dist
+COPY --from=builder --chown=node:node /app/drizzle ./drizzle
+COPY --from=builder --chown=node:node /app/scripts ./scripts
+COPY --from=builder --chown=node:node /app/package.json ./package.json
+COPY --chown=node:node docker-entrypoint.sh ./docker-entrypoint.sh
+RUN chmod +x docker-entrypoint.sh && mkdir -p /var/data/ideal-prime/uploads /var/data/ideal-prime/private && chown -R node:node /var/data/ideal-prime
 USER node
 EXPOSE 4000
 ENV NODE_ENV=production PORT=4000 DATA_DIR=/var/data/ideal-prime UPLOAD_DIR=/var/data/ideal-prime/uploads
