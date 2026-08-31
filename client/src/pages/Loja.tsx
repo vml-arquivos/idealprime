@@ -14,6 +14,7 @@ import {
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { useCart } from "@/contexts/CartContext";
+import { BrandLogo } from "@/components/BrandLogo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -95,7 +96,7 @@ export default function Loja() {
 
   if (success) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-50 p-6">
+      <main className="flex min-h-screen items-center justify-center bg-[#FBFDFC] p-6">
         <section className="w-full max-w-lg rounded-3xl border bg-white p-8 text-center shadow-sm">
           <CheckCircle2 className="mx-auto h-14 w-14 text-emerald-600" />
           <p className="mt-5 text-xs uppercase tracking-[0.24em] text-muted-foreground">
@@ -109,7 +110,7 @@ export default function Loja() {
           <div className="mt-6 flex flex-col gap-3">
             <Link
               href={`/minha-conta?contact=${encodeURIComponent(success.contact)}`}
-              className="inline-flex h-10 items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-medium text-white hover:bg-slate-800"
+              className="inline-flex h-10 items-center justify-center rounded-md bg-[#0C4536] px-4 text-sm font-medium text-white hover:bg-[#068A5B]"
             >
               Ver meus pedidos
             </Link>
@@ -133,7 +134,7 @@ export default function Loja() {
     );
   if (catalogQuery.error || !catalogQuery.data)
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 p-6">
+      <div className="flex min-h-screen items-center justify-center bg-[#FBFDFC] p-6">
         <div className="rounded-2xl border bg-white p-8 text-center shadow-sm">
           <h1 className="text-xl font-semibold">Loja indisponível</h1>
           <p className="mt-2 text-sm text-muted-foreground">
@@ -151,17 +152,18 @@ export default function Loja() {
 
   const products = catalogQuery.data.products;
   return (
-    <main className="min-h-screen bg-slate-50">
-      <header className="bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 text-white">
+    <main className="min-h-screen bg-[#FBFDFC]">
+      <header className="bg-gradient-to-br from-[#0C4536] via-[#068A5B] to-[#098EC7] text-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-7 sm:px-6">
           <div>
-            <p className="flex items-center gap-2 text-xs uppercase tracking-[0.24em] text-amber-200">
+            <BrandLogo variant="white" compact className="mb-5 w-[170px]" />
+            <p className="flex items-center gap-2 text-xs uppercase tracking-[0.24em] text-[#9ADCF2]">
               <Store className="h-4 w-4" /> Loja afiliada
             </p>
             <h1 className="mt-2 text-3xl font-bold">
               Loja de {catalogQuery.data.sellerName}
             </h1>
-            <p className="mt-2 text-sm text-slate-300">
+            <p className="mt-2 text-sm text-white/75">
               Escolha seus produtos e monte seu pedido.
             </p>
           </div>
@@ -173,7 +175,7 @@ export default function Loja() {
               >
                 <ShoppingBag className="h-4 w-4" /> Carrinho
                 {cart.itemCount > 0 && (
-                  <span className="rounded-full bg-amber-300 px-2 py-0.5 text-xs font-bold text-slate-950">
+                  <span className="rounded-full bg-[#9ADCF2] px-2 py-0.5 text-xs font-bold text-[#0C4536]">
                     {cart.itemCount}
                   </span>
                 )}
@@ -425,9 +427,9 @@ export default function Loja() {
             return (
               <article
                 key={product.id}
-                className="overflow-hidden rounded-2xl border bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                className="overflow-hidden rounded-2xl border border-[#D5E8E0] bg-white/95 shadow-[0_12px_40px_rgba(12,69,54,0.06)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_50px_rgba(6,138,91,0.12)]"
               >
-                <div className="flex h-56 items-center justify-center bg-slate-50 p-4">
+                <div className="flex h-56 items-center justify-center bg-[#FBFDFC] p-4">
                   {product.imageUrl ? (
                     <img
                       src={product.imageUrl}
@@ -435,7 +437,7 @@ export default function Loja() {
                       className="h-full w-full object-contain"
                     />
                   ) : (
-                    <ShoppingBag className="h-10 w-10 text-slate-300" />
+                    <ShoppingBag className="h-10 w-10 text-white/75" />
                   )}
                 </div>
                 <div className="space-y-3 p-5">

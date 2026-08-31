@@ -1,8 +1,21 @@
-/* Importação de fontes personalizadas: substituímos Inter por Poppins e Montserrat. */
-@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300..800;1,14..32,300..800&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
+
+@font-face {
+  font-family: "Prime Montserrat";
+  src: url("./assets/brand/fonts/Montserrat-Regular.otf") format("opentype");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Prime LeMajor";
+  src: url("./assets/brand/fonts/LeMajor-Regular.otf") format("opentype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
 
 @custom-variant dark (&:is(.dark *));
 
@@ -50,102 +63,118 @@
   --color-danger: var(--danger);
   --color-danger-foreground: var(--danger-foreground);
   --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
   --font-mono: var(--font-mono);
 }
 
 :root {
-  --primary: oklch(0.30 0.13 240);
-  --primary-foreground: oklch(0.98 0.003 240);
-  --sidebar-primary: oklch(0.72 0.10 85);
-  --sidebar-primary-foreground: oklch(0.14 0.025 240);
-  --chart-1: var(--color-blue-300);
-  --chart-2: var(--color-blue-500);
-  --chart-3: var(--color-blue-600);
-  --chart-4: var(--color-blue-700);
-  --chart-5: var(--color-blue-800);
-  --radius: 0.65rem;
-  /* Define Poppins como fonte principal de interface. Montserrat funciona como alternativa compatível, seguida do fallback do sistema. */
-  --font-sans: 'Poppins', 'Montserrat', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
-  --background: oklch(0.985 0.003 240);
-  --foreground: oklch(0.235 0.015 65);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.235 0.015 65);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.235 0.015 65);
-  --secondary: oklch(0.98 0.001 286.375);
-  --secondary-foreground: oklch(0.4 0.015 65);
-  --muted: oklch(0.967 0.001 286.375);
-  --muted-foreground: oklch(0.552 0.016 285.938);
-  --accent: oklch(0.967 0.001 286.375);
-  --accent-foreground: oklch(0.141 0.005 285.823);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.92 0.004 286.32);
-  --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.623 0.214 259.815);
-  --sidebar: oklch(0.14 0.025 240);
-  --sidebar-foreground: oklch(0.88 0.01 240);
-  --sidebar-accent: oklch(0.20 0.03 240);
-  --sidebar-accent-foreground: oklch(0.88 0.01 240);
-  --sidebar-border: oklch(0.22 0.03 240);
-  --sidebar-ring: oklch(0.72 0.10 85);
-  --success: oklch(0.55 0.15 145);
-  --success-foreground: oklch(0.98 0 0);
-  --warning: oklch(0.72 0.15 75);
-  --warning-foreground: oklch(0.20 0.05 75);
-  --danger: oklch(0.55 0.20 25);
-  --danger-foreground: oklch(0.98 0 0);
+  --primary: #068A5B;
+  --primary-foreground: #FFFFFF;
+  --sidebar-primary: #098EC7;
+  --sidebar-primary-foreground: #FFFFFF;
+  --chart-1: #9ADCF2;
+  --chart-2: #098EC7;
+  --chart-3: #068A5B;
+  --chart-4: #0B6548;
+  --chart-5: #0C4536;
+  --radius: 0.7rem;
+  --font-sans: "Prime Montserrat", Montserrat, system-ui, sans-serif;
+  --font-display: "Prime LeMajor", Georgia, serif;
+  --font-mono: "JetBrains Mono", monospace;
+  --background: #FBFDFC;
+  --foreground: #12352B;
+  --card: #FFFFFF;
+  --card-foreground: #12352B;
+  --popover: #FFFFFF;
+  --popover-foreground: #12352B;
+  --secondary: #EAF7F2;
+  --secondary-foreground: #0C5A41;
+  --muted: #F1F8F5;
+  --muted-foreground: #5E776D;
+  --accent: #E8F7FC;
+  --accent-foreground: #07567A;
+  --destructive: #B42318;
+  --destructive-foreground: #FFFFFF;
+  --border: #D5E8E0;
+  --input: #C8DED5;
+  --ring: #098EC7;
+  --sidebar: #0C4536;
+  --sidebar-foreground: #F2FFFA;
+  --sidebar-accent: #0D6D4E;
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: #1D6B52;
+  --sidebar-ring: #9ADCF2;
+  --success: #068A5B;
+  --success-foreground: #FFFFFF;
+  --warning: #A9C94B;
+  --warning-foreground: #173D2E;
+  --danger: #B42318;
+  --danger-foreground: #FFFFFF;
 }
 
 .dark {
-  --primary: oklch(0.62 0.14 240);
-  --primary-foreground: oklch(0.10 0.02 240);
-  --sidebar-primary: oklch(0.72 0.10 85);
-  --sidebar-primary-foreground: oklch(0.10 0.02 240);
-  --background: oklch(0.141 0.005 285.823);
-  --foreground: oklch(0.85 0.005 65);
-  --card: oklch(0.21 0.006 285.885);
-  --card-foreground: oklch(0.85 0.005 65);
-  --popover: oklch(0.21 0.006 285.885);
-  --popover-foreground: oklch(0.85 0.005 65);
-  --secondary: oklch(0.24 0.006 286.033);
-  --secondary-foreground: oklch(0.7 0.005 65);
-  --muted: oklch(0.274 0.006 286.033);
-  --muted-foreground: oklch(0.705 0.015 286.067);
-  --accent: oklch(0.274 0.006 286.033);
-  --accent-foreground:  oklch(0.92 0.005 65);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.488 0.243 264.376);
-  --chart-1: var(--color-blue-300);
-  --chart-2: var(--color-blue-500);
-  --chart-3: var(--color-blue-600);
-  --chart-4: var(--color-blue-700);
-  --chart-5: var(--color-blue-800);
-  --sidebar: oklch(0.10 0.02 240);
-  --sidebar-foreground: oklch(0.88 0.01 240);
-  --sidebar-accent: oklch(0.16 0.025 240);
-  --sidebar-accent-foreground: oklch(0.88 0.01 240);
-  --sidebar-border: oklch(0.18 0.025 240);
-  --sidebar-ring: oklch(0.72 0.10 85);
-  --success: oklch(0.62 0.18 145);
-  --success-foreground: oklch(0.10 0.02 240);
-  --warning: oklch(0.78 0.16 75);
-  --warning-foreground: oklch(0.14 0.025 240);
-  --danger: oklch(0.62 0.22 25);
-  --danger-foreground: oklch(0.98 0 0);
+  --primary: #0AA66D;
+  --primary-foreground: #FFFFFF;
+  --sidebar-primary: #42BDE4;
+  --sidebar-primary-foreground: #06364D;
+  --background: #0B211A;
+  --foreground: #F0FBF6;
+  --card: #12352B;
+  --card-foreground: #F0FBF6;
+  --popover: #12352B;
+  --popover-foreground: #F0FBF6;
+  --secondary: #164A3A;
+  --secondary-foreground: #D6F2E7;
+  --muted: #164A3A;
+  --muted-foreground: #B9D8CB;
+  --accent: #0B4660;
+  --accent-foreground: #DDF7FF;
+  --destructive: #E06B60;
+  --destructive-foreground: #FFFFFF;
+  --border: #2B5A49;
+  --input: #2B5A49;
+  --ring: #42BDE4;
+  --chart-1: #9ADCF2;
+  --chart-2: #42BDE4;
+  --chart-3: #0AA66D;
+  --chart-4: #068A5B;
+  --chart-5: #0C4536;
+  --sidebar: #071A14;
+  --sidebar-foreground: #F2FFFA;
+  --sidebar-accent: #0C4536;
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: #1D6B52;
+  --sidebar-ring: #42BDE4;
+  --success: #0AA66D;
+  --success-foreground: #FFFFFF;
+  --warning: #D1DF65;
+  --warning-foreground: #173D2E;
+  --danger: #E06B60;
+  --danger-foreground: #FFFFFF;
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    background-image: linear-gradient(rgba(251, 253, 252, 0.94), rgba(251, 253, 252, 0.94)), url("./assets/brand/ideal-prime-background.jpg");
+    background-size: 720px 720px;
+    background-attachment: fixed;
   }
+
+  ::selection {
+    background: #068A5B;
+    color: #FFFFFF;
+  }
+
+  :focus-visible {
+    outline: 2px solid #098EC7;
+    outline-offset: 3px;
+  }
+
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]),
   [type="button"]:not(:disabled),
@@ -160,24 +189,11 @@
 }
 
 @layer components {
-  /**
-   * Custom container utility that centers content and adds responsive padding.
-   *
-   * This overrides Tailwind's default container behavior to:
-   * - Auto-center content (mx-auto)
-   * - Add responsive horizontal padding
-   * - Set max-width for large screens
-   *
-   * Usage: <div className="container">...</div>
-   *
-   * For custom widths, use max-w-* utilities directly:
-   * <div className="max-w-6xl mx-auto px-4">...</div>
-   */
   .container {
     width: 100%;
     margin-left: auto;
     margin-right: auto;
-    padding-left: 1rem; /* 16px - mobile padding */
+    padding-left: 1rem;
     padding-right: 1rem;
   }
 
@@ -186,18 +202,55 @@
     min-width: 0;
   }
 
+  .prime-display {
+    font-family: var(--font-display);
+    font-weight: 400;
+    letter-spacing: 0.01em;
+  }
+
+  .prime-eyebrow {
+    color: #068A5B;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.26em;
+    line-height: 1.4;
+    text-transform: uppercase;
+  }
+
+  .prime-pattern-surface {
+    background-color: #068A5B;
+    background-image: linear-gradient(rgba(6, 138, 91, 0.92), rgba(6, 138, 91, 0.92)), url("./assets/brand/ideal-prime-pattern.png");
+    background-position: center;
+    background-size: 460px auto;
+  }
+
+  .prime-soft-surface {
+    background-image: linear-gradient(rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.92)), url("./assets/brand/ideal-prime-background.jpg");
+    background-size: 640px 640px;
+  }
+
   @media (min-width: 640px) {
     .container {
-      padding-left: 1.5rem; /* 24px - tablet padding */
+      padding-left: 1.5rem;
       padding-right: 1.5rem;
     }
   }
 
   @media (min-width: 1024px) {
     .container {
-      padding-left: 2rem; /* 32px - desktop padding */
+      padding-left: 2rem;
       padding-right: 2rem;
-      max-width: 1280px; /* Standard content width */
+      max-width: 1280px;
     }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
   }
 }

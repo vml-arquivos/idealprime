@@ -1,13 +1,13 @@
 {
-  "name": "PermuPay Vendas — Cotações",
-  "short_name": "PermuPay",
-  "description": "Coleta de preços e gestão de vendas PermuPay",
+  "name": "Ideal Prime — Comércio e Distribuição",
+  "short_name": "Ideal Prime",
+  "description": "Catálogo empresarial, comércio e distribuição Ideal Prime",
   "lang": "pt-BR",
-  "start_url": "/cotacoes",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#f9fafb",
-  "theme_color": "#233f78",
+  "background_color": "#FBFDFC",
+  "theme_color": "#068A5B",
   "icons": [
     {
       "src": "/icon-192.png",

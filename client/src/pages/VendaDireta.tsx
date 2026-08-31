@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useParams } from "wouter";
 import { trpc } from "@/lib/trpc";
+import { BrandLogo } from "@/components/BrandLogo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -59,7 +60,7 @@ export default function VendaDireta() {
 
   if (!accessToken || catalogQuery.error)
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 p-6">
+      <div className="flex min-h-screen items-center justify-center bg-[#FBFDFC] p-6">
         <div className="rounded-2xl border bg-white p-8 text-center shadow-sm">
           <h1 className="text-xl font-semibold">Link de vendedor inválido</h1>
           <p className="mt-2 text-sm text-muted-foreground">
@@ -109,14 +110,15 @@ export default function VendaDireta() {
     : "";
 
   return (
-    <main className="min-h-screen bg-slate-50">
+    <main className="min-h-screen bg-[#FBFDFC]">
       <div className="mx-auto max-w-5xl space-y-6 p-6">
-        <header className="rounded-2xl bg-slate-950 p-6 text-white">
-          <p className="text-xs uppercase tracking-[0.24em] text-amber-200">
+        <header className="rounded-2xl bg-gradient-to-br from-[#0C4536] via-[#068A5B] to-[#098EC7] p-6 text-white shadow-[0_18px_60px_rgba(6,138,91,0.16)]">
+          <BrandLogo variant="white" compact className="mb-5 w-[170px]" />
+          <p className="text-xs uppercase tracking-[0.24em] text-[#9ADCF2]">
             Painel do vendedor
           </p>
           <h1 className="mt-2 text-3xl font-bold">{seller?.name}</h1>
-          <p className="mt-2 text-sm text-slate-300">
+          <p className="mt-2 text-sm text-white/75">
             Venda produtos, acompanhe sua equipe e compartilhe seus links.
           </p>
         </header>
@@ -150,7 +152,7 @@ export default function VendaDireta() {
                       className={`rounded-xl border p-3 text-left transition ${selectedProductId === product.id ? "border-slate-950 ring-2 ring-slate-950/10" : "hover:border-slate-400"}`}
                     >
                       <div className="flex gap-3">
-                        <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-50">
+                        <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[#FBFDFC]">
                           {product.imageUrl ? (
                             <img
                               src={product.imageUrl}
@@ -158,7 +160,7 @@ export default function VendaDireta() {
                               className="h-full w-full object-contain"
                             />
                           ) : (
-                            <ShoppingBag className="h-7 w-7 text-slate-300" />
+                            <ShoppingBag className="h-7 w-7 text-white/75" />
                           )}
                         </div>
                         <div className="min-w-0">
@@ -200,7 +202,7 @@ export default function VendaDireta() {
                   </div>
                 ) : (
                   <div className="mt-4 space-y-3">
-                    <div className="rounded-lg bg-slate-50 p-3 text-sm">
+                    <div className="rounded-lg bg-[#FBFDFC] p-3 text-sm">
                       {selectedProduct ? (
                         <>
                           <span className="text-muted-foreground">
@@ -361,7 +363,7 @@ export default function VendaDireta() {
                   ))}
                 </div>
               ) : (
-                <div className="mt-6 rounded-xl bg-slate-50 p-8 text-center text-sm text-muted-foreground">
+                <div className="mt-6 rounded-xl bg-[#FBFDFC] p-8 text-center text-sm text-muted-foreground">
                   Ainda não há vendedores na sua equipe. Compartilhe seu link de
                   indicação.
                 </div>
@@ -386,7 +388,7 @@ export default function VendaDireta() {
                 </p>
               ) : (
                 <div className="mt-6 grid gap-4 sm:grid-cols-3">
-                  <div className="rounded-xl bg-slate-50 p-4">
+                  <div className="rounded-xl bg-[#FBFDFC] p-4">
                     <p className="text-xs uppercase tracking-wider text-muted-foreground">
                       Posição
                     </p>
@@ -396,7 +398,7 @@ export default function VendaDireta() {
                         : "—"}
                     </p>
                   </div>
-                  <div className="rounded-xl bg-slate-50 p-4">
+                  <div className="rounded-xl bg-[#FBFDFC] p-4">
                     <p className="text-xs uppercase tracking-wider text-muted-foreground">
                       Volume vendido
                     </p>
@@ -404,7 +406,7 @@ export default function VendaDireta() {
                       {fmt(Number(rankingQuery.data?.seller?.totalSold))}
                     </p>
                   </div>
-                  <div className="rounded-xl bg-slate-50 p-4">
+                  <div className="rounded-xl bg-[#FBFDFC] p-4">
                     <p className="text-xs uppercase tracking-wider text-muted-foreground">
                       Comissão
                     </p>

@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCameraUpload } from "@/hooks/useCameraUpload";
 import { useDocumentUpload } from "@/hooks/useDocumentUpload";
+import { BrandLogo } from "@/components/BrandLogo";
 
 type UploadValue = {
   url: string;
@@ -173,7 +174,7 @@ export default function SejaVendedor() {
 
   if (submitted) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-50 p-6">
+      <main className="flex min-h-screen items-center justify-center bg-[#FBFDFC] p-6">
         <section className="w-full max-w-lg rounded-3xl border bg-white p-8 text-center shadow-sm">
           <CheckCircle2 className="mx-auto h-14 w-14 text-emerald-600" />
           <h1 className="mt-5 text-2xl font-bold">Cadastro enviado</h1>
@@ -192,7 +193,7 @@ export default function SejaVendedor() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6">
+    <main className="min-h-screen bg-[#FBFDFC] px-4 py-8 sm:px-6">
       <div className="mx-auto max-w-3xl space-y-6">
         <Link
           href="/"
@@ -200,13 +201,14 @@ export default function SejaVendedor() {
         >
           <ArrowLeft className="h-4 w-4" /> Voltar para a vitrine
         </Link>
-        <header className="rounded-3xl bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 p-7 text-white shadow-lg">
+        <header className="rounded-3xl bg-gradient-to-br from-[#0C4536] via-[#068A5B] to-[#098EC7] p-7 text-white shadow-[0_20px_70px_rgba(6,138,91,0.18)]">
+          <BrandLogo variant="white" compact className="mb-6 w-[170px]" />
           <div className="flex items-start gap-4">
             <div className="rounded-2xl bg-amber-300/15 p-3">
-              <ShieldCheck className="h-7 w-7 text-amber-200" />
+              <ShieldCheck className="h-7 w-7 text-[#9ADCF2]" />
             </div>
             <div>
-              <p className="text-xs uppercase tracking-[0.25em] text-amber-200">
+              <p className="text-xs uppercase tracking-[0.25em] text-[#9ADCF2]">
                 Ideal Prime • Ideal Prime
               </p>
               <h1 className="mt-2 text-3xl font-bold">
@@ -215,7 +217,7 @@ export default function SejaVendedor() {
             </div>
           </div>
           {sponsorReferralCode && (
-            <div className="mt-5 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200">
+            <div className="mt-5 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/80">
               {sponsorQuery.isLoading ? (
                 "Carregando indicação…"
               ) : sponsorQuery.data ? (

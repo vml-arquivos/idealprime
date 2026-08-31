@@ -38,6 +38,7 @@ import {
   ShoppingBag,
 } from "lucide-react";
 import { useLocation } from "wouter";
+import { BrandLogo } from "@/components/BrandLogo";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -356,7 +357,7 @@ export default function WishlistPublic() {
   if (showMyRequests) {
     return (
       <div className="min-h-screen bg-background">
-        <div className="max-w-2xl mx-auto px-4 py-10 space-y-8">
+        <div className="mx-auto max-w-2xl space-y-8 px-4 py-10">
           <button
             onClick={() => setShowMyRequests(false)}
             className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -465,14 +466,15 @@ export default function WishlistPublic() {
   // ── Formulário principal ──────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="prime-soft-surface min-h-screen bg-background">
       {/* Header */}
-      <div className="bg-gradient-to-b from-primary/5 to-transparent border-b">
+      <div className="border-b border-[#D5E8E0] bg-white/70">
         <div className="max-w-2xl mx-auto px-4 py-10 text-center space-y-3">
-          <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto">
-            <Heart className="w-7 h-7 text-primary" />
+          <div className="prime-pattern-surface mx-auto flex h-14 w-14 items-center justify-center rounded-2xl shadow-sm">
+            <Heart className="h-7 w-7 text-white" />
           </div>
-          <h1 className="text-3xl font-bold tracking-tight">Lista de Desejos</h1>
+          <BrandLogo compact className="mx-auto mb-4" />
+          <h1 className="prime-display text-4xl tracking-tight text-[#0C4536]">Lista de Desejos</h1>
           <p className="text-muted-foreground max-w-md mx-auto">
             Não encontrou o que procura? Registre aqui e entraremos em contato
             assim que o produto estiver disponível.
@@ -531,16 +533,16 @@ export default function WishlistPublic() {
 
             {/* [INJETADO] Banner de pedidos anteriores detectados */}
             {hasExistingRequests && !autoCheckQuery.isLoading && (
-              <div className="flex items-start gap-3 p-3 rounded-lg bg-blue-50 border border-blue-200 text-sm">
-                <CheckCircle2 className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
+              <div className="flex items-start gap-3 p-3 rounded-lg bg-[#E8F7FC] border border-[#9ADCF2] text-sm">
+                <CheckCircle2 className="w-4 h-4 text-[#098EC7] mt-0.5 shrink-0" />
                 <div>
-                  <p className="font-medium text-blue-900">
+                  <p className="font-medium text-[#07567A]">
                     Você já tem pedidos registrados com este telefone!
                   </p>
                   <button
                     type="button"
                     onClick={() => { setLookupPhone(phone); setShowMyRequests(true); }}
-                    className="text-blue-600 hover:underline text-xs mt-0.5"
+                    className="text-[#098EC7] hover:underline text-xs mt-0.5"
                   >
                     Ver meus pedidos anteriores →
                   </button>

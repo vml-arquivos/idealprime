@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { BuyModal } from "@/components/BuyModal";
-import logo from "@/assets/logo.png";
+import { BrandLogo } from "@/components/BrandLogo";
 
 const fmt = (v: number | null | undefined): string => {
   if (!v || v === 0) return "";
@@ -31,18 +31,12 @@ const CAT: Record<string, string> = {
   PERFUME: "Perfumes & Fragrâncias", OUTRO: "Outros",
 };
 
-const FONT = "https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap";
-if (typeof document !== "undefined" && !document.getElementById("pp-v7")) {
-  const l = document.createElement("link");
-  l.id = "pp-v7"; l.rel = "stylesheet"; l.href = FONT;
-  document.head.appendChild(l);
-}
-const SANS = "'DM Sans', 'Poppins', sans-serif";
+const SANS = "var(--font-sans)";
 
 function Skeleton() {
   return (
     <div className="min-h-screen bg-white" style={{ fontFamily: SANS }}>
-      <div className="h-14 border-b" style={{ borderColor: "#f0f0f0" }} />
+      <div className="h-14 border-b" style={{ borderColor: "#D5E8E0" }} />
       <div className="max-w-5xl mx-auto px-6 py-12 grid md:grid-cols-2 gap-16">
         <div className="animate-pulse bg-neutral-50" style={{ aspectRatio: "1/1" }} />
         <div className="space-y-5 pt-2">
@@ -134,9 +128,9 @@ export default function ProductPage() {
       <header
         className="sticky top-0 z-40 border-b"
         style={{
-          backgroundColor: "rgba(255,255,255,0.97)",
+          backgroundColor: "rgba(251,253,252,0.97)",
           backdropFilter: "blur(12px)",
-          borderColor: "#f0f0f0",
+          borderColor: "#D5E8E0",
         }}
       >
         <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
@@ -151,7 +145,7 @@ export default function ProductPage() {
           </Link>
 
           <Link href="/vitrine">
-            <img src={logo} alt="Shoop" className="h-9 w-auto object-contain cursor-pointer select-none" />
+            <BrandLogo compact className="w-[132px] sm:w-[156px]" />
           </Link>
 
           <button
@@ -195,7 +189,7 @@ export default function ProductPage() {
               {p.promoTag && inStock && (
                 <span
                   className="absolute top-3 left-3 text-[9px] font-bold tracking-[0.18em] uppercase px-2.5 py-1 z-10"
-                  style={{ backgroundColor: "#111", color: "#fff" }}
+                  style={{ backgroundColor: "#0C4536", color: "#fff" }}
                 >
                   {p.promoTag}
                 </span>
@@ -205,7 +199,7 @@ export default function ProductPage() {
               {isLow && !p.promoTag && (
                 <span
                   className="absolute top-3 left-3 text-[9px] font-bold tracking-[0.14em] uppercase px-2.5 py-1 z-10"
-                  style={{ backgroundColor: "#111", color: "#fff" }}
+                  style={{ backgroundColor: "#0C4536", color: "#fff" }}
                 >
                   Últimas unidades
                 </span>
@@ -289,7 +283,7 @@ export default function ProductPage() {
                     </span>
                     <span
                       className="text-[9px] font-bold tracking-[0.18em] uppercase"
-                      style={{ color: "#15803d" }}
+                      style={{ color: "#068A5B" }}
                     >
                       PIX / Dinheiro
                     </span>
@@ -321,7 +315,7 @@ export default function ProductPage() {
                 <button
                   onClick={() => setShowBuyModal(true)}
                   className="w-full py-3.5 text-sm font-semibold tracking-[0.1em] transition-all duration-200 uppercase"
-                  style={{ backgroundColor: "#111", color: "#fff", fontFamily: SANS }}
+                  style={{ backgroundColor: "#068A5B", color: "#fff", fontFamily: SANS }}
                   onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = "#333"; }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = "#111"; }}
                 >
@@ -359,7 +353,7 @@ export default function ProductPage() {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full flex items-center justify-center gap-2 py-3.5 text-sm font-semibold transition-colors"
-                style={{ backgroundColor: "#22c55e", color: "#fff" }}
+                style={{ backgroundColor: "#098EC7", color: "#fff" }}
               >
                 <MessageCircle className="w-4 h-4" />
                 Consultar via WhatsApp
@@ -377,7 +371,7 @@ export default function ProductPage() {
 
         {/* Descrição completa */}
         {p.description && (
-          <div className="mt-16 max-w-xl border-t pt-10" style={{ borderColor: "#f0f0f0" }}>
+          <div className="mt-16 max-w-xl border-t pt-10" style={{ borderColor: "#D5E8E0" }}>
             <p
               className="text-[9px] font-bold tracking-[0.32em] uppercase mb-4"
               style={{ color: "#bbb" }}
@@ -394,7 +388,7 @@ export default function ProductPage() {
         )}
 
         {/* Voltar */}
-        <div className="mt-14 pt-8 border-t" style={{ borderColor: "#f0f0f0" }}>
+        <div className="mt-14 pt-8 border-t" style={{ borderColor: "#D5E8E0" }}>
           <Link href="/vitrine">
             <button
               className="inline-flex items-center gap-2 text-[10px] font-medium tracking-[0.2em] uppercase transition-colors group hover:text-neutral-800"
@@ -408,7 +402,7 @@ export default function ProductPage() {
       </main>
 
       {/* Footer mínimo */}
-      <footer className="border-t py-8" style={{ borderColor: "#f0f0f0" }}>
+      <footer className="border-t py-8" style={{ borderColor: "#D5E8E0" }}>
         <div className="max-w-5xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
           <nav className="flex items-center gap-6">
             <Link href="/vitrine">

@@ -45,8 +45,8 @@ import {
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from "./DashboardLayoutSkeleton";
+import { BrandSymbol } from "./BrandLogo";
 import { Button } from "./ui/button";
-const logo = "/brand/ideal-prime-logo.jpg";
 
 const menuModules = [
   {
@@ -229,11 +229,7 @@ function DashboardLayoutContent({
               {!isCollapsed && (
                 <div className="flex items-center gap-2 min-w-0">
                   <div className="h-8 w-8 rounded-md overflow-hidden shrink-0 bg-transparent flex items-center justify-center">
-                    <img
-                      src={logo}
-                      alt="Ideal Prime"
-                      className="h-full w-full object-contain"
-                    />
+                    <BrandSymbol className="h-full w-full" />
                   </div>
                   <span className="font-semibold tracking-tight truncate text-sm">
                     Ideal Prime

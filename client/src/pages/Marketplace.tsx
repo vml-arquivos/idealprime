@@ -11,10 +11,8 @@ import {
   ShoppingBag,
   Sparkles,
 } from "lucide-react";
-import logo from "@/assets/logo.png";
-const heroSauvage = "/brand/ideal-prime-background.jpg";
-const heroOneMillion = "/brand/ideal-prime-background.jpg";
-const heroLaVie = "/brand/ideal-prime-background.jpg";
+import { BrandLogo } from "@/components/BrandLogo";
+import brandPattern from "@/assets/brand/ideal-prime-pattern.png";
 
 interface CatalogProduct {
   id: number;
@@ -38,27 +36,14 @@ interface CatalogProduct {
 }
 
 type HeroBanner = {
-  image: string;
   title: string;
   subtitle: string;
 };
 
 const HERO_BANNERS: HeroBanner[] = [
-  {
-    image: heroSauvage,
-    title: "Ideal Prime",
-    subtitle: "Comércio e distribuição para empresas",
-  },
-  {
-    image: heroOneMillion,
-    title: "Catálogo empresarial",
-    subtitle: "Produtos, disponibilidade e atendimento",
-  },
-  {
-    image: heroLaVie,
-    title: "Relacionamento B2B",
-    subtitle: "Condições comerciais por empresa",
-  },
+  { title: "Ideal Prime", subtitle: "Comércio e distribuição para empresas" },
+  { title: "Catálogo empresarial", subtitle: "Produtos, disponibilidade e atendimento" },
+  { title: "Relacionamento B2B", subtitle: "Condições comerciais por empresa" },
 ];
 
 const CAT: Record<string, string> = {
@@ -68,19 +53,8 @@ const CAT: Record<string, string> = {
   OUTRO: "Outros",
 };
 
-const FONT_LINK =
-  "https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Poppins:wght@400;500;600;700&display=swap";
-
-if (typeof document !== "undefined" && !document.getElementById("mkt-static-premium-fonts")) {
-  const link = document.createElement("link");
-  link.id = "mkt-static-premium-fonts";
-  link.rel = "stylesheet";
-  link.href = FONT_LINK;
-  document.head.appendChild(link);
-}
-
-const SERIF = "'Montserrat', 'Poppins', sans-serif";
-const SANS = "'Poppins', 'Montserrat', sans-serif";
+const SERIF = "var(--font-display)";
+const SANS = "var(--font-sans)";
 
 const fmt = (value: number) =>
   value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -107,15 +81,8 @@ const isShopProduct = (product: CatalogProduct) => {
   return channel !== "QUASE_ZERO";
 };
 
-function Logo({ size = 92 }: { size?: number }) {
-  return (
-    <img
-      src={logo}
-      alt="Ideal Prime"
-      style={{ height: size, width: "auto" }}
-      className="object-contain"
-    />
-  );
+function Logo({ compact = false }: { compact?: boolean }) {
+  return <BrandLogo compact={compact} />;
 }
 
 function ProductSkeleton() {
@@ -143,9 +110,9 @@ function ProductCard({ product }: { product: CatalogProduct }) {
         className={`group cursor-pointer ${!stock ? "opacity-45" : ""}`}
         style={{ fontFamily: SANS }}
       >
-        <div className="relative mb-4 overflow-hidden bg-white" style={{ aspectRatio: "4/5" }}>
+        <div className="relative mb-4 overflow-hidden border border-[#D5E8E0] bg-white/90" style={{ aspectRatio: "4/5" }}>
           {product.promoTag && stock && (
-            <span className="absolute left-2 top-2 z-10 bg-neutral-950 px-2.5 py-1 text-[8px] font-semibold uppercase tracking-[0.18em] text-white">
+            <span className="absolute left-2 top-2 z-10 bg-[#068A5B] px-2.5 py-1 text-[8px] font-semibold uppercase tracking-[0.18em] text-white">
               {product.promoTag}
             </span>
           )}
@@ -164,7 +131,7 @@ function ProductCard({ product }: { product: CatalogProduct }) {
 
           {stock && (
             <div className="absolute inset-x-0 bottom-0 translate-y-full transition-transform duration-300 group-hover:translate-y-0">
-              <div className="bg-neutral-950 py-3 text-center text-[9px] font-semibold uppercase tracking-[0.22em] text-white">
+              <div className="bg-[#0C4536] py-3 text-center text-[9px] font-semibold uppercase tracking-[0.22em] text-white">
                 Ver peça
               </div>
             </div>
@@ -172,7 +139,7 @@ function ProductCard({ product }: { product: CatalogProduct }) {
 
           {!stock && (
             <div className="absolute inset-0 flex items-center justify-center bg-white/75">
-              <span className="border border-neutral-200 bg-white px-3 py-1 text-[9px] uppercase tracking-[0.22em] text-neutral-400">
+              <span className="border border-[#C8DED5] bg-white px-3 py-1 text-[9px] uppercase tracking-[0.22em] text-[#5E776D]">
                 Indisponível
               </span>
             </div>
@@ -180,22 +147,22 @@ function ProductCard({ product }: { product: CatalogProduct }) {
         </div>
 
         <div className="space-y-1.5">
-          <p className="text-[8px] font-medium uppercase tracking-[0.26em] text-neutral-400">
+          <p className="text-[8px] font-semibold uppercase tracking-[0.26em] text-[#068A5B]">
             {product.categoryLabel || CAT[product.category] || product.category}
           </p>
           <h3
-            className="line-clamp-2 text-sm text-neutral-900"
+            className="line-clamp-2 text-sm text-[#12352B]"
             style={{ fontFamily: SERIF, fontWeight: 700, lineHeight: 1.22, minHeight: "2.2rem" }}
           >
             {product.name}
           </h3>
           {pix ? (
             <div className="pt-1">
-              <p className="text-lg font-bold tracking-[-0.04em] text-neutral-950">
+              <p className="text-lg font-bold tracking-[-0.04em] text-[#0C4536]">
                 {fmt(pix)}
               </p>
               {card && installments > 1 && (
-                <p className="text-[10px] font-semibold uppercase text-neutral-800">
+                <p className="text-[10px] font-semibold uppercase text-[#068A5B]">
                   ou {installments}x de {fmt(card / installments)}
                 </p>
               )}
@@ -287,12 +254,12 @@ export default function Marketplace() {
   const currentBanner = HERO_BANNERS[activeSlide];
 
   return (
-    <div className="min-h-screen bg-white" style={{ fontFamily: SANS }}>
-      <header className="sticky top-0 z-40 border-b border-neutral-100 bg-white/95 backdrop-blur">
+    <div className="min-h-screen bg-transparent" style={{ fontFamily: SANS }}>
+      <header className="sticky top-0 z-40 border-b border-[#D5E8E0] bg-[#FBFDFC]/95 backdrop-blur">
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between gap-8 px-6 lg:px-16">
           <Link href="/vitrine">
             <div className="cursor-pointer">
-              <Logo size={94} />
+              <Logo />
             </div>
           </Link>
 
@@ -327,7 +294,7 @@ export default function Marketplace() {
         </div>
       </header>
 
-      <section className="border-b border-neutral-100 bg-white">
+      <section className="border-b border-[#D5E8E0] bg-transparent">
         <div className="mx-auto grid max-w-7xl items-center gap-8 px-6 py-10 lg:grid-cols-[0.74fr_1.26fr] lg:px-16 lg:py-12">
           <div className="space-y-5">
             <div className="flex items-center gap-3">
@@ -349,7 +316,7 @@ export default function Marketplace() {
             >
               A sua vitrine
               <br />
-              <span style={{ color: "#b45309" }}>dos desejos</span>
+              <span style={{ color: "#068A5B" }}>dos desejos</span>
             </h1>
 
             <p className="max-w-sm text-sm leading-relaxed text-neutral-500">
@@ -370,33 +337,45 @@ export default function Marketplace() {
             <div className="flex flex-wrap gap-3 pt-1">
               <button
                 onClick={() => document.getElementById("catalogo-shop")?.scrollIntoView({ behavior: "smooth" })}
-                className="border border-neutral-900 px-6 py-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-neutral-900 transition-colors hover:bg-neutral-950 hover:text-white"
+                className="border border-[#0C4536] px-6 py-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-[#0C4536] transition-colors hover:bg-[#0C4536] hover:text-white"
               >
                 Ver peças
               </button>
               <Link href="/quase-zero">
-                <button className="border border-amber-300 px-6 py-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-amber-800 transition-colors hover:bg-amber-50">
+                <button className="border border-[#9ADCF2] px-6 py-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-[#07567A] transition-colors hover:bg-[#E8F7FC]">
                   Quase Zero
                 </button>
               </Link>
             </div>
           </div>
 
-          <div className="relative overflow-hidden rounded-[1.5rem] border border-neutral-100 bg-[#fbfaf7] shadow-[0_16px_70px_rgba(15,23,42,0.07)]">
+          <div className="relative overflow-hidden rounded-[1.5rem] border border-[#0C6D4E] bg-[#068A5B] shadow-[0_18px_70px_rgba(6,138,91,0.20)]">
             <Link href="/vitrine">
-              <img
-                src={currentBanner.image}
-                alt={currentBanner.title}
-                className="block w-full object-cover"
-                style={{ aspectRatio: "16/7" }}
-              />
+              <div
+                className="relative flex min-h-[250px] items-center overflow-hidden px-8 py-10 sm:min-h-[310px] sm:px-12"
+                style={{
+                  aspectRatio: "16/7",
+                  backgroundImage: `linear-gradient(120deg, rgba(6,138,91,0.96), rgba(12,69,54,0.88)), url(${brandPattern})`,
+                  backgroundPosition: "center",
+                  backgroundSize: "cover, 420px auto",
+                }}
+              >
+                <div className="relative z-10 max-w-sm text-white">
+                  <BrandLogo variant="white" compact className="mb-8 w-[170px] sm:w-[192px]" />
+                  <p className="mb-2 text-[9px] font-semibold uppercase tracking-[0.3em] text-[#9ADCF2]">Ideal Prime</p>
+                  <h2 className="prime-display text-3xl leading-tight sm:text-4xl">{currentBanner.title}</h2>
+                  <p className="mt-3 max-w-xs text-sm leading-relaxed text-white/80">{currentBanner.subtitle}</p>
+                </div>
+                <div className="absolute -right-8 -top-10 h-48 w-48 rounded-full border border-white/20" />
+                <div className="absolute -bottom-20 right-12 h-52 w-52 rounded-full border border-[#9ADCF2]/30" />
+              </div>
             </Link>
 
-            <div className="pointer-events-none absolute left-5 top-5 hidden rounded-full bg-white/75 px-3 py-1.5 text-[8px] font-semibold uppercase tracking-[0.22em] text-neutral-500 backdrop-blur sm:block">
+            <div className="pointer-events-none absolute left-5 top-5 hidden rounded-full bg-white/15 px-3 py-1.5 text-[8px] font-semibold uppercase tracking-[0.22em] text-white/80 backdrop-blur sm:block">
               {currentBanner.subtitle}
             </div>
 
-            <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-white/70 px-3 py-2 backdrop-blur">
+            <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-[#0C4536]/70 px-3 py-2 backdrop-blur">
               <button
                 type="button"
                 onClick={() => setActiveSlide((current) => (current - 1 + HERO_BANNERS.length) % HERO_BANNERS.length)}
@@ -411,7 +390,7 @@ export default function Marketplace() {
                   type="button"
                   onClick={() => setActiveSlide(index)}
                   className={`h-2 rounded-full transition-all ${
-                    index === activeSlide ? "w-6 bg-amber-700" : "w-2 bg-neutral-300 hover:bg-neutral-400"
+                    index === activeSlide ? "w-6 bg-[#9ADCF2]" : "w-2 bg-white/50 hover:bg-white/80"
                   }`}
                   aria-label={`Abrir banner ${index + 1}`}
                 />
@@ -429,13 +408,13 @@ export default function Marketplace() {
         </div>
       </section>
 
-      <section className="bg-amber-900 py-3 text-white">
+      <section className="prime-pattern-surface py-3 text-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 lg:px-16">
           <div className="flex items-center gap-3">
-            <Sparkles className="h-4 w-4 text-emerald-300" />
+            <Sparkles className="h-4 w-4 text-[#9ADCF2]" />
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.26em]">Quase Zero</p>
-              <p className="text-xs text-amber-100">Usados, seminovos e peças únicas em vitrine separada</p>
+              <p className="text-xs text-white/75">Usados, seminovos e peças únicas em vitrine separada</p>
             </div>
           </div>
           <Link href="/quase-zero">
@@ -449,7 +428,7 @@ export default function Marketplace() {
           <div>
             <div className="mb-3 flex items-center gap-3">
               <div className="h-px w-6 bg-neutral-300" />
-              <p className="text-[9px] font-medium uppercase tracking-[0.34em] text-neutral-400">
+              <p className="text-[9px] font-semibold uppercase tracking-[0.34em] text-[#068A5B]">
                 Ideal Prime
               </p>
             </div>
@@ -517,7 +496,7 @@ export default function Marketplace() {
               <div>
                 <div className="mb-3 flex items-center gap-3">
                   <div className="h-px w-6 bg-amber-300" />
-                  <p className="text-[9px] font-medium uppercase tracking-[0.34em] text-amber-700">
+                  <p className="text-[9px] font-semibold uppercase tracking-[0.34em] text-[#068A5B]">
                     Separado do catálogo principal
                   </p>
                 </div>
@@ -529,7 +508,7 @@ export default function Marketplace() {
                 </p>
               </div>
               <Link href="/quase-zero">
-                <button className="inline-flex items-center gap-2 border border-amber-300 bg-white px-5 py-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-amber-800 transition-colors hover:bg-amber-50">
+                <button className="inline-flex items-center gap-2 border border-[#068A5B] bg-white px-5 py-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-[#068A5B] transition-colors hover:bg-[#EAF7F2]">
                   Abrir Quase Zero <ArrowRight className="h-4 w-4" />
                 </button>
               </Link>
@@ -563,22 +542,22 @@ export default function Marketplace() {
         </div>
       </section>
 
-      <footer className="border-t border-neutral-100 bg-white py-10">
+      <footer className="prime-pattern-surface border-t border-[#0C6D4E] py-10 text-white">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-6 px-6 lg:flex-row lg:px-16">
-          <Logo size={74} />
-          <nav className="flex flex-wrap items-center justify-center gap-7 text-[10px] uppercase tracking-[0.22em] text-neutral-400">
+          <Logo compact />
+          <nav className="flex flex-wrap items-center justify-center gap-7 text-[10px] uppercase tracking-[0.22em] text-white/70">
             <button onClick={() => document.getElementById("catalogo-shop")?.scrollIntoView({ behavior: "smooth" })} className="hover:text-neutral-800">
               Catálogo
             </button>
             <Link href="/quase-zero">
-              <span className="cursor-pointer text-amber-700 hover:text-neutral-900">Quase Zero</span>
+              <span className="cursor-pointer text-[#9ADCF2] hover:text-white">Quase Zero</span>
             </Link>
             <Link href="/desejos">
               <span className="cursor-pointer hover:text-neutral-800">Lista de desejos</span>
             </Link>
             <a href={`${PANEL}/login`} className="hover:text-neutral-800">Entrar</a>
           </nav>
-          <p className="text-[10px] text-neutral-300">© {new Date().getFullYear()} Ideal Prime</p>
+          <p className="text-[10px] text-white/45">© {new Date().getFullYear()} Ideal Prime</p>
         </div>
       </footer>
     </div>

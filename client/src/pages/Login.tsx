@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AlertCircle } from "lucide-react";
-const logo = "/brand/ideal-prime-logo.jpg";
+import { BrandLogo } from "@/components/BrandLogo";
 
 export default function Login() {
   const [, setLocation] = useLocation();
@@ -56,14 +56,12 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="w-full max-w-sm space-y-8">
+    <div className="prime-soft-surface flex min-h-screen items-center justify-center p-4">
+      <div className="w-full max-w-sm rounded-3xl border border-[#D5E8E0] bg-white/95 p-8 shadow-[0_24px_80px_rgba(12,69,54,0.12)]">
         {/* Header */}
         <div className="space-y-3 text-center">
-          <img src={logo} alt="Ideal Prime" className="h-20 w-auto object-contain mx-auto" />
-          <h1 className="text-2xl font-bold tracking-tight">
-            Ideal Prime
-          </h1>
+          <BrandLogo className="mx-auto w-[190px]" />
+          <h1 className="prime-display text-3xl tracking-tight text-[#0C4536]">Ideal Prime</h1>
           <p className="text-sm text-muted-foreground">
             Faça login para continuar
           </p>
@@ -115,7 +113,7 @@ export default function Login() {
           <Button
             type="submit"
             disabled={isLoading}
-            className="w-full h-10 mt-6"
+            className="mt-6 h-10 w-full bg-[#068A5B] text-white hover:bg-[#0C4536]"
           >
             {isLoading ? "Entrando..." : "Entrar"}
           </Button>
@@ -124,12 +122,12 @@ export default function Login() {
         {/* Footer */}
         <p className="text-xs text-muted-foreground text-center">
           Ver catálogo em{" "}
-          <button onClick={() => setLocation("/")} className="text-primary hover:underline font-medium">
+          <button onClick={() => setLocation("/")} className="font-medium text-[#068A5B] hover:underline">
             Vitrine
           </button>
           {" · "}
           Simulador em{" "}
-          <button onClick={() => setLocation("/simulador")} className="text-primary hover:underline font-medium">
+          <button onClick={() => setLocation("/simulador")} className="font-medium text-[#068A5B] hover:underline">
             /simulador
           </button>
         </p>

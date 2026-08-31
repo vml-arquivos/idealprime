@@ -14,7 +14,7 @@ import { useMemo, useState } from "react";
 import { Link } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { ArrowLeft, ArrowRight, BadgeCheck, Heart, PackageCheck, Recycle, Search, ShoppingBag, Sparkles } from "lucide-react";
-import logo from "@/assets/logo.png";
+import { BrandLogo } from "@/components/BrandLogo";
 
 interface CatalogProduct {
   id: number; name: string; category: string; categoryLabel: string | null;
@@ -84,35 +84,16 @@ function isQuaseZeroProduct(p: CatalogProduct) {
   return usedTerms.some((term) => haystack.includes(normalizeText(term)));
 }
 
-const FONT_LINK = "https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Poppins:wght@400;500;600;700&display=swap";
-if (typeof document !== "undefined" && !document.getElementById("qz-fonts")) {
-  const link = document.createElement("link");
-  link.id = "qz-fonts";
-  link.rel = "stylesheet";
-  link.href = FONT_LINK;
-  document.head.appendChild(link);
-}
-
-const SERIF = "'Montserrat', 'Poppins', sans-serif";
-const SANS = "'Poppins', 'Montserrat', sans-serif";
+const SERIF = "var(--font-display)";
+const SANS = "var(--font-sans)";
 
 function QuaseZeroLogo({ compact = false }: { compact?: boolean }) {
   return (
     <div className="inline-flex items-center gap-3 select-none">
-      <div className="relative flex h-12 w-12 items-center justify-center rounded-2xl border border-amber-200 bg-gradient-to-br from-white via-amber-50 to-stone-100 shadow-sm">
-        <div className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-emerald-400 ring-4 ring-white" />
-        <span className="text-xl font-black tracking-[-0.12em] text-stone-950" style={{ fontFamily: SERIF }}>QZ</span>
+      <div className="prime-pattern-surface flex h-12 w-12 items-center justify-center rounded-2xl border border-[#9ADCF2]/60 shadow-sm">
+        <span className="prime-display text-2xl text-white">QZ</span>
       </div>
-      {!compact && (
-        <div className="leading-none">
-          <span className="block text-xl font-black tracking-[-0.04em] text-stone-950" style={{ fontFamily: SERIF }}>
-            Quase Zero
-          </span>
-          <span className="mt-1 block text-[8px] font-bold uppercase tracking-[0.32em] text-amber-700" style={{ fontFamily: SANS }}>
-            by Ideal Prime
-          </span>
-        </div>
-      )}
+      {!compact && <BrandLogo compact className="w-[150px]" />}
     </div>
   );
 }
@@ -176,7 +157,7 @@ function ProductCard({ product: p }: { product: CatalogProduct }) {
           </span>
 
           {p.stockQuantity === 1 && stock && (
-            <span className="absolute right-3 top-3 z-10 rounded-full bg-amber-100 px-3 py-1 text-[8px] font-semibold uppercase tracking-[0.16em] text-amber-900">
+            <span className="absolute right-3 top-3 z-10 rounded-full bg-[#E8F7FC] px-3 py-1 text-[8px] font-semibold uppercase tracking-[0.16em] text-[#07567A]">
               Peça única
             </span>
           )}
@@ -191,12 +172,12 @@ function ProductCard({ product: p }: { product: CatalogProduct }) {
         </div>
 
         <div className="space-y-1 px-0.5">
-          <p className="text-[9px] font-semibold uppercase tracking-[0.3em] text-amber-700">
+          <p className="text-[9px] font-semibold uppercase tracking-[0.3em] text-[#068A5B]">
             {p.categoryLabel || CAT[p.category] || p.category}
           </p>
 
           <h3
-            className="line-clamp-2 leading-snug text-stone-950 transition-colors duration-300 group-hover:text-amber-800"
+            className="line-clamp-2 leading-snug text-[#12352B] transition-colors duration-300 group-hover:text-[#068A5B]"
             style={{ fontFamily: SERIF, fontSize: "0.95rem", fontWeight: 700, letterSpacing: "-0.02em", minHeight: "2.8em" }}
           >
             {p.name}
@@ -212,7 +193,7 @@ function ProductCard({ product: p }: { product: CatalogProduct }) {
             {stock && pix ? (
               <div>
                 <div className="flex flex-wrap items-baseline gap-2">
-                  <span className="font-semibold text-stone-950" style={{ fontFamily: SANS, fontSize: "1rem", letterSpacing: "-0.02em" }}>
+                  <span className="font-semibold text-[#12352B]" style={{ fontFamily: SANS, fontSize: "1rem", letterSpacing: "-0.02em" }}>
                     {fmt(pix)}
                   </span>
                   <span className="text-[8px] font-bold uppercase tracking-[0.2em] text-emerald-600">
@@ -260,11 +241,11 @@ export default function QuaseZero() {
   const featured = filtered[0] ?? quaseZeroProducts[0];
 
   return (
-    <div className="min-h-screen bg-[#fbfaf7] text-stone-950" style={{ fontFamily: SANS }}>
-      <header className="sticky top-0 z-50 border-b border-stone-200/70 bg-[#fbfaf7]/90 backdrop-blur-xl">
+    <div className="min-h-screen bg-[#FBFDFC] text-[#12352B]" style={{ fontFamily: SANS }}>
+      <header className="sticky top-0 z-50 border-b border-stone-200/70 bg-[#FBFDFC]/90 backdrop-blur-xl">
         <div className="mx-auto flex h-24 max-w-7xl items-center justify-between gap-6 px-6 lg:px-16">
           <Link href="/vitrine">
-            <button className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-stone-400 transition-colors hover:text-stone-950">
+            <button className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-stone-400 transition-colors hover:text-[#12352B]">
               <ArrowLeft className="h-4 w-4" /> Catálogo
             </button>
           </Link>
@@ -277,7 +258,7 @@ export default function QuaseZero() {
 
           <Link href="/vitrine">
             <div className="hidden items-center gap-2 md:flex">
-              <img src={logo} alt="Ideal Prime" className="h-14 w-auto object-contain opacity-80" />
+              <BrandLogo compact className="opacity-90" />
             </div>
           </Link>
         </div>
@@ -286,20 +267,20 @@ export default function QuaseZero() {
       <section className="border-b border-stone-200/70">
         <div className="mx-auto grid max-w-7xl items-center gap-12 px-6 py-14 lg:grid-cols-[0.95fr_1.05fr] lg:px-16 lg:py-20">
           <div className="space-y-7">
-            <div className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-white px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-amber-800 shadow-sm">
+            <div className="inline-flex items-center gap-2 rounded-full border border-[#9ADCF2] bg-white px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-[#068A5B] shadow-sm">
               <Recycle className="h-3.5 w-3.5" /> Usados, seminovos e peças únicas
             </div>
 
             <div>
               <h1
-                className="max-w-3xl text-5xl font-black leading-[0.95] tracking-[-0.06em] text-stone-950 sm:text-6xl lg:text-7xl"
+                className="max-w-3xl text-5xl font-black leading-[0.95] tracking-[-0.06em] text-[#12352B] sm:text-6xl lg:text-7xl"
                 style={{ fontFamily: SERIF }}
               >
                 Quase
                 <br />
-                <span className="text-amber-700">Zero</span>
+                <span className="text-[#068A5B]">Zero</span>
               </h1>
-              <p className="mt-6 max-w-lg text-base leading-relaxed text-stone-500">
+              <p className="mt-6 max-w-lg text-base leading-relaxed text-[#5E776D]">
                 Uma curadoria especial de peças com estado de conservação elevado, preço mais leve e disponibilidade limitada.
               </p>
             </div>
@@ -307,18 +288,18 @@ export default function QuaseZero() {
             <div className="grid max-w-xl grid-cols-1 gap-3 sm:grid-cols-3">
               <div className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
                 <BadgeCheck className="mb-3 h-5 w-5 text-emerald-600" />
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-950">Curadoria</p>
-                <p className="mt-1 text-xs leading-relaxed text-stone-500">peças selecionadas</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#12352B]">Curadoria</p>
+                <p className="mt-1 text-xs leading-relaxed text-[#5E776D]">peças selecionadas</p>
               </div>
               <div className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
-                <PackageCheck className="mb-3 h-5 w-5 text-amber-700" />
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-950">Peças únicas</p>
-                <p className="mt-1 text-xs leading-relaxed text-stone-500">estoque limitado</p>
+                <PackageCheck className="mb-3 h-5 w-5 text-[#068A5B]" />
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#12352B]">Peças únicas</p>
+                <p className="mt-1 text-xs leading-relaxed text-[#5E776D]">estoque limitado</p>
               </div>
               <div className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
                 <Sparkles className="mb-3 h-5 w-5 text-stone-800" />
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-950">Preço especial</p>
-                <p className="mt-1 text-xs leading-relaxed text-stone-500">reservas rápidas</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#12352B]">Preço especial</p>
+                <p className="mt-1 text-xs leading-relaxed text-[#5E776D]">reservas rápidas</p>
               </div>
             </div>
 
@@ -335,7 +316,7 @@ export default function QuaseZero() {
             {featured ? (
               <Link href={`/vitrine/${featured.id}`}>
                 <div className="group relative z-10 grid w-full max-w-[620px] grid-cols-[1fr_0.75fr] gap-6 px-8">
-                  <div className="relative h-[390px] overflow-hidden rounded-[2rem] bg-[#fbfaf7]">
+                  <div className="relative h-[390px] overflow-hidden rounded-[2rem] bg-[#FBFDFC]">
                     {featured.imageUrl ? (
                       <img src={featured.imageUrl} alt={featured.name} className="h-full w-full object-contain p-8 transition-transform duration-700 group-hover:scale-[1.03]" />
                     ) : (
@@ -349,15 +330,15 @@ export default function QuaseZero() {
                   </div>
 
                   <div className="flex flex-col justify-end pb-8">
-                    <p className="text-[9px] font-semibold uppercase tracking-[0.32em] text-amber-700">Última peça</p>
+                    <p className="text-[9px] font-semibold uppercase tracking-[0.32em] text-[#068A5B]">Última peça</p>
                     <h2 className="mt-3 line-clamp-3 text-3xl font-black leading-tight tracking-[-0.04em]" style={{ fontFamily: SERIF }}>
                       {featured.name}
                     </h2>
-                    <p className="mt-5 text-2xl font-bold text-stone-950">
+                    <p className="mt-5 text-2xl font-bold text-[#12352B]">
                       {pixPrice(featured) ? fmt(pixPrice(featured)!) : "Consulte"}
                     </p>
                     <p className="mt-2 text-xs uppercase tracking-[0.18em] text-stone-400">Pix ou dinheiro</p>
-                    <div className="mt-8 inline-flex w-fit items-center gap-2 rounded-full bg-amber-700 px-5 py-3 text-[9px] font-bold uppercase tracking-[0.22em] text-white">
+                    <div className="mt-8 inline-flex w-fit items-center gap-2 rounded-full bg-[#068A5B] px-5 py-3 text-[9px] font-bold uppercase tracking-[0.22em] text-white">
                       Reservar peça <ArrowRight className="h-3 w-3" />
                     </div>
                   </div>
@@ -373,11 +354,11 @@ export default function QuaseZero() {
       <section id="quase-zero-lista" className="mx-auto max-w-7xl px-6 py-12 lg:px-16">
         <div className="mb-10 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
           <div>
-            <p className="mb-3 text-[9px] font-semibold uppercase tracking-[0.35em] text-amber-700">Disponíveis agora</p>
-            <h2 className="text-3xl font-black tracking-[-0.04em] text-stone-950" style={{ fontFamily: SERIF }}>
+            <p className="mb-3 text-[9px] font-semibold uppercase tracking-[0.35em] text-[#068A5B]">Disponíveis agora</p>
+            <h2 className="text-3xl font-black tracking-[-0.04em] text-[#12352B]" style={{ fontFamily: SERIF }}>
               Últimas peças Quase Zero
             </h2>
-            <p className="mt-2 max-w-xl text-sm text-stone-500">
+            <p className="mt-2 max-w-xl text-sm text-[#5E776D]">
               Para aparecer aqui, cadastre o produto no admin com Canal de venda “Quase Zero” ou “Ambos”.
             </p>
           </div>
@@ -389,7 +370,7 @@ export default function QuaseZero() {
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Buscar peça..."
-                className="h-11 w-full rounded-full border border-stone-200 bg-white pl-11 pr-4 text-sm outline-none transition-colors focus:border-amber-400 sm:w-64"
+                className="h-11 w-full rounded-full border border-stone-200 bg-white pl-11 pr-4 text-sm outline-none transition-colors focus:border-[#098EC7] sm:w-64"
               />
             </div>
           </div>
@@ -404,7 +385,7 @@ export default function QuaseZero() {
                 className={`shrink-0 rounded-full border px-5 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] transition-colors ${
                   cat === key
                     ? "border-stone-950 bg-stone-950 text-white"
-                    : "border-stone-200 bg-white text-stone-500 hover:border-amber-300 hover:text-amber-800"
+                    : "border-stone-200 bg-white text-[#5E776D] hover:border-[#9ADCF2] hover:text-[#068A5B]"
                 }`}
               >
                 {label}
@@ -420,8 +401,8 @@ export default function QuaseZero() {
         ) : filtered.length === 0 ? (
           <div className="rounded-[2rem] border border-dashed border-stone-200 bg-white p-12 text-center">
             <ShoppingBag className="mx-auto mb-4 h-10 w-10 text-stone-200" />
-            <h3 className="text-xl font-bold text-stone-950">Nenhuma peça encontrada</h3>
-            <p className="mt-2 text-sm text-stone-500">Cadastre ou marque produtos como Quase Zero para aparecerem aqui.</p>
+            <h3 className="text-xl font-bold text-[#12352B]">Nenhuma peça encontrada</h3>
+            <p className="mt-2 text-sm text-[#5E776D]">Cadastre ou marque produtos como Quase Zero para aparecerem aqui.</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-x-5 gap-y-14 sm:grid-cols-3 lg:grid-cols-4">
@@ -435,10 +416,10 @@ export default function QuaseZero() {
           <QuaseZeroLogo />
           <nav className="flex flex-wrap items-center justify-center gap-6">
             <Link href="/vitrine">
-              <span className="cursor-pointer text-[9px] uppercase tracking-[0.2em] text-stone-400 transition-colors hover:text-stone-950">Ideal Prime</span>
+              <span className="cursor-pointer text-[9px] uppercase tracking-[0.2em] text-stone-400 transition-colors hover:text-[#12352B]">Ideal Prime</span>
             </Link>
             <Link href="/desejos">
-              <span className="cursor-pointer text-[9px] uppercase tracking-[0.2em] text-stone-400 transition-colors hover:text-stone-950">Lista de desejos</span>
+              <span className="cursor-pointer text-[9px] uppercase tracking-[0.2em] text-stone-400 transition-colors hover:text-[#12352B]">Lista de desejos</span>
             </Link>
           </nav>
           <p className="text-[9px] tracking-wide text-stone-300">© {new Date().getFullYear()} Quase Zero</p>

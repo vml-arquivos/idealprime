@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
+import { BrandLogo } from "@/components/BrandLogo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -51,7 +52,7 @@ export default function MinhaConta() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6">
+    <main className="prime-soft-surface min-h-screen px-4 py-8 sm:px-6">
       <div className="mx-auto max-w-3xl space-y-6">
         <Link
           href="/"
@@ -59,12 +60,13 @@ export default function MinhaConta() {
         >
           <ArrowLeft className="h-4 w-4" /> Voltar para a vitrine
         </Link>
-        <header className="rounded-3xl bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 p-7 text-white">
-          <p className="flex items-center gap-2 text-xs uppercase tracking-[0.24em] text-amber-200">
+        <header className="rounded-3xl bg-gradient-to-br from-[#0C4536] via-[#068A5B] to-[#098EC7] p-7 text-white shadow-[0_20px_70px_rgba(6,138,91,0.18)]">
+          <BrandLogo variant="white" compact className="mb-5 w-[170px]" />
+          <p className="flex items-center gap-2 text-xs uppercase tracking-[0.24em] text-[#9ADCF2]">
             <ShoppingBag className="h-4 w-4" /> Área do cliente
           </p>
           <h1 className="mt-2 text-3xl font-bold">Meus pedidos</h1>
-          <p className="mt-2 text-sm text-slate-300">
+          <p className="mt-2 text-sm text-white/75">
             Consulte seu histórico usando o mesmo WhatsApp ou e-mail informado
             na compra.
           </p>
@@ -137,7 +139,7 @@ export default function MinhaConta() {
                       return (
                         <div
                           key={order.id}
-                          className="flex gap-3 rounded-xl bg-slate-50 p-3"
+                          className="flex gap-3 rounded-xl bg-[#F1F8F5] p-3"
                         >
                           <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white">
                             {order.productImageUrl ? (
