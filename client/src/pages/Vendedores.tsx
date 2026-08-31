@@ -90,9 +90,9 @@ export default function Vendedores() {
   const [sellerFilter, setSellerFilter] = useState<string>("TODOS");
   const [selectedSellerId, setSelectedSellerId] = useState<string>("");
   const publicBaseUrl =
-    typeof window === "undefined"
+    typeof window !== "undefined"
       ? window.location.origin
-      : window.location.origin;
+      : "";
 
   const externalSellers = useMemo(
     () => (sellersQuery.data ?? []).filter(seller => seller.type === "EXTERNO"),
