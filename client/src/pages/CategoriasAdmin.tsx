@@ -3,7 +3,7 @@
  * /categorias (admin)
  *
  * CRUD completo: listar, criar, editar inline, ativar/desativar, deletar.
- * Categorias são usadas na Lista de Desejos e no catálogo de produtos.
+ * Categorias são usadas nas Solicitações de Produtos e no catálogo de produtos.
  */
 
 import { useState } from "react";
@@ -166,7 +166,7 @@ export default function CategoriasAdmin() {
               <Tag className="w-6 h-6" /> Categorias
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Gerencie as categorias usadas na Lista de Desejos e no catálogo
+              Gerencie as categorias usadas nas Solicitações de Produtos e no catálogo
             </p>
           </div>
           <Button onClick={openCreate} className="gap-2">

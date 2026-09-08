@@ -412,7 +412,7 @@ export default function ProductPage() {
             </Link>
             <Link href="/desejos">
               <span className="text-[9px] tracking-[0.2em] uppercase cursor-pointer transition-colors hover:text-neutral-700" style={{ color: "#bbb" }}>
-                Lista de Desejos
+                Solicitações de Produtos
               </span>
             </Link>
           </nav>

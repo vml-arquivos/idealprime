@@ -24,7 +24,7 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   [PERMISSIONS.PRICING]: "Simulações e preços",
   [PERMISSIONS.SALES]: "Pedidos e vendas",
   [PERMISSIONS.REPORTS]: "Relatórios",
-  [PERMISSIONS.B2B_OPERATIONS]: "Operação B2B",
+  [PERMISSIONS.B2B_OPERATIONS]: "Relacionamento Comercial",
   [PERMISSIONS.B2B_CATALOG]: "Catálogo empresarial",
   [PERMISSIONS.B2B_QUOTES]: "Cotações empresariais",
   [PERMISSIONS.B2B_ORDERS]: "Pedidos empresariais",

@@ -212,7 +212,7 @@ export default function Dashboard() {
         <KpiCard title="Atenção" value={attentionCount}
           subtitle={attentionCount === 0 ? 'Tudo OK ✓' : 'Revisar preços'}
           icon={AlertTriangle} accent={attentionCount > 0 ? 'bg-amber-500' : 'bg-slate-400'} href="/simulacoes" />
-        <KpiCard title="Lista de Desejos" value={wishlistNew}
+        <KpiCard title="Solicitações de Produtos" value={wishlistNew}
           subtitle={wishlistNew === 0 ? 'Nenhum pedido' : `${wishlistContact} em contato`}
           icon={Heart} accent="bg-pink-500" href="/desejos-admin" />
       </div>

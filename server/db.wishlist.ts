@@ -1,5 +1,5 @@
 /**
- * db.wishlist.ts — Funções de banco para Lista de Desejos
+ * db.wishlist.ts — Funções de banco para Solicitações de Produtos (ex-Lista de Desejos)
  *
  * v2 — Refatoração completa:
  * - Phone como chave de identificação do visitante

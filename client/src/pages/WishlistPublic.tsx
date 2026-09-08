@@ -1,5 +1,5 @@
 /**
- * WishlistPublic.tsx — Lista de Desejos Pública /desejos
+ * WishlistPublic.tsx — Solicitações de Produtos (pública) /desejos
  *
  * v2 — Refatoração completa conforme regras de negócio:
  * ─ Formulário: Nome + Telefone + Seleção múltipla de produtos do catálogo
@@ -474,7 +474,7 @@ export default function WishlistPublic() {
             <Heart className="h-7 w-7 text-white" />
           </div>
           <BrandLogo compact className="mx-auto mb-4" />
-          <h1 className="prime-display text-4xl tracking-tight text-[#0C4536]">Lista de Desejos</h1>
+          <h1 className="prime-display text-4xl tracking-tight text-[#0C4536]">Solicitações de Produtos</h1>
           <p className="text-muted-foreground max-w-md mx-auto">
             Não encontrou o que procura? Registre aqui e entraremos em contato
             assim que o produto estiver disponível.

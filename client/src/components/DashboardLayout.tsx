@@ -70,13 +70,13 @@ const menuModules: MenuModule[] = [
   },
   {
     label: "B2B Ideal Prime",
-    items: [{ icon: Building2, label: "Operação B2B", path: "/b2b-admin", permission: PERMISSIONS.B2B_OPERATIONS }],
+    items: [{ icon: Building2, label: "Relacionamento Comercial", path: "/b2b-admin", permission: PERMISSIONS.B2B_OPERATIONS }],
   },
   {
     label: "Vendas",
     items: [
       { icon: ClipboardList, label: "Pedidos", path: "/pedidos", permission: PERMISSIONS.SALES },
-      { icon: Heart, label: "Desejos", path: "/desejos-admin", permission: PERMISSIONS.SALES },
+      { icon: Heart, label: "Solicitações", path: "/desejos-admin", permission: PERMISSIONS.SALES },
     ],
   },
   {

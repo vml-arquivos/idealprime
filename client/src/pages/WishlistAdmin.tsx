@@ -184,7 +184,7 @@ export default function WishlistAdmin() {
               <Heart className="w-5 h-5 text-pink-600" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-foreground">Lista de Desejos</h1>
+              <h1 className="text-xl font-bold text-foreground">Gestão de Solicitações</h1>
               <p className="text-sm text-muted-foreground">
                 {(requests as any[]).length} pedido
                 {(requests as any[]).length !== 1 ? "s" : ""} registrado

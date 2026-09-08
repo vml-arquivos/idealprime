@@ -628,7 +628,7 @@ export const appRouter = router({
       .mutation(({ input }) => db.duplicateSimulation(input.id)),
   }),
 
-  // ── Lista de Desejos ──────────────────────────────────────────────────────
+  // ── Solicitações de Produtos (ex-Lista de Desejos) ──────────────────────────
   wishlist: router({
     create: publicProcedure
       .input(

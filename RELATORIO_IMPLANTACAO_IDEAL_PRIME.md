@@ -1,6 +1,6 @@
 # Relatório de implantação — Ideal Prime
 
-Última atualização: 2026-09-08. Ver também a seção "Remoção da marca 'Quase Zero'" mais abaixo, referente a uma segunda rodada no mesmo dia.
+Última atualização: 2026-09-08. Ver também a seção "Remoção da marca 'Quase Zero'" e a seção "Evolução comercial — Fase 1 e Fase 2" mais abaixo, referentes a rodadas seguintes no mesmo dia.
 
 ## Estado do código
 
@@ -135,3 +135,54 @@ concorrência real com chamadas paralelas, cancelamento/reemissão, NF-e B2B vs.
 varejo) — suíte completa **99/99 testes passando**, sem regressão nos 85 anteriores;
 `pnpm build` concluído com sucesso; servidor de produção (`node dist/index.js`) subiu
 de fato com `GET /healthz` retornando 200.
+
+## Evolução comercial — Fase 1 e Fase 2 (rodada seguinte, mesmo dia)
+
+Pedido do cliente: evolução comercial ampla (12 fases) cobrindo modelo de cliente
+PF/PJ, importação inteligente de planilha, "Solicitações de Produtos" e renomeação de
+navegação — sob a restrição explícita e reiterada de **não regredir nenhuma
+funcionalidade existente** ("não regrida nada nas atualize o sistema").
+
+**Fase 1 — Auditoria (concluída)**: comparação real, arquivo a arquivo, entre
+`idealprime-main` e `permupay-vendas-main` — resultado completo em
+`docs/ideal-prime/AUDITORIA_EVOLUCAO_COMERCIAL.md`. Achado principal: o fork do Ideal
+Prime, ao adicionar o módulo B2B, **removeu sem documentar** um módulo de gestão de
+clientes pessoa física que já existia e funcionava no PermuPay Vendas (`Clientes.tsx`,
+`ClienteDetalhe.tsx`, `NovaVenda.tsx`, campos de CPF/RG/crédito em
+`permupay_customers`, login próprio do cliente). Isso explica e fundamenta o pedido da
+Fase 4 (modelo PF/PJ) — não é uma feature nova do zero, é a reconstrução adaptada de
+algo que já existiu. O verificado como já compartilhado e estável entre as duas bases
+(FIFO/lotes, vendedores, motor de precificação, wishlist) está listado no documento
+como linha de base a não tocar.
+
+**Fase 2 — Renomeação de navegação/rótulos (concluída)**: aplicada só a texto exibido
+ao usuário (menu, títulos de página, cartões, mensagens, comentários de código
+correlatos) — nenhuma rota, endpoint, nome de tabela/coluna ou permission key foi
+alterado, para não introduzir risco de regressão:
+
+- Menu "B2B Ideal Prime" → item "Operação B2B" virou **"Relacionamento Comercial"**
+  (`DashboardLayout.tsx`, e o rótulo correspondente em `shared/permissions.ts`).
+- Página `/b2b-admin` (`B2BAdmin.tsx`): título "Operação B2B" → **"Gestão Comercial"**;
+  "Tabelas de preço" → **"Tabelas Comerciais"**; "Cotações empresariais" →
+  **"Cotações Comerciais"**; "Últimas importações" → **"Importações de Catálogo"**.
+- Menu "Vendas" → item "Desejos" virou **"Solicitações"**; página administrativa
+  (`WishlistAdmin.tsx`) "Lista de Desejos" → **"Gestão de Solicitações"**; página
+  pública (`WishlistPublic.tsx`, `/desejos`) "Lista de Desejos" → **"Solicitações de
+  Produtos"**; mesmo texto também atualizado no rodapé de `ProductPage.tsx`, no
+  cartão de indicador do `Dashboard.tsx` e na descrição de `CategoriasAdmin.tsx`.
+
+Não foram encontrados no código atual os textos literais "Cliente B2B" e "Business
+Portal" citados no pedido original — são termos conceituais das Fases 4/5 (ainda não
+implementadas) e serão aplicados no texto real assim que essas telas existirem.
+
+Verificação: `pnpm check` limpo, `pnpm migrate:verify` (32 migrations OK), `pnpm test`
+contra PostgreSQL 16 real — **99/99 testes passando, nenhuma regressão** — e `pnpm
+build` concluído com sucesso.
+
+**Fases 3 a 12 (pendentes)**: importação inteligente de planilha, modelo de cliente
+PF/PJ com migration aditiva, pedidos PF/PJ, "Solicitações de Produtos" com ciclo de
+status, navegação cruzada, indicadores de dashboard, ajustes visuais, testes novos e
+verificação final — são o trabalho de maior porte e risco desta rodada (schema novo,
+migrations, testes de concorrência) e serão feitos em sequência, cada fase validada
+(`check`/`test`/`build`) antes de avançar para a próxima, exatamente para sustentar a
+exigência de não regressão.
