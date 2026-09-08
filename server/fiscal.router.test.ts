@@ -20,6 +20,7 @@ function fakeCtx(user: (Partial<SafeUser> & { accountType: string }) | null) {
     req: {} as any,
     res: {} as any,
     user: user as unknown as SafeUser | null,
+    customer: null,
   };
 }
 

@@ -16,7 +16,7 @@ export type SessionPayload = {
   role: string;
 };
 
-function parseCookies(cookieHeader: string | undefined): Map<string, string> {
+export function parseCookies(cookieHeader: string | undefined): Map<string, string> {
   if (!cookieHeader) return new Map();
   const map = new Map<string, string>();
   for (const part of cookieHeader.split(";")) {
@@ -26,7 +26,7 @@ function parseCookies(cookieHeader: string | undefined): Map<string, string> {
   return map;
 }
 
-function getSecretKey() {
+export function getSecretKey() {
   const secret = ENV.cookieSecret;
   if (!secret) throw new Error("JWT_SECRET not configured");
   return new TextEncoder().encode(secret);

@@ -1,4 +1,5 @@
 import {
+  date,
   integer,
   pgTable,
   serial,
@@ -22,9 +23,56 @@ export const customers = pgTable("permupay_customers", {
     () => sellers.id,
     { onDelete: "set null" }
   ),
+  // Documentação pessoa física (ficha de cliente) — reintroduzido na Fase 4
+  // da evolução comercial; ver docs/ideal-prime/AUDITORIA_EVOLUCAO_COMERCIAL.md.
+  cpf: text("cpf"),
+  rg: text("rg"),
+  birthDate: date("birth_date"),
+  documentFrontUrl: text("document_front_url"),
+  documentBackUrl: text("document_back_url"),
+  proofAddressUrl: text("proof_address_url"),
+  // Área do cliente — login com senha própria (separado da sessão da
+  // equipe). Nullable: cadastros criados antes desta funcionalidade
+  // (checkout rápido, cadastro interno) continuam existindo sem senha até
+  // o cliente "ativar" a conta em /minha-conta.
+  passwordHash: text("password_hash"),
+  lastSignedIn: timestamp("last_signed_in"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
 export type Customer = typeof customers.$inferSelect;
 export type InsertCustomer = typeof customers.$inferInsert;
+
+// Nunca enviado ao navegador — mesma convenção usada para SafeUser (usuários
+// internos) em drizzle/schema.ts.
+export type SafeCustomer = Omit<Customer, "passwordHash">;
+
+// ── Trilha de comunicações com o cliente (WhatsApp/e-mail) ─────────────────
+// Registrada quando a equipe aciona um envio pela ficha do cliente. Não é
+// confirmação de entrega do provedor (exigiria integração paga de terceiros,
+// não configurada neste ambiente) — é o registro de que a ação foi
+// disparada, por quem, quando e para qual contato ("conversas" na ficha do
+// cliente pedida na evolução comercial).
+export const CUSTOMER_COMMUNICATION_CHANNELS = ["WHATSAPP", "EMAIL"] as const;
+export type CustomerCommunicationChannel =
+  (typeof CUSTOMER_COMMUNICATION_CHANNELS)[number];
+
+export const customerCommunications = pgTable(
+  "permupay_customer_communications",
+  {
+    id: serial("id").primaryKey(),
+    customerId: integer("customer_id")
+      .notNull()
+      .references(() => customers.id, { onDelete: "cascade" }),
+    orderId: integer("order_id"),
+    channel: text("channel").notNull(),
+    purpose: text("purpose").notNull(),
+    target: text("target").notNull(),
+    messagePreview: text("message_preview"),
+    sentByUserId: integer("sent_by_user_id"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  }
+);
+
+export type CustomerCommunication = typeof customerCommunications.$inferSelect;

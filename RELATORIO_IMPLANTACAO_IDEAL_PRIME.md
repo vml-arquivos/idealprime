@@ -179,10 +179,60 @@ Verificação: `pnpm check` limpo, `pnpm migrate:verify` (32 migrations OK), `pn
 contra PostgreSQL 16 real — **99/99 testes passando, nenhuma regressão** — e `pnpm
 build` concluído com sucesso.
 
-**Fases 3 a 12 (pendentes)**: importação inteligente de planilha, modelo de cliente
-PF/PJ com migration aditiva, pedidos PF/PJ, "Solicitações de Produtos" com ciclo de
-status, navegação cruzada, indicadores de dashboard, ajustes visuais, testes novos e
-verificação final — são o trabalho de maior porte e risco desta rodada (schema novo,
-migrations, testes de concorrência) e serão feitos em sequência, cada fase validada
-(`check`/`test`/`build`) antes de avançar para a próxima, exatamente para sustentar a
-exigência de não regressão.
+**Fases 3 a 12 (pendentes)**: importação inteligente de planilha, pedidos PF/PJ,
+"Solicitações de Produtos" com ciclo de status, navegação cruzada, indicadores de
+dashboard, ajustes visuais e verificação final completa — serão feitos em sequência,
+cada fase validada (`check`/`test`/`build`) antes de avançar para a próxima.
+
+## Área do cliente + ficha de clientes PF/PJ (rodada seguinte, mesmo dia — parte da Fase 4/6)
+
+Pedido explícito do cliente, com prioridade imediata: uma área do cliente de verdade
+(criar conta, login, ver dados/produtos/histórico/compras) e uma ficha de clientes
+unificada para a equipe (pessoa física + pessoa jurídica, com histórico, dados,
+compras e comunicações). A Fase 1 já havia identificado que essa funcionalidade
+existia no PermuPay Vendas e foi descontinuada — sem documentação — quando o Ideal
+Prime foi derivado dele; o trabalho aqui é reconstrução adaptada, portada da base
+original (`server/_core/customerAuth.ts`, `db.customers.ts`), não uma feature nova do
+zero.
+
+**Banco (aditivo, migration `0033_customer_area.sql`)**: `permupay_customers` recebeu
+de volta `cpf`, `rg`, `birth_date`, `document_front_url`, `document_back_url`,
+`proof_address_url` (ficha completa), `password_hash` e `last_signed_in` (login
+próprio) — todas nullable, nenhuma linha existente é afetada. Nova tabela
+`permupay_customer_communications` (trilha de comunicações — "conversas" na ficha do
+cliente).
+
+**Backend**: `server/_core/customerAuth.ts` (sessão JWT do cliente em cookie
+`customer_session_id`, sempre separado do cookie da equipe — nunca há risco de
+misturar as duas sessões no mesmo navegador); `customerProcedure` nova em
+`_core/trpc.ts`; router `customerAuth` (register/login/logout/me/updateProfile/
+myOrders) e `customers.admin.*` (list/get/orders/update/communications/
+logCommunication, uso exclusivo da equipe, mesma convenção `protectedProcedure` já
+usada pelo restante do sistema — Produtos, Pedidos, etc.).
+
+**Frontend**: `/minha-conta` reconstruída — login/cadastro com senha
+(`CustomerAuthPanel`) seguido de abas "Meus pedidos" e "Meus dados" (edição de
+cadastro + upload de documentos, reaproveitando `useDocumentUpload` já existente).
+Nova ficha de clientes da equipe: `/clientes` (lista unificada PF + PJ, PJ linkando
+para Gestão Comercial que já existe) e `/clientes/:id` (ficha PF: compras, dados,
+comunicações com formulário de registro). Nova permissão `CUSTOMERS` (rótulo
+"Clientes") controla o item de menu — adicionada aos padrões de equipe, não aos de
+comprador B2B.
+
+**Fora de escopo desta rodada, por decisão explícita da auditoria (Fase 1, seção 5)**:
+o fluxo de análise de crédito/nota promissória do PermuPay não foi portado — não foi
+pedido nesta rodada e adicionaria risco/escopo sem necessidade comprovada. Um "funil
+comercial" formal (estágios de pipeline) também não existia na base original; o que
+existe hoje (histórico de pedidos + trilha de comunicações) cobre o pedido de
+"relacionamento" e "conversas" sem inventar um modelo de dados novo sem validação do
+cliente.
+
+Verificação: `pnpm check` limpo, `pnpm migrate:verify` (33 migrations OK), `pnpm test`
+contra PostgreSQL 16 real com **5 testes de integração novos** (cadastro com senha,
+ativação de cadastro antigo sem duplicar, isolamento entre sessão de cliente e de
+equipe, ficha administrativa exigindo sessão de equipe, registro/listagem de
+comunicações) — suíte completa **104/104 testes passando, nenhuma regressão**;
+`pnpm build` concluído com sucesso; e verificação end-to-end real: build de produção
+subido (`node dist/index.js`), `GET /healthz` 200, `customerAuth.register` via HTTP
+criou conta e setou cookie de sessão, `customerAuth.me` reconheceu a sessão pelo
+cookie.

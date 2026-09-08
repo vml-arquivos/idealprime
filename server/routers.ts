@@ -10,13 +10,14 @@
 
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
+import { COOKIE_NAME, CUSTOMER_COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
+import { publicProcedure, protectedProcedure, customerProcedure, router } from "./_core/trpc";
 import { b2bRouter } from "./b2b.router";
 import { fiscalRouter } from "./fiscal.router";
 import { sdk } from "./_core/sdk";
+import { customerSdk } from "./_core/customerAuth";
 import * as db from "./db";
 import * as dbBatches from "./db.batches";
 import * as dbWishlist from "./db.wishlist";
@@ -994,6 +995,151 @@ export const appRouter = router({
     }),
   }),
 
+  // ── Sessão da área do cliente (minha conta) — senha real ──────────────────
+  // Separada de `auth`/`protectedProcedure`, que são exclusivos da equipe
+  // interna. Antes, /minha-conta reconhecia o cliente só pelo contato
+  // digitado no navegador, sem senha — qualquer pessoa que soubesse o
+  // WhatsApp/e-mail de outro cliente via seus pedidos e dados. Portado da
+  // base PermuPay Vendas (onde já existia) na evolução comercial — ver
+  // docs/ideal-prime/AUDITORIA_EVOLUCAO_COMERCIAL.md.
+  customerAuth: router({
+    me: publicProcedure.query(({ ctx }) => ctx.customer),
+
+    // Cria uma conta nova OU, se já existir um cadastro sem senha para este
+    // contato (criado antes desta funcionalidade, via checkout rápido ou
+    // cadastro interno pela equipe), "ativa" esse cadastro definindo a
+    // senha nele — evita bloquear clientes antigos.
+    register: publicProcedure
+      .input(
+        z.object({
+          name: z.string().trim().min(2, "Informe seu nome completo"),
+          contact: z.string().trim().min(8, "Informe WhatsApp ou e-mail"),
+          contactType: z.enum(["WHATSAPP", "EMAIL"]).default("WHATSAPP"),
+          password: z.string().min(6, "A senha deve ter no mínimo 6 caracteres"),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        const existing = await dbCustomers.getCustomerByContact(input.contact);
+        if (existing?.passwordHash) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "Já existe uma conta com este contato. Faça login.",
+          });
+        }
+
+        const customer = existing
+          ? await dbCustomers.claimExistingCustomer(existing.id, {
+              name: input.name,
+              password: input.password,
+            })
+          : await dbCustomers.createCustomerWithPassword({
+              name: input.name,
+              contact: input.contact,
+              contactType: input.contactType,
+              password: input.password,
+            });
+
+        const token = await customerSdk.createSessionToken({
+          customerId: customer.id,
+          contact: customer.contact,
+        });
+        const cookieOptions = getSessionCookieOptions(ctx.req);
+        ctx.res.cookie(CUSTOMER_COOKIE_NAME, token, {
+          ...cookieOptions,
+          maxAge: ONE_YEAR_MS,
+        });
+
+        return {
+          success: true as const,
+          customer: dbCustomers.toSafeCustomer(customer),
+        };
+      }),
+
+    login: publicProcedure
+      .input(
+        z.object({
+          contact: z.string().trim().min(5, "Informe WhatsApp ou e-mail"),
+          password: z.string().min(1, "Informe sua senha"),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        const customer = await dbCustomers.getCustomerByContact(input.contact);
+        if (!customer) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message:
+              'Não encontramos uma conta com este contato. Use "Criar conta".',
+          });
+        }
+        if (!customer.passwordHash) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message:
+              'Esta conta ainda não tem senha definida. Use "Criar conta" com o mesmo contato para ativar seu acesso.',
+          });
+        }
+        const valid = await dbCustomers.verifyCustomerPassword(
+          customer,
+          input.password
+        );
+        if (!valid) {
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+            message: "Contato ou senha incorretos.",
+          });
+        }
+
+        await dbCustomers.updateCustomerLastSignedIn(customer.id);
+
+        const token = await customerSdk.createSessionToken({
+          customerId: customer.id,
+          contact: customer.contact,
+        });
+        const cookieOptions = getSessionCookieOptions(ctx.req);
+        ctx.res.cookie(CUSTOMER_COOKIE_NAME, token, {
+          ...cookieOptions,
+          maxAge: ONE_YEAR_MS,
+        });
+
+        return {
+          success: true as const,
+          customer: dbCustomers.toSafeCustomer(customer),
+        };
+      }),
+
+    logout: publicProcedure.mutation(({ ctx }) => {
+      const cookieOptions = getSessionCookieOptions(ctx.req);
+      ctx.res.clearCookie(CUSTOMER_COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
+      return { success: true } as const;
+    }),
+
+    updateProfile: customerProcedure
+      .input(
+        z.object({
+          name: z.string().trim().min(2).optional(),
+          email: z.string().trim().email().optional(),
+          address: z.string().trim().optional(),
+          city: z.string().trim().optional(),
+          state: z.string().trim().length(2).optional(),
+          zipCode: z.string().trim().optional(),
+          cpf: z.string().trim().optional(),
+          rg: z.string().trim().optional(),
+          birthDate: z.string().trim().optional(),
+          documentFrontUrl: z.string().trim().optional(),
+          documentBackUrl: z.string().trim().optional(),
+          proofAddressUrl: z.string().trim().optional(),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        const updated = await dbCustomers.updateCustomerById(ctx.customer.id, input);
+        return dbCustomers.toSafeCustomer(updated);
+      }),
+
+    myOrders: customerProcedure.query(({ ctx }) =>
+      dbCustomers.listCustomerOrders(ctx.customer.id)
+    ),
+  }),
+
   // ── Clientes finais e carrinho ─────────────────────────────────────────────
   customers: router({
     identify: protectedProcedure
@@ -1007,6 +1153,84 @@ export const appRouter = router({
         if (!customer) return [];
         return dbCustomers.listCustomerOrders(customer.id);
       }),
+
+    // ── Ficha de clientes (equipe / CRM) ────────────────────────────────────
+    // Lista/detalha/edita clientes pessoa física; a parte pessoa jurídica
+    // (empresas B2B) é servida por `b2b.admin.businesses` — a tela
+    // `Clientes.tsx` combina as duas listas no cliente.
+    admin: router({
+      list: protectedProcedure
+        .input(z.object({ search: z.string().trim().max(120).optional() }).optional())
+        .query(({ input }) => dbCustomers.listCustomers({ search: input?.search })),
+
+      get: protectedProcedure
+        .input(z.object({ id: z.number().int().positive() }))
+        .query(async ({ input }) => {
+          const customer = await dbCustomers.getCustomerById(input.id);
+          if (!customer) throw new TRPCError({ code: "NOT_FOUND", message: "Cliente não encontrado." });
+          return dbCustomers.toSafeCustomer(customer);
+        }),
+
+      orders: protectedProcedure
+        .input(z.object({ id: z.number().int().positive() }))
+        .query(({ input }) => dbCustomers.listCustomerOrders(input.id)),
+
+      update: protectedProcedure
+        .input(
+          z.object({
+            id: z.number().int().positive(),
+            name: z.string().trim().min(2).optional(),
+            contact: z.string().trim().min(5).optional(),
+            contactType: z.enum(["WHATSAPP", "EMAIL"]).optional(),
+            email: z.string().trim().email().optional(),
+            address: z.string().trim().optional(),
+            city: z.string().trim().optional(),
+            state: z.string().trim().length(2).optional(),
+            zipCode: z.string().trim().optional(),
+            cpf: z.string().trim().optional(),
+            rg: z.string().trim().optional(),
+            birthDate: z.string().trim().optional(),
+          })
+        )
+        .mutation(async ({ input }) => {
+          const { id, ...data } = input;
+          const updated = await dbCustomers.updateCustomerById(id, data);
+          return dbCustomers.toSafeCustomer(updated);
+        }),
+
+      communications: protectedProcedure
+        .input(
+          z.object({
+            customerId: z.number().int().positive(),
+            limit: z.number().int().min(1).max(100).optional(),
+            offset: z.number().int().min(0).optional(),
+          })
+        )
+        .query(({ input }) =>
+          dbCustomers.listCustomerCommunications(input.customerId, {
+            limit: input.limit,
+            offset: input.offset,
+          })
+        ),
+
+      logCommunication: protectedProcedure
+        .input(
+          z.object({
+            customerId: z.number().int().positive(),
+            orderId: z.number().int().positive().optional(),
+            channel: z.enum(["WHATSAPP", "EMAIL"]),
+            purpose: z.string().trim().min(2).max(120),
+            target: z.string().trim().min(3).max(320),
+            messagePreview: z.string().trim().max(2000).optional(),
+          })
+        )
+        .mutation(({ input, ctx }) =>
+          dbCustomers.logCustomerCommunication({
+            ...input,
+            sentByUserId: ctx.user.id,
+          })
+        ),
+    }),
 
     checkout: protectedProcedure
       .input(

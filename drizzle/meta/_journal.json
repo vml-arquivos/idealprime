@@ -225,6 +225,13 @@
       "when": 1788400000000,
       "tag": "0032_fiscal_invoices",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1788500000000,
+      "tag": "0033_customer_area",
+      "breakpoints": true
     }
   ]
 }

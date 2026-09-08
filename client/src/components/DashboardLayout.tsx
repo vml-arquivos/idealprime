@@ -75,6 +75,7 @@ const menuModules: MenuModule[] = [
   {
     label: "Vendas",
     items: [
+      { icon: Users, label: "Clientes", path: "/clientes", permission: PERMISSIONS.CUSTOMERS },
       { icon: ClipboardList, label: "Pedidos", path: "/pedidos", permission: PERMISSIONS.SALES },
       { icon: Heart, label: "Solicitações", path: "/desejos-admin", permission: PERMISSIONS.SALES },
     ],

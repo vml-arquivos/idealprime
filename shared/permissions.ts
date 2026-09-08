@@ -13,6 +13,7 @@ export const PERMISSIONS = {
   USERS: "users",
   SETTINGS: "settings",
   FISCAL_INVOICES: "fiscal.invoices",
+  CUSTOMERS: "customers",
 } as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -32,6 +33,7 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   [PERMISSIONS.USERS]: "Usuários",
   [PERMISSIONS.SETTINGS]: "Configurações",
   [PERMISSIONS.FISCAL_INVOICES]: "Notas fiscais",
+  [PERMISSIONS.CUSTOMERS]: "Clientes",
 };
 
 export const ALL_PERMISSIONS = Object.values(PERMISSIONS) as PermissionKey[];

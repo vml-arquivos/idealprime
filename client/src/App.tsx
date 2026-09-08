@@ -43,6 +43,8 @@ import BusinessSignup from "./pages/BusinessSignup";
 import BusinessPortal from "./pages/BusinessPortal";
 import B2BAdmin from "./pages/B2BAdmin";
 import NotasFiscais from "./pages/NotasFiscais";
+import Clientes from "./pages/Clientes";
+import ClienteDetalhe from "./pages/ClienteDetalhe";
 
 // Cotação de preços
 import Cotacoes from "./pages/Cotacoes";
@@ -203,6 +205,22 @@ function Router() {
         {() => (
           <P permission={PERMISSIONS.SALES}>
             <WishlistAdmin />
+          </P>
+        )}
+      </Route>
+
+      {/* ── CLIENTES (ficha PF/PJ) ────────────────────────────────────── */}
+      <Route path="/clientes">
+        {() => (
+          <P permission={PERMISSIONS.CUSTOMERS}>
+            <Clientes />
+          </P>
+        )}
+      </Route>
+      <Route path="/clientes/:id">
+        {(params: any) => (
+          <P permission={PERMISSIONS.CUSTOMERS}>
+            <ClienteDetalhe id={Number(params.id)} />
           </P>
         )}
       </Route>

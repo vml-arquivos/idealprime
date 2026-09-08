@@ -10,9 +10,14 @@ const t=initTRPC.context<TrpcContext>().create({transformer:superjson,errorForma
 export const router=t.router;
 export const publicProcedure=t.procedure;
 const requireAuthenticated=t.middleware(async({ctx,next})=>{if(!ctx.user)throw new TRPCError({code:"UNAUTHORIZED",message:UNAUTHED_ERR_MSG});return next({ctx:{...ctx,user:ctx.user}})});
+const requireCustomer=t.middleware(async({ctx,next})=>{if(!ctx.customer)throw new TRPCError({code:"UNAUTHORIZED",message:UNAUTHED_ERR_MSG});return next({ctx:{...ctx,customer:ctx.customer}})});
 const requireStaff=t.middleware(async({ctx,next})=>{if(!ctx.user)throw new TRPCError({code:"UNAUTHORIZED",message:UNAUTHED_ERR_MSG});if((ctx.user as any).accountType==="BUYER")throw new TRPCError({code:"FORBIDDEN",message:"Acesso restrito à equipe Ideal Prime."});return next({ctx:{...ctx,user:ctx.user}})});
 const requireAdmin=t.middleware(async({ctx,next})=>{if(!ctx.user)throw new TRPCError({code:"UNAUTHORIZED",message:UNAUTHED_ERR_MSG});if((ctx.user as any).accountType==="BUYER"||ctx.user.role!=="admin")throw new TRPCError({code:"FORBIDDEN",message:"Acesso restrito ao administrador."});return next({ctx:{...ctx,user:ctx.user}})});
 export const authenticatedProcedure=t.procedure.use(requireAuthenticated);
+// Procedure exigindo sessão de CLIENTE (área do cliente / minha conta) —
+// separada de authenticatedProcedure/protectedProcedure, que exigem sessão
+// da equipe interna.
+export const customerProcedure=t.procedure.use(requireCustomer);
 export const protectedProcedure=t.procedure.use(requireStaff);
 export const adminProcedure=t.procedure.use(requireAdmin);
 
