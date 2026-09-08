@@ -46,6 +46,71 @@ export async function signupBusiness(input:{legalName:string;tradeName?:string;c
   } catch(e){ await c.query("ROLLBACK").catch(()=>{}); throw e; } finally { c.release(); }
 }
 
+/**
+ * Cadastro de empresa pela EQUIPE (Gestão Comercial → "Nova empresa") —
+ * diferente de `signupBusiness` (autoatendimento público em
+ * /empresa/cadastro, que sempre cria a empresa como PENDING e exige login
+ * do responsável na hora). Aqui a equipe cadastra a empresa diretamente,
+ * já como APPROVED por padrão (pode liberar compra/tabela na hora, sem
+ * depender de uma segunda etapa de aprovação de algo que a própria equipe
+ * acabou de criar) — e o login do responsável é opcional: pode ser
+ * cadastrado agora ou depois, via `inviteBusinessMember`.
+ */
+export async function registerBusiness(input: {
+  legalName: string;
+  tradeName?: string;
+  cnpj: string;
+  email: string;
+  phone?: string;
+  status?: "PENDING" | "APPROVED";
+  priceListId?: number | null;
+  managerName?: string;
+  managerEmail?: string;
+  managerPassword?: string;
+}) {
+  const cnpj = normalizeCnpj(input.cnpj);
+  if (cnpj.length !== 14) throw new Error("CNPJ deve ter 14 dígitos");
+  const c = await getPool().connect();
+  try {
+    await c.query("BEGIN");
+    const dup = await c.query("select 1 from permupay_business_accounts where cnpj=$1", [cnpj]);
+    if (dup.rowCount) throw new Error("CNPJ já cadastrado");
+
+    const email = input.email.toLowerCase().trim();
+    const status = input.status ?? "APPROVED";
+    const business = await c.query(
+      `insert into permupay_business_accounts (legal_name,trade_name,cnpj,email,phone,status,assigned_price_list_id)
+       values ($1,$2,$3,$4,$5,$6,$7) returning *`,
+      [input.legalName.trim(), input.tradeName?.trim() || null, cnpj, email, input.phone?.trim() || null, status, input.priceListId ?? null]
+    );
+
+    let managerUserId: number | null = null;
+    if (input.managerEmail || input.managerPassword) {
+      if (!input.managerEmail || !input.managerPassword) {
+        throw new Error("Informe e-mail e senha do responsável juntos, ou deixe os dois em branco.");
+      }
+      const managerEmail = input.managerEmail.toLowerCase().trim();
+      const existsUser = await c.query(`select 1 from permupay_users where lower(email)=$1`, [managerEmail]);
+      if (existsUser.rowCount) throw new Error("E-mail do responsável já cadastrado");
+      const hash = await bcrypt.hash(input.managerPassword, 12);
+      const u = await c.query(
+        `insert into permupay_users (email,name,"passwordHash",role,account_type,permissions,active) values ($1,$2,$3,'user','BUYER',$4::jsonb,true) returning id`,
+        [managerEmail, (input.managerName?.trim() || input.legalName.trim()), hash, JSON.stringify(BUYER_DEFAULT_PERMISSIONS)]
+      );
+      managerUserId = u.rows[0].id;
+      await c.query(`insert into permupay_business_memberships (business_account_id,user_id,role) values ($1,$2,'MANAGER')`, [business.rows[0].id, managerUserId]);
+    }
+
+    await c.query("COMMIT");
+    return { business: business.rows[0], managerUserId };
+  } catch (e) {
+    await c.query("ROLLBACK").catch(() => {});
+    throw e;
+  } finally {
+    c.release();
+  }
+}
+
 export async function getMyBusiness(userId:number){
   const {rows}=await getPool().query(`select b.*,m.role as membership_role from permupay_business_memberships m join permupay_business_accounts b on b.id=m.business_account_id where m.user_id=$1 and m.active=true limit 1`,[userId]); return rows[0]??null;
 }

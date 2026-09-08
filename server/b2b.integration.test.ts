@@ -116,6 +116,53 @@ describe.skipIf(!DATABASE_URL)("B2B — integração contra PostgreSQL real", ()
     expect(business.status).toBe("PENDING");
   });
 
+  it("registerBusiness (cadastro direto pela equipe) cria empresa já aprovada, sem exigir login do responsável", async () => {
+    const suffix = randomUUID().slice(0, 6);
+    const { business, managerUserId } = await b2b.registerBusiness({
+      legalName: "Empresa Cadastro Direto LTDA",
+      tradeName: "Cadastro Direto",
+      cnpj: randomCnpj(),
+      email: `direto-${suffix}@b2btest.local`,
+      phone: "11999990000",
+    });
+    expect(business.status).toBe("APPROVED");
+    expect(business.trade_name).toBe("Cadastro Direto");
+    expect(managerUserId).toBeNull();
+
+    // CNPJ duplicado é rejeitado.
+    await expect(
+      b2b.registerBusiness({
+        legalName: "Outra Empresa LTDA",
+        cnpj: business.cnpj,
+        email: `outra-${suffix}@b2btest.local`,
+      })
+    ).rejects.toThrow(/CNPJ já cadastrado/);
+  });
+
+  it("registerBusiness cria também o login do responsável quando e-mail e senha são informados", async () => {
+    const suffix = randomUUID().slice(0, 6);
+    const managerEmail = `resp-${suffix}@b2btest.local`;
+    const { business, managerUserId } = await b2b.registerBusiness({
+      legalName: "Empresa Com Responsável LTDA",
+      cnpj: randomCnpj(),
+      email: `comresp-${suffix}@b2btest.local`,
+      status: "APPROVED",
+      managerName: "Responsável Direto",
+      managerEmail,
+      managerPassword: "senha12345",
+    });
+    expect(managerUserId).not.toBeNull();
+
+    const membership = await pool.query(
+      `select role from permupay_business_memberships where business_account_id=$1 and user_id=$2`,
+      [business.id, managerUserId]
+    );
+    expect(membership.rows[0]?.role).toBe("MANAGER");
+
+    const user = await pool.query(`select account_type from permupay_users where lower(email)=$1`, [managerEmail]);
+    expect(user.rows[0]?.account_type).toBe("BUYER");
+  });
+
   it("empresa pendente não compra (catálogo e pedido bloqueados)", async () => {
     const suffix = randomUUID().slice(0, 6);
     const { user, business } = await b2b.signupBusiness({

@@ -51,6 +51,26 @@ export const b2bRouter = router({
     }),
   admin: router({
     businesses: permissionProcedure(PERMISSIONS.B2B_OPERATIONS).query(() => b2b.listBusinesses()),
+    // ── Cadastro direto de empresa pela equipe ("Nova empresa") ─────────────
+    // Diferente de `signup` (autoatendimento público, sempre PENDING): aqui a
+    // equipe cadastra a empresa já pronta para operar — ver comentário em
+    // db.b2b.ts (registerBusiness).
+    register: adminProcedure
+      .input(
+        z.object({
+          legalName: z.string().min(2),
+          tradeName: z.string().max(200).optional(),
+          cnpj: z.string().min(11),
+          email: z.string().email(),
+          phone: z.string().max(40).optional(),
+          status: z.enum(["PENDING", "APPROVED"]).default("APPROVED"),
+          priceListId: z.number().int().positive().optional(),
+          managerName: z.string().min(2).optional(),
+          managerEmail: z.string().email().optional(),
+          managerPassword: z.string().min(8).optional(),
+        })
+      )
+      .mutation(({ input }) => b2b.registerBusiness(input)),
     approve: adminProcedure.input(z.object({ id: z.number().int().positive(), priceListId: z.number().int().positive().nullable().optional(), accountManagerUserId: z.number().int().positive().nullable().optional(), paymentTerms: z.unknown().optional(), minOrderCents: z.number().int().min(0).optional() })).mutation(({ input }) => b2b.approveBusiness(input.id, input)),
     suspend: adminProcedure.input(z.object({ id: z.number().int().positive() })).mutation(({ input }) => b2b.suspendBusiness(input.id)),
     priceLists: permissionProcedure(PERMISSIONS.B2B_OPERATIONS).query(() => b2b.listPriceLists()),

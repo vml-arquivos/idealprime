@@ -88,6 +88,9 @@ describe("b2bRouter — autorização no servidor (achado B1)", () => {
     const caller = b2bRouter.createCaller(fakeCtx(nonAdminStaff));
     await expect(caller.admin.approve({ id: 1 })).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(caller.admin.suspend({ id: 1 })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(
+      caller.admin.register({ legalName: "X LTDA", cnpj: "12345678901234", email: "x@empresa.local" })
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
   it("rejeita comprador em qualquer procedure restrita à equipe interna", async () => {

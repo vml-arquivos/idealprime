@@ -314,3 +314,41 @@ Shoop/PermuPay de produção para o banco do Ideal Prime — são bancos de dado
 diferentes e não há acesso/exportação deles configurado neste ambiente; se for
 necessário, o próximo passo é o cliente exportar esses cadastros (CSV/dump) para
 importação, ou informar como acessar o banco de origem.
+
+## Cadastro direto de empresa (PJ) pela equipe — "Nova empresa" (mesmo dia, rodada seguinte)
+
+Reportado pelo cliente com prints da tela: em Gestão Comercial (`/b2b-admin`) só existia
+a seção "Empresas pendentes", que apenas LISTA empresas que já se cadastraram sozinhas
+pelo link público (`/empresa/cadastro`) e aguardam aprovação — não havia nenhum jeito de
+a própria equipe cadastrar uma empresa direto pelo painel. Diferente da ficha de
+clientes PF (que já tinha "Novo cliente" pedido e entregue na rodada anterior), o lado
+PJ não tinha equivalente.
+
+**Backend**: nova função `registerBusiness` em `db.b2b.ts` — cadastro direto pela
+equipe, diferente de `signupBusiness` (autoatendimento público, sempre cria a empresa
+como `PENDING` e exige login do responsável na mesma hora). Aqui a empresa nasce
+`APPROVED` por padrão (a equipe pode escolher `PENDING` se preferir revisar depois) e o
+login do responsável é opcional — pode ser criado no mesmo cadastro (informando
+e-mail/senha do responsável) ou depois, através de `inviteBusinessMember` (função que já
+existia no backend, mas não tinha nenhum botão na tela até agora). Novo procedure
+`b2b.admin.register` (`adminProcedure`, mesma restrição de `approve`/`suspend`/
+`createPriceList`).
+
+**Frontend**: seção "Empresas pendentes" virou "Empresas" — cartão "Nova empresa" no
+topo (razão social, nome fantasia, CNPJ, e-mail, telefone, tabela comercial, situação
+inicial aprovada/pendente) e a listagem agora mostra TODAS as empresas (não só
+pendentes) com badge de situação, botão "Aprovar"/"Suspender" conforme o status, e um
+novo botão "Cadastrar responsável" por empresa (abre um diálogo que usa o
+`inviteBusinessMember` já existente) — fecha o ciclo completo: cadastrar a empresa,
+depois cadastrar quem vai fazer login por ela, sem depender do link público em nenhum
+dos dois passos.
+
+Verificação: `pnpm check` limpo, `pnpm test` com **3 testes novos** (`registerBusiness`
+cria empresa aprovada sem exigir login e rejeita CNPJ duplicado; `registerBusiness` com
+e-mail/senha do responsável cria o login e a associação MANAGER corretamente; o router
+rejeita staff não-admin em `admin.register`, mesma proteção já testada para
+`approve`/`suspend`) — suíte completa **108/108 testes passando, nenhuma regressão**;
+`pnpm build` concluído com sucesso; e verificação end-to-end real contra o build de
+produção: login de admin via HTTP, `b2b.admin.register` cadastrou a empresa,
+`b2b.admin.businesses` retornou a lista atualizada, `b2b.admin.inviteMember` cadastrou o
+responsável com sucesso.
