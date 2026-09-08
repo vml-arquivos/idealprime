@@ -352,3 +352,50 @@ rejeita staff não-admin em `admin.register`, mesma proteção já testada para
 produção: login de admin via HTTP, `b2b.admin.register` cadastrou a empresa,
 `b2b.admin.businesses` retornou a lista atualizada, `b2b.admin.inviteMember` cadastrou o
 responsável com sucesso.
+
+## Importação de planilha na Entrada de Produtos (mesmo dia, rodada seguinte)
+
+Pedido do cliente: "está faltando a função de subir a planilha... e já alimentar...
+cadastro de produtos automaticamente na área de entrada... onde cadastra a entrada de
+produtos, novo lote" — ou seja, poder subir uma planilha atualizada de produtos e
+deixar os itens da entrada (`/entrada-produtos`) já preenchidos automaticamente, em vez
+de digitar um por um. Conferido que essa função não existia nem no Ideal Prime nem no
+PermuPay de referência — construção nova, não portabilidade.
+
+**Formato aceito**: a tela já exportava uma planilha (`Exportar planilha`) com uma aba
+"Produtos da Entrada"; a importação foi desenhada para fechar o ciclo — exportar,
+editar no Excel, reimportar — reconhecendo exatamente essas colunas, mas com leitura
+tolerante de cabeçalho (aceita variações com/sem acento, maiúscula/minúscula, e
+sinônimos comuns: "Produto"/"Nome"/"Item"/"Descrição" para o nome, "Qtd"/"Qtde" para
+quantidade, etc.). Cada linha é validada individualmente (nome obrigatório, quantidade
+e custo unitário válidos, cotação obrigatória quando a moeda é USD) e o produto é
+casado com o cadastro existente por SKU ou, na ausência, por nome exato — casou, a
+linha entra como "produto existente"; não casou, entra como "novo produto", igual ao
+fluxo manual. Linhas com erro são reportadas ao usuário (com o número da linha, para
+corrigir na própria planilha) sem travar a importação das linhas válidas. Também foi
+adicionado um botão "Baixar modelo de planilha" com uma linha de exemplo, para quem
+ainda não tem uma planilha para adaptar.
+
+**Onde foi implementado**: a lógica de leitura/validação (normalização de cabeçalho,
+aliases de coluna, casamento de moeda/categoria/forma de pagamento, casamento de
+produto existente, validação linha a linha) foi extraída para `shared/batchImport.ts`
+— e não deixada só dentro da página — porque a suíte de testes deste projeto
+(`vitest.config.ts`) só cobre `server/**` e `shared/**`; não há infraestrutura de teste
+do lado do client (sem jsdom/Testing Library). Essa extração segue exatamente o mesmo
+padrão já usado por essa mesma tela para o motor de cálculo de custo/rateio
+(`shared/pricing.batch.ts`). `BatchPricing.tsx` ficou responsável só pela leitura do
+arquivo (`xlsx`/`csv` via biblioteca `xlsx`, já usada na própria tela para a
+exportação) e pela orquestração (botão, input de arquivo oculto, toasts, popular os
+itens da entrada) — nenhuma lógica de negócio nova ficou sem teste automatizado.
+
+Verificação: `pnpm check` limpo, `pnpm test` com **13 testes novos** em
+`shared/batchImport.test.ts` (normalização de cabeçalho com acento, conversão de
+número em formato brasileiro/americano, casamento de categoria/forma de pagamento com
+fallback para "Outro", casamento de produto existente por SKU e por nome, exigência de
+cotação para moeda USD, e as validações de linha — nome ausente, quantidade inválida,
+custo inválido) — suíte completa **121/121 testes passando** (108 anteriores + 13
+novos), **nenhuma regressão**; `pnpm build` concluído com sucesso (client + servidor).
+Como é uma função só do lado do client (sem rota de servidor nova), a verificação
+end-to-end ficou no `pnpm check`/`pnpm build` (bundle gerado sem erro de tipo) e nos
+testes automatizados da lógica de parsing — não há um smoke test HTTP aplicável aqui,
+diferente das rodadas anteriores.

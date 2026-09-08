@@ -2,12 +2,22 @@
  * BatchPricing.tsx — Entrada de Produtos profissional, sem tabela espremida
  *
  * Esta tela registra entradas de produtos/lotes, calcula custo real com rateio
- * proporcional, permite produto existente ou novo, preserva FIFO e exporta
- * planilha .xlsx do preview atual.
+ * proporcional, permite produto existente ou novo, preserva FIFO, exporta
+ * planilha .xlsx do preview atual e IMPORTA uma planilha (.xlsx/.csv) para
+ * alimentar automaticamente os itens da entrada — pedido explícito: subir a
+ * planilha atualizada de produtos em vez de digitar item por item. O formato
+ * aceito espelha as colunas da aba "Produtos da Entrada" já gerada por
+ * `exportSpreadsheet`, então exportar → editar no Excel → reimportar funciona
+ * de fábrica (ver `downloadImportTemplate`/`handleImportFile` abaixo).
  */
 
-import { useMemo, useState, useCallback, type ReactNode } from "react";
+import { useMemo, useRef, useState, useCallback, type ReactNode } from "react";
 import { CurrencyInput, parseCurrencyValue } from "@/components/CurrencyInput";
+import {
+  parseImportRow as sharedParseImportRow,
+  type ExistingProductForImport,
+  type ParsedImportItem,
+} from "@shared/batchImport";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
@@ -49,6 +59,7 @@ import {
   AlertTriangle,
   PackagePlus,
   Download,
+  Upload,
   WalletCards,
   Eye,
   Pencil,
@@ -183,6 +194,82 @@ function toBatchItem(item: LocalItem): BatchItemInput {
 
 function displayMoneyOrEmpty(value: number): string {
   return value > 0 ? formatCurrency(value) : "";
+}
+
+// ─── Importar planilha (.xlsx/.csv) → itens da entrada ────────────────────────
+// Aceita cabeçalhos tolerantes (com/sem acento, maiúscula/minúscula) e reconhece
+// como alias as próprias colunas já produzidas por `exportSpreadsheet` (aba
+// "Produtos da Entrada"), para o ciclo exportar → editar no Excel → reimportar
+// funcionar sem exigir um formato à parte.
+//
+// A lógica de parsing em si (normalização de cabeçalho, aliases, matching de
+// produto existente, validação linha a linha) mora em `shared/batchImport.ts`
+// para ter cobertura de testes automatizados (vitest só cobre `server/**` e
+// `shared/**` — não há infraestrutura de teste no lado do client). Aqui só
+// convertemos o `ParsedImportItem` (tipos simples) para o `LocalItem` desta
+// página (campos numéricos como string, tipos literais da UI).
+const IMPORT_MAX_ROWS = 500;
+
+function importItemToLocalItem(item: ParsedImportItem): LocalItem {
+  return {
+    _id: crypto.randomUUID(),
+    entryMode: item.entryMode,
+    productId: item.productId,
+    productName: item.productName,
+    category: item.category as ProductCategory,
+    currency: item.currency,
+    unitCostOriginal: String(item.unitCostOriginal),
+    exchangeRate: item.currency === "USD" ? String(item.exchangeRate) : "",
+    quantity: String(item.quantity),
+    acquisitionPaymentMethod: item.acquisitionPaymentMethod as AcquisitionPaymentMethod,
+    desiredMarginRate: item.desiredMarginRate != null ? String(item.desiredMarginRate) : "",
+    estimatedTaxRate: item.estimatedTaxRate != null ? String(item.estimatedTaxRate) : "",
+  };
+}
+
+type ImportRowResult =
+  | { ok: true; item: LocalItem }
+  | { ok: false; error: string };
+
+function parseImportRow(
+  raw: Record<string, unknown>,
+  rowNumber: number,
+  existingProducts: ExistingProductForImport[],
+): ImportRowResult {
+  const result = sharedParseImportRow(
+    raw,
+    rowNumber,
+    existingProducts,
+    CATEGORY_OPTIONS,
+    PAYMENT_OPTIONS,
+  );
+  if (!result.ok) return result;
+  return { ok: true, item: importItemToLocalItem(result.item) };
+}
+
+async function readWorkbookRows(file: File): Promise<Record<string, unknown>[]> {
+  const XLSX = await import("xlsx");
+  const extension = file.name.toLowerCase().split(".").pop();
+
+  let workbook: any;
+  if (extension === "csv") {
+    const text = await file.text();
+    workbook = XLSX.read(text, { type: "string" });
+  } else if (extension === "xlsx" || extension === "xls") {
+    const buffer = await file.arrayBuffer();
+    workbook = XLSX.read(buffer, { type: "array" });
+  } else {
+    throw new Error("Formato não suportado. Envie um arquivo .xlsx ou .csv.");
+  }
+
+  const preferredSheet = "Produtos da Entrada";
+  const sheetName = workbook.SheetNames.includes(preferredSheet)
+    ? preferredSheet
+    : workbook.SheetNames[0];
+  if (!sheetName) throw new Error("A planilha não contém nenhuma aba.");
+
+  const sheet = workbook.Sheets[sheetName];
+  return XLSX.utils.sheet_to_json(sheet, { defval: "", raw: false });
 }
 
 function Field({
@@ -393,6 +480,8 @@ export default function BatchPricing() {
   const [collapsedItemIds, setCollapsedItemIds] = useState<Set<string>>(
     () => new Set(),
   );
+  const importFileInputRef = useRef<HTMLInputElement | null>(null);
+  const [importingSpreadsheet, setImportingSpreadsheet] = useState(false);
 
   const [preview, setPreview] = useState<BatchPricingResult | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
@@ -939,6 +1028,111 @@ export default function BatchPricing() {
     }
   };
 
+  // ── Importar planilha (.xlsx/.csv) → alimenta os itens da entrada ──────────
+  // Pedido explícito: subir a planilha atualizada de produtos e já cadastrar
+  // a entrada/lote automaticamente, sem digitar item por item. Produtos já
+  // cadastrados (por SKU ou nome) são reconhecidos e ligados como "existente";
+  // os demais entram como "novo produto" — exatamente como no cadastro manual.
+  const handleImportButtonClick = () => {
+    importFileInputRef.current?.click();
+  };
+
+  const handleImportFileSelected = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = ""; // permite reimportar o mesmo arquivo em seguida
+    if (!file) return;
+
+    setImportingSpreadsheet(true);
+    try {
+      const rawRows = await readWorkbookRows(file);
+      if (!rawRows.length) {
+        toast.error("Planilha vazia ou sem produtos na aba lida.");
+        return;
+      }
+      if (rawRows.length > IMPORT_MAX_ROWS) {
+        toast.error(`A planilha excede o limite de ${IMPORT_MAX_ROWS} linhas por importação.`);
+        return;
+      }
+
+      const existingProducts: ExistingProductForImport[] = (productsQuery.data ?? []).map(
+        (product: any) => ({
+          id: product.id,
+          name: product.name,
+          sku: product.sku,
+          category: product.category,
+        }),
+      );
+      const loadedItems: LocalItem[] = [];
+      const errors: string[] = [];
+
+      rawRows.forEach((raw, index) => {
+        const result = parseImportRow(raw, index + 2, existingProducts); // +2: linha 1 é cabeçalho
+        if (result.ok) loadedItems.push(result.item);
+        else errors.push(result.error);
+      });
+
+      if (!loadedItems.length) {
+        toast.error(
+          errors[0] ?? "Nenhuma linha válida encontrada na planilha.",
+        );
+        return;
+      }
+
+      setRegularizationMode(false);
+      setSavedBatchId(null);
+      setSelectedBatchId(null);
+      setPreview(null);
+      setPreviewError(null);
+      setItems(loadedItems);
+      setCollapsedItemIds(new Set(loadedItems.slice(1).map((item) => item._id)));
+
+      const existingCount = loadedItems.filter((item) => item.entryMode === "EXISTING").length;
+      const newCount = loadedItems.length - existingCount;
+      toast.success(
+        `${loadedItems.length} produto(s) carregados da planilha (${existingCount} já cadastrados, ${newCount} novos).`,
+      );
+      if (errors.length) {
+        toast.warning(
+          `${errors.length} linha(s) ignorada(s): ${errors.slice(0, 3).join(" ")}${errors.length > 3 ? " …" : ""}`,
+        );
+      }
+    } catch (error: any) {
+      toast.error(error?.message ?? "Não foi possível ler a planilha enviada.");
+    } finally {
+      setImportingSpreadsheet(false);
+    }
+  };
+
+  const downloadImportTemplate = async () => {
+    try {
+      const XLSX = await import("xlsx");
+      const exampleRows = [
+        {
+          Produto: "iPhone 13 128GB",
+          SKU: "",
+          Categoria: "Celular",
+          Quantidade: 10,
+          Moeda: "BRL",
+          "Custo original": 2500,
+          Cotação: "",
+          "Forma de pagamento da compra": "Pix",
+          "Margem desejada": 30,
+          "Imposto estimado": 6,
+        },
+      ];
+      const workbook = XLSX.utils.book_new();
+      const sheet = XLSX.utils.json_to_sheet(exampleRows);
+      sheet["!cols"] = [16, 14, 14, 12, 10, 16, 10, 26, 16, 16].map((wch) => ({ wch }));
+      XLSX.utils.book_append_sheet(workbook, sheet, "Produtos da Entrada");
+      XLSX.writeFile(workbook, "modelo-entrada-produtos.xlsx");
+      toast.success("Modelo de planilha baixado.");
+    } catch (error: any) {
+      toast.error(error?.message ?? "Não foi possível gerar o modelo.");
+    }
+  };
+
   const handleSaveAndProcess = async (commitToStock: boolean) => {
     const validItemsForPreview = validateEntry();
     if (!validItemsForPreview) return;
@@ -1232,17 +1426,35 @@ export default function BatchPricing() {
                 </p>
               )}
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={loadRegularizationCandidates}
-              disabled={regularizationCandidatesQuery.isLoading}
-              className="shrink-0"
-            >
-              <PackagePlus className="mr-2 h-4 w-4" />
-              Carregar produtos sem entrada
-            </Button>
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <input
+                ref={importFileInputRef}
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                className="hidden"
+                onChange={handleImportFileSelected}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleImportButtonClick}
+                disabled={importingSpreadsheet}
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                {importingSpreadsheet ? "Importando…" : "Importar planilha"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={loadRegularizationCandidates}
+                disabled={regularizationCandidatesQuery.isLoading}
+              >
+                <PackagePlus className="mr-2 h-4 w-4" />
+                Carregar produtos sem entrada
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -1737,6 +1949,10 @@ export default function BatchPricing() {
       <Separator />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+        <Button variant="outline" onClick={downloadImportTemplate}>
+          <Download className="mr-2 h-4 w-4" />
+          Baixar modelo de planilha
+        </Button>
         <Button variant="outline" onClick={exportSpreadsheet}>
           <Download className="mr-2 h-4 w-4" />
           Exportar planilha
