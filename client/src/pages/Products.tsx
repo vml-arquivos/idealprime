@@ -46,7 +46,6 @@ import { toast } from "sonner";
 type ProductView =
   | "todos"
   | "shop"
-  | "quaseZero"
   | "publicados"
   | "rascunhos"
   | "paraPublicar";
@@ -69,9 +68,6 @@ export default function Products() {
   const [reorderMode, setReorderMode] = useState(false);
   const [orderedProducts, setOrderedProducts] = useState<any[]>([]);
   const dragIndex = useRef<number | null>(null);
-
-  const isQuaseZeroProduct = (product: any) =>
-    product.salesChannel === "QUASE_ZERO" || product.salesChannel === "BOTH";
 
   const isShopProduct = (product: any) =>
     product.salesChannel !== "QUASE_ZERO";
@@ -173,8 +169,9 @@ export default function Products() {
 
   const shareProduct = (product: any) => {
     const baseUrl = import.meta.env.VITE_STOREFRONT_URL || window.location.origin;
-    const path = isQuaseZeroProduct(product) && product.salesChannel !== "BOTH" ? "/quase-zero" : "/vitrine";
-    const url = `${baseUrl}${path}/${product.id}`;
+    // A vitrine "/quase-zero" está desativada no Ideal Prime (ver AUDITORIA) — todo
+    // link compartilhado aponta para a vitrine padrão.
+    const url = `${baseUrl}/vitrine/${product.id}`;
 
     if (navigator.share) {
       navigator
@@ -206,7 +203,6 @@ export default function Products() {
         view === "todos" ||
         view === "paraPublicar" ||
         (view === "shop" && isShopProduct(p)) ||
-        (view === "quaseZero" && isQuaseZeroProduct(p)) ||
         (view === "publicados" && p.published) ||
         (view === "rascunhos" && !p.published);
 
@@ -217,7 +213,6 @@ export default function Products() {
   const publishedCount = (products as any[]).filter((p) => p.published).length;
   const draftCount = (products as any[]).filter((p) => !p.published).length;
   const pendingCount = (pendingProducts as any[]).length;
-  const quaseZeroCount = (products as any[]).filter((p) => isQuaseZeroProduct(p)).length;
   const shopCount = (products as any[]).filter((p) => isShopProduct(p)).length;
 
   const exportToExcel = () => {
@@ -236,7 +231,7 @@ export default function Products() {
       "Publicado na Vitrine": p.published ? "Sim" : "Não",
       "Status": p.active ? "Ativo" : "Inativo",
       "Data de Criação": new Date(p.createdAt).toLocaleDateString("pt-BR"),
-      "Link do Produto": `${baseUrl}/${isQuaseZeroProduct(p) && p.salesChannel !== "BOTH" ? "quase-zero" : "vitrine"}/${p.id}`,
+      "Link do Produto": `${baseUrl}/vitrine/${p.id}`,
     }));
 
     const wb = XLSX.utils.book_new();
@@ -366,7 +361,8 @@ export default function Products() {
                   [
                     { key: "todos", label: `Todos (${products.length})` },
                     { key: "shop", label: `Ideal Prime (${shopCount})` },
-                    { key: "quaseZero", label: `Quase Zero (${quaseZeroCount})` },
+                    // Aba do canal alternativo removida de propósito (ver AUDITORIA) —
+                    // não é mais possível selecionar essa view.
                     { key: "publicados", label: `Publicados (${publishedCount})` },
                     { key: "rascunhos", label: `Rascunhos (${draftCount})` },
                     { key: "paraPublicar", label: `Para Publicar (${pendingCount})` },
@@ -431,9 +427,7 @@ export default function Products() {
           ) : filteredProducts.length === 0 ? (
             <div className="rounded-xl border border-border bg-card p-8 text-center">
               <p className="text-sm text-muted-foreground">
-                {view === "quaseZero"
-                  ? "Nenhum produto Quase Zero encontrado."
-                  : view === "shop"
+                {view === "shop"
                     ? "Nenhum produto do Shop encontrado."
                     : view === "paraPublicar"
                       ? "Nenhum produto pendente de publicação encontrado."
@@ -495,13 +489,15 @@ export default function Products() {
                                 </Badge>
                               )}
 
+                              {/* Rótulo "Quase Zero" oculto de propósito (marca/app à parte — ver AUDITORIA);
+                                  mantido como "Canal alternativo" até haver um nome definitivo. */}
                               {product.salesChannel === "QUASE_ZERO" ? (
                                 <Badge className="border-0 bg-amber-100 text-[11px] text-amber-800">
-                                  Quase Zero
+                                  Canal alternativo
                                 </Badge>
                               ) : product.salesChannel === "BOTH" ? (
                                 <Badge className="border-0 bg-blue-100 text-[11px] text-blue-700">
-                                  Shop + Quase Zero
+                                  Ideal Prime + canal alternativo
                                 </Badge>
                               ) : (
                                 <Badge className="border-0 bg-slate-100 text-[11px] text-slate-700">
@@ -615,9 +611,9 @@ export default function Products() {
                               <p className="text-[11px] text-muted-foreground">Canal</p>
                               <p className="text-sm font-medium text-foreground">
                                 {product.salesChannel === "QUASE_ZERO"
-                                  ? "Quase Zero"
+                                  ? "Canal alternativo"
                                   : product.salesChannel === "BOTH"
-                                    ? "Shop + Quase Zero"
+                                    ? "Ideal Prime + canal alternativo"
                                     : "Ideal Prime"}
                               </p>
                             </div>

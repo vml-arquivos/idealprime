@@ -10,7 +10,10 @@ import { PERMISSIONS, type PermissionKey } from "@shared/permissions";
 
 // Páginas públicas
 import Marketplace from "./pages/Marketplace";
-import QuaseZero from "./pages/QuaseZero";
+// "Quase Zero" (produtos usados/seminovos) é uma aplicação/marca à parte e não deve
+// ficar exposta no Ideal Prime com esse nome/formato. Rota oculta por ora — ver
+// docs/ideal-prime/AUDITORIA_PERMUPAY_IDEAL_PRIME.md e decisão pendente de nome.
+// import QuaseZero from "./pages/QuaseZero";
 import ProductPage from "./pages/ProductPage";
 import Login from "./pages/Login";
 import PricingSimulator from "./pages/PricingSimulator";
@@ -39,6 +42,7 @@ import MinhaConta from "./pages/MinhaConta";
 import BusinessSignup from "./pages/BusinessSignup";
 import BusinessPortal from "./pages/BusinessPortal";
 import B2BAdmin from "./pages/B2BAdmin";
+import NotasFiscais from "./pages/NotasFiscais";
 
 // Cotação de preços
 import Cotacoes from "./pages/Cotacoes";
@@ -80,7 +84,7 @@ function Router() {
       {/* ── PÚBLICAS ──────────────────────────────────────────────────── */}
       <Route path="/" component={Marketplace} />
       <Route path="/vitrine" component={Marketplace} />
-      <Route path="/quase-zero" component={QuaseZero} />
+      {/* /quase-zero desativada de propósito — ver comentário do import acima */}
       <Route path="/vitrine/:id" component={ProductPage} />
       <Route path="/login" component={Login} />
       <Route path="/empresa/cadastro" component={BusinessSignup} />
@@ -93,6 +97,7 @@ function Router() {
       <Route path="/minha-conta" component={MinhaConta} />
 
       <Route path="/b2b-admin">{() => (<PL permission={PERMISSIONS.B2B_OPERATIONS}><B2BAdmin /></PL>)}</Route>
+      <Route path="/notas-fiscais">{() => (<PL permission={PERMISSIONS.FISCAL_INVOICES}><NotasFiscais /></PL>)}</Route>
 
       {/* ── DASHBOARD ─────────────────────────────────────────────────── */}
       <Route path="/dashboard">

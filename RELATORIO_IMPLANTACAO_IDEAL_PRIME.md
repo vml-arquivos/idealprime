@@ -1,6 +1,6 @@
 # Relatório de implantação — Ideal Prime
 
-Última atualização: 2026-09-08, nesta rodada de auditoria/correção do módulo B2B.
+Última atualização: 2026-09-08. Ver também a seção "Remoção da marca 'Quase Zero'" mais abaixo, referente a uma segunda rodada no mesmo dia.
 
 ## Estado do código
 
@@ -39,7 +39,13 @@ Sete migrations/módulos inteiros do PermuPay que nunca foram portados ao Ideal 
 
 Cada um desses merece a mesma profundidade de auditoria comportamental feita aqui para o B2B antes de ser portado — copiar arquivo por arquivo sem essa auditoria é exatamente o que a tarefa original pediu para não fazer. Recomenda-se tratá-los como entregas subsequentes, um módulo por vez.
 
-Também permanecem fora do escopo, por serem limitações intencionais do produto (não relacionadas à auditoria): emissão de NF-e, gateway de pagamento individual por empresa, ERP, estorno bancário automático, múltiplos depósitos e notificações automáticas por e-mail/WhatsApp. Pagamento nesta versão é confirmação manual pela equipe. Nenhum desses itens deve ser apresentado como concluído.
+Também permanecem fora do escopo, por serem limitações intencionais do produto (não relacionadas à auditoria): gateway de pagamento individual por empresa, ERP, estorno bancário automático, múltiplos depósitos e notificações automáticas por e-mail/WhatsApp. Pagamento nesta versão é confirmação manual pela equipe. Nenhum desses itens deve ser apresentado como concluído.
+
+A emissão de NF-e **saiu** dessa lista nesta rodada: a arquitetura (banco, rotas, tela)
+está pronta para receber qualquer provedor — ver seção "Nota Fiscal Eletrônica" mais
+abaixo e `docs/ideal-prime/NFE_INTEGRACAO.md`. Nenhum provedor real está configurado
+ainda; isso continua dependendo de uma decisão comercial do cliente (qual provedor,
+certificado digital, ambiente de homologação).
 
 ## Controles implementados (visão geral, atualizada)
 
@@ -48,3 +54,82 @@ RBAC equipe/comprador validado no servidor (não só na interface) e agora cober
 ## Bloqueadores remanescentes para produção
 
 Nenhum dos 5 achados bloqueadores identificados nesta auditoria permanece em aberto — todos foram corrigidos e cobertos por teste nesta rodada. **Não há bloqueador conhecido para o fluxo B2B em si** ao final desta entrega. A ressalva é a lacuna de paridade com o PermuPay (achado A1, sete módulos legados não portados) — não bloqueia o B2B, mas deve ser resolvida antes de se declarar paridade completa com o PermuPay Vendas.
+
+## Remoção da marca "Quase Zero" (2026-09-08, segunda rodada)
+
+A pedido do cliente: "Quase Zero" é uma aplicação/marca à parte (vitrine para produtos usados/seminovos que não devem ser vendidos como novos) e não deve aparecer com esse nome/formato dentro do Ideal Prime. Como ainda não foi decidido um nome definitivo para esse canal, a decisão foi **ocultar** em vez de renomear.
+
+O que foi feito:
+
+- **Rota pública `/quase-zero` desativada** (`client/src/App.tsx`) — import e `<Route>` comentados, não removidos, para facilitar reativação futura com outro nome.
+- **Página `client/src/pages/QuaseZero.tsx` removida** — continha toda a marca visual (logo, textos "Quase Zero"); como ficou órfã (nenhuma rota a referenciava mais), manter o arquivo só preservaria a marca no repositório sem propósito.
+- **Endpoint público `trpc.marketplace.quaseZeroProducts` desativado** (`server/routers.ts`) — comentado, não removido; era o único consumidor restante de `dbBatches.getQuaseZeroProducts()` após a página ser desligada, e por ser público ficaria acessível via chamada direta à API mesmo sem link nenhum no site.
+- **Menu do admin** (`client/src/components/DashboardLayout.tsx`): removido item de navegação duplicado que apontava para "Quase Zero" (na prática apontava para a mesma rota `/produtos`).
+- **Tela de produtos** (`client/src/pages/Products.tsx`): removida a aba de filtro "Quase Zero" e todo o código que só existia para ela (tipo, contagem, filtro, mensagem de lista vazia); os dois links de compartilhamento de produto (individual e exportação para Excel) que apontavam condicionalmente para `/quase-zero` agora sempre apontam para `/vitrine`; os dois badges visíveis ("Quase Zero" e "Shop + Quase Zero") foram renomeados para "Canal alternativo" e "Ideal Prime + canal alternativo".
+- **Formulário de produto** (`client/src/pages/ProductForm.tsx`): rótulos do seletor "Canal de venda" trocados de "Quase Zero" para "Canal alternativo (oculto)" / "Ideal Prime + canal alternativo (oculto)"; tooltip não cita mais o nome da marca.
+
+O que foi mantido intencionalmente (é dado de negócio, não branding, e remover quebraria produtos já cadastrados com esse canal):
+
+- A coluna `products.salesChannel` e o valor `QUASE_ZERO` no banco/schema (`drizzle/schema.ts`, `server/db.ts`) — produtos já classificados nesse canal continuam existindo e continuam automaticamente excluídos da vitrine pública principal (`Marketplace.tsx` já filtra `salesChannel !== "QUASE_ZERO"`, comportamento anterior a esta mudança).
+- A função `getQuaseZeroProducts()` em `server/db.batches.ts` — não é mais chamada por nenhuma rota (o único endpoint que a expunha foi desativado), fica apenas disponível para reaproveitamento se/quando um nome definitivo for escolhido.
+
+Verificação após a remoção (nesta sessão, com PostgreSQL 16 real): `pnpm check` limpo, `pnpm test` com **85/85 testes passando** (mesma suíte da rodada de auditoria B2B, sem regressão), `pnpm build` concluído com sucesso. Conferido por grep no bundle final (`dist/public/assets/*.js`, `dist/index.html`, `dist/index.js`): nenhuma ocorrência de "Quase Zero" nem de `/quase-zero` no HTML/JS servido ao navegador — as únicas ocorrências restantes no bundle do servidor são comentários de código (nunca enviados ao cliente).
+
+Pendência explícita: quando houver um nome definitivo para esse canal, a reativação é direta — descomentar a rota em `App.tsx` e o endpoint em `routers.ts`, recriar a página de vitrine com o novo nome/visual, e atualizar os rótulos do seletor em `ProductForm.tsx`.
+
+## Nota Fiscal Eletrônica — arquitetura de preparação (2026-09-08, terceira rodada)
+
+A pedido do cliente: deixar o sistema **pronto para receber qualquer API de emissão de
+NF-e** que venha a ser escolhida, sem configurar nenhum provedor real por enquanto
+("não vamos configurar nenhuma API por enquanto... só quero que as rotas, o sistema já
+esteja pronto pra aceitar"). Detalhamento completo da arquitetura, do modelo de dados e
+do passo a passo para plugar um provedor real em `docs/ideal-prime/NFE_INTEGRACAO.md`.
+
+O que foi feito:
+
+- **Migration aditiva `drizzle/0032_fiscal_invoices.sql`** — três tabelas novas:
+  `permupay_fiscal_settings` (provedor/ambiente/dados do emitente, linha única),
+  `permupay_invoices` (uma nota por pedido, referenciando `permupay_orders` OU
+  `permupay_b2b_orders` via CHECK, nunca os dois) e `permupay_invoice_events`
+  (auditoria de cada tentativa). Nenhum `DROP`/`TRUNCATE`; aplicada e verificada com
+  `pnpm migrate:verify` e `pnpm db:migrate` contra PostgreSQL 16 real nesta sessão.
+- **Camada de provedor plugável** (`server/fiscal/types.ts`, `server/fiscal/registry.ts`,
+  `server/fiscal/providers/{none,mock}.provider.ts`) — interface `NfeProvider` com
+  `emit`/`cancel`/`getStatus`; hoje só existem o provedor `NONE` (não emite nada de
+  verdade, só registra a solicitação) e `MOCK` (simula emissão para testes). Plugar
+  Focus NFe, PlugNotas, eNotas, NFe.io ou integração direta com a SEFAZ é isolado a um
+  novo arquivo em `server/fiscal/providers/` + uma linha no registro — nenhuma mudança
+  em `db.fiscal.ts`, no router ou na tela.
+- **`server/db.fiscal.ts`** — orquestra emissão/cancelamento com a mesma disciplina de
+  concorrência do módulo B2B: trava a linha do PEDIDO de origem (`FOR UPDATE`) antes de
+  criar/reaproveitar a nota, tornando duas emissões concorrentes do mesmo pedido
+  seguras por padrão (testado com chamadas paralelas de verdade contra o banco).
+  Reemissão de nota `AUTHORIZED` é idempotente; `REJECTED`/`ERROR` são retentados na
+  mesma linha; só após `CANCELLED` uma nova linha pode ser aberta para o mesmo pedido.
+- **Rotas tRPC `fiscal.*`** (`server/fiscal.router.ts`, montadas em `server/routers.ts`):
+  `fiscal.settings.get/update/knownProviders` e
+  `fiscal.invoices.list/forOrder/events/eligibleRetailOrders/eligibleB2BOrders/emit/cancel/refreshStatus`.
+  Nova permissão `fiscal.invoices` (`shared/permissions.ts`) — nenhum comprador B2B a
+  possui por padrão (emitir nota é operação interna da equipe); alterar as
+  configurações fiscais exige admin, não só a permissão de configurações.
+- **Tela `client/src/pages/NotasFiscais.tsx`** (rota `/notas-fiscais`, item "Notas
+  Fiscais" no menu Financeiro) — lista pedidos Ideal Prime (NFC-e) e B2B (NF-e) com o
+  status da nota e ação de emitir/cancelar; avisa claramente quando nenhum provedor
+  está configurado.
+- **Aba "Nota Fiscal" em Configurações** (`client/src/pages/Configuracoes.tsx`, só
+  admin) — seleção de provedor (com os ainda não implementados marcados "em breve"),
+  ambiente (homologação/produção) e dados do emitente (razão social, CNPJ, IE,
+  cidade/UF).
+
+Lacunas conhecidas, documentadas em `NFE_INTEGRACAO.md` (não bloqueiam a preparação,
+mas precisam de decisão quando um provedor real for escolhido): pedidos de varejo não
+coletam CPF/CNPJ do comprador hoje; não há regra de CFOP por operação; os campos de
+XML/DANFE existem no banco mas nenhum provedor real os preenche ainda.
+
+Verificação nesta sessão: `pnpm check` limpo, `pnpm migrate:verify` e `pnpm db:migrate`
+contra PostgreSQL 16 real, `pnpm test` com **14 testes novos** (6 de autorização no
+router sem banco, 8 de integração contra banco real — emissão, idempotência,
+concorrência real com chamadas paralelas, cancelamento/reemissão, NF-e B2B vs. NFC-e
+varejo) — suíte completa **99/99 testes passando**, sem regressão nos 85 anteriores;
+`pnpm build` concluído com sucesso; servidor de produção (`node dist/index.js`) subiu
+de fato com `GET /healthz` retornando 200.

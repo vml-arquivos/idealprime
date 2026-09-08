@@ -5,7 +5,7 @@
  * - Botão "Apagar" usuário com confirmação
  * - Mantidos: criar, ativar/desativar, alterar role, redefinir senha
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { trpc } from "@/lib/trpc";
 import {
@@ -26,6 +26,8 @@ import {
   XCircle,
   Loader2,
   Trash2,
+  Receipt,
+  AlertTriangle,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -380,8 +382,136 @@ function TabMinhaConta({ user }: { user: { id: number; name: string; email: stri
   );
 }
 
+const PROVIDER_OPTIONS = [
+  { value: "NONE", label: "Nenhum (desativado)" },
+  { value: "MOCK", label: "Simulação interna (testes)" },
+  { value: "FOCUS_NFE", label: "Focus NFe (em breve)" },
+  { value: "PLUGNOTAS", label: "PlugNotas (em breve)" },
+  { value: "ENOTAS", label: "eNotas (em breve)" },
+  { value: "NFEIO", label: "NFe.io (em breve)" },
+  { value: "CUSTOM", label: "Outro / personalizado (em breve)" },
+];
+
+function TabFiscal() {
+  const query = trpc.fiscal.settings.get.useQuery();
+  const [form, setForm] = useState<{
+    provider: string;
+    environment: string;
+    issuerLegalName: string;
+    issuerCnpj: string;
+    issuerStateRegistration: string;
+    issuerCity: string;
+    issuerState: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!query.data) return;
+    setForm({
+      provider: query.data.provider,
+      environment: query.data.environment,
+      issuerLegalName: query.data.issuerLegalName ?? "",
+      issuerCnpj: query.data.issuerCnpj ?? "",
+      issuerStateRegistration: query.data.issuerStateRegistration ?? "",
+      issuerCity: query.data.issuerCity ?? "",
+      issuerState: query.data.issuerState ?? "",
+    });
+  }, [query.data]);
+
+  const updateMutation = trpc.fiscal.settings.update.useMutation({
+    onSuccess: () => { toast.success("Configuração fiscal salva."); query.refetch(); },
+    onError: (e) => toast.error(e.message),
+  });
+
+  if (query.isLoading || !form) {
+    return <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-stone-400" /></div>;
+  }
+
+  const isRealProviderChosen = form.provider !== "NONE" && form.provider !== "MOCK";
+
+  return (
+    <div className="space-y-6 max-w-2xl">
+      <div>
+        <h2 className="text-lg font-semibold text-stone-900">Nota Fiscal Eletrônica</h2>
+        <p className="text-sm text-stone-500">Emissão de NF-e (pedidos B2B) e NFC-e (pedidos Ideal Prime).</p>
+      </div>
+
+      <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+        <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0" />
+        <div>
+          Nenhuma nota fiscal real será emitida até um provedor ser escolhido, configurado
+          com credenciais válidas e testado em homologação. A tela e as rotas já estão
+          prontas para receber qualquer provedor — ver docs/ideal-prime/NFE_INTEGRACAO.md.
+        </div>
+      </div>
+
+      <div className="border border-stone-200 rounded-xl p-5 space-y-4">
+        <div className="flex items-center gap-2 text-stone-700"><Receipt className="w-4 h-4" /><span className="text-sm font-semibold">Provedor de emissão</span></div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-stone-600 mb-1">Provedor</label>
+            <select value={form.provider} onChange={(e) => setForm({ ...form, provider: e.target.value })} className="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-400 bg-white">
+              {PROVIDER_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+            </select>
+            {isRealProviderChosen && <p className="mt-1 text-xs text-amber-600">Este provedor ainda não está implementado — selecioná-lo não emite notas reais.</p>}
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-stone-600 mb-1">Ambiente</label>
+            <select value={form.environment} onChange={(e) => setForm({ ...form, environment: e.target.value })} className="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-400 bg-white">
+              <option value="HOMOLOGACAO">Homologação</option>
+              <option value="PRODUCAO">Produção</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div className="border border-stone-200 rounded-xl p-5 space-y-4">
+        <div className="flex items-center gap-2 text-stone-700"><Users className="w-4 h-4" /><span className="text-sm font-semibold">Dados do emitente</span></div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="sm:col-span-2">
+            <label className="block text-xs font-medium text-stone-600 mb-1">Razão social</label>
+            <input type="text" value={form.issuerLegalName} onChange={(e) => setForm({ ...form, issuerLegalName: e.target.value })} placeholder="Razão social da empresa emitente" className="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-400" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-stone-600 mb-1">CNPJ (só dígitos)</label>
+            <input type="text" value={form.issuerCnpj} onChange={(e) => setForm({ ...form, issuerCnpj: e.target.value.replace(/\D/g, "") })} placeholder="00000000000000" maxLength={14} className="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-400" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-stone-600 mb-1">Inscrição estadual</label>
+            <input type="text" value={form.issuerStateRegistration} onChange={(e) => setForm({ ...form, issuerStateRegistration: e.target.value })} className="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-400" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-stone-600 mb-1">Cidade</label>
+            <input type="text" value={form.issuerCity} onChange={(e) => setForm({ ...form, issuerCity: e.target.value })} className="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-400" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-stone-600 mb-1">UF</label>
+            <input type="text" value={form.issuerState} onChange={(e) => setForm({ ...form, issuerState: e.target.value.toUpperCase().slice(0, 2) })} maxLength={2} placeholder="SP" className="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-stone-400" />
+          </div>
+        </div>
+      </div>
+
+      <button
+        onClick={() => updateMutation.mutate({
+          provider: form.provider as any,
+          environment: form.environment as any,
+          issuerLegalName: form.issuerLegalName || null,
+          issuerCnpj: form.issuerCnpj || null,
+          issuerStateRegistration: form.issuerStateRegistration || null,
+          issuerCity: form.issuerCity || null,
+          issuerState: form.issuerState || null,
+        })}
+        disabled={updateMutation.isPending || (!!form.issuerCnpj && !/^\d{14}$/.test(form.issuerCnpj))}
+        className="px-4 py-2 bg-stone-900 hover:bg-stone-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
+      >
+        {updateMutation.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+        Salvar configuração fiscal
+      </button>
+    </div>
+  );
+}
+
 export default function Configuracoes() {
-  const [activeTab, setActiveTab] = useState<"usuarios" | "sistema" | "conta">("usuarios");
+  const [activeTab, setActiveTab] = useState<"usuarios" | "sistema" | "fiscal" | "conta">("usuarios");
   const meQuery = trpc.auth.me.useQuery();
   const user = meQuery.data;
   const isAdmin = user?.role === "admin";
@@ -389,6 +519,7 @@ export default function Configuracoes() {
   const tabs = [
     { id: "usuarios" as const, label: "Usuários", icon: Users, adminOnly: true },
     { id: "sistema" as const, label: "Sistema", icon: Database, adminOnly: true },
+    { id: "fiscal" as const, label: "Nota Fiscal", icon: Receipt, adminOnly: true },
     { id: "conta" as const, label: "Minha Conta", icon: User, adminOnly: false },
   ];
 
@@ -415,6 +546,7 @@ export default function Configuracoes() {
         <div>
           {activeTab === "usuarios" && isAdmin && user && <TabUsuarios currentUserId={user.id} />}
           {activeTab === "sistema" && isAdmin && <TabSistema />}
+          {activeTab === "fiscal" && isAdmin && <TabFiscal />}
           {activeTab === "conta" && user && <TabMinhaConta user={user} />}
           {!isAdmin && activeTab !== "conta" && (
             <div className="text-center py-12 text-stone-400">

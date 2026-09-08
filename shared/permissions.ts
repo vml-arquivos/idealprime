@@ -12,6 +12,7 @@ export const PERMISSIONS = {
   B2B_ORDER_HISTORY: "b2b.order_history",
   USERS: "users",
   SETTINGS: "settings",
+  FISCAL_INVOICES: "fiscal.invoices",
 } as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -30,6 +31,7 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   [PERMISSIONS.B2B_ORDER_HISTORY]: "Histórico empresarial",
   [PERMISSIONS.USERS]: "Usuários",
   [PERMISSIONS.SETTINGS]: "Configurações",
+  [PERMISSIONS.FISCAL_INVOICES]: "Notas fiscais",
 };
 
 export const ALL_PERMISSIONS = Object.values(PERMISSIONS) as PermissionKey[];

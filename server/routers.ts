@@ -15,6 +15,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { b2bRouter } from "./b2b.router";
+import { fiscalRouter } from "./fiscal.router";
 import { sdk } from "./_core/sdk";
 import * as db from "./db";
 import * as dbBatches from "./db.batches";
@@ -195,6 +196,7 @@ const paymentSettingsSchema = z.object({
 
 export const appRouter = router({
   b2b: b2bRouter,
+  fiscal: fiscalRouter,
   system: systemRouter,
 
   voice: router({
@@ -584,9 +586,15 @@ export const appRouter = router({
   // ── Marketplace / Vitrine pública ──────────────────────────────────────────
   marketplace: router({
     products: publicProcedure.query(() => dbBatches.getPublishedProducts()),
-    quaseZeroProducts: publicProcedure.query(() =>
-      dbBatches.getQuaseZeroProducts()
-    ),
+    // "Quase Zero" é uma aplicação/marca à parte e não deve ficar exposta no
+    // Ideal Prime com esse nome/formato — ver docs/ideal-prime/AUDITORIA_PERMUPAY_IDEAL_PRIME.md.
+    // Endpoint público desativado por ora (nenhum cliente o consome mais desde que a
+    // rota /quase-zero foi ocultada em client/src/App.tsx). A função
+    // dbBatches.getQuaseZeroProducts() foi mantida intacta no backend caso o nome/formato
+    // final seja decidido depois.
+    // quaseZeroProducts: publicProcedure.query(() =>
+    //   dbBatches.getQuaseZeroProducts()
+    // ),
     productsByCategory: publicProcedure
       .input(z.object({ category: z.string().optional() }))
       .query(({ input }) =>

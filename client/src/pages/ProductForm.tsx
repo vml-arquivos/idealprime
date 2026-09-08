@@ -1023,20 +1023,20 @@ export default function ProductForm() {
                   />
                 </Field>
 
-                <Field label="Canal de venda" tooltip="Escolha onde este produto deve aparecer.">
+                <Field label="Canal de venda" tooltip="O canal alternativo está desativado por ora — hoje todo canal aparece na mesma vitrine (/vitrine).">
                   <Select value={form.salesChannel} onValueChange={(v) => set("salesChannel")(v as any)}>
                     <SelectTrigger className="h-9 text-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="SHOP">Ideal Prime</SelectItem>
-                      <SelectItem value="QUASE_ZERO">Quase Zero</SelectItem>
-                      <SelectItem value="BOTH">Shop + Quase Zero</SelectItem>
+                      <SelectItem value="QUASE_ZERO">Canal alternativo (oculto)</SelectItem>
+                      <SelectItem value="BOTH">Ideal Prime + canal alternativo (oculto)</SelectItem>
                     </SelectContent>
                   </Select>
                 </Field>
 
-                <Field label="Condição" tooltip="Usado para organizar a página Quase Zero.">
+                <Field label="Condição" tooltip="Usado para classificar produtos usados/seminovos internamente.">
                   <Select value={form.productCondition} onValueChange={(v) => set("productCondition")(v as any)}>
                     <SelectTrigger className="h-9 text-sm">
                       <SelectValue />

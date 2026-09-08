@@ -218,6 +218,13 @@
       "when": 1788300000000,
       "tag": "0031_b2b_hardening",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1788400000000,
+      "tag": "0032_fiscal_invoices",
+      "breakpoints": true
     }
   ]
 }

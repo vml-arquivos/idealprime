@@ -26,7 +26,6 @@ import {
   Package,
   Calculator,
   Layers,
-  ShoppingBag,
   Users,
   Settings,
   LogOut,
@@ -41,6 +40,7 @@ import {
   Tag,
   ShoppingCart,
   Building2,
+  Receipt,
   type LucideIcon,
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
@@ -62,7 +62,8 @@ const menuModules: MenuModule[] = [
     label: "Produtos",
     items: [
       { icon: Package, label: "Produtos", path: "/produtos", permission: PERMISSIONS.PRODUCTS },
-      { icon: ShoppingBag, label: "Quase Zero", path: "/produtos", permission: PERMISSIONS.PRODUCTS },
+      // Item "Quase Zero" removido: apontava para a mesma /produtos (duplicado) e
+      // referenciava uma marca/aplicação separada que não deve aparecer no Ideal Prime.
       { icon: Warehouse, label: "Estoque", path: "/estoque", permission: PERMISSIONS.INVENTORY },
       { icon: Layers, label: "Entrada", path: "/lotes", permission: PERMISSIONS.INVENTORY },
     ],
@@ -90,6 +91,7 @@ const menuModules: MenuModule[] = [
         permission: PERMISSIONS.PRICING,
       },
       { icon: BarChart3, label: "Relatórios", path: "/relatorios", permission: PERMISSIONS.REPORTS },
+      { icon: Receipt, label: "Notas Fiscais", path: "/notas-fiscais", permission: PERMISSIONS.FISCAL_INVOICES },
     ],
   },
   {
