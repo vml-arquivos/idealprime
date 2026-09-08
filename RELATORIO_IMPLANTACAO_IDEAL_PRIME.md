@@ -77,6 +77,8 @@ Verificação após a remoção (nesta sessão, com PostgreSQL 16 real): `pnpm c
 
 Pendência explícita: quando houver um nome definitivo para esse canal, a reativação é direta — descomentar a rota em `App.tsx` e o endpoint em `routers.ts`, recriar a página de vitrine com o novo nome/visual, e atualizar os rótulos do seletor em `ProductForm.tsx`.
 
+**Correção pontual (mesmo dia)**: a remoção inicial do endpoint `marketplace.quaseZeroProducts` havia quebrado o build de produção (`tsc`) porque o deploy do cliente manteve `client/src/pages/QuaseZero.tsx` (a decisão final foi manter esse arquivo em vez de apagá-lo — só precisa continuar fora do menu/rotas, sem quebrar o build). Correção: `QuaseZero.tsx` voltou a usar o endpoint público já existente `marketplace.products` (o mesmo do restante do site, sem nenhum nome "Quase Zero" na API) com o filtro heurístico `isQuaseZeroProduct` que já estava definido no próprio arquivo — nenhuma rota nova, nenhum endpoint reaberto. A página continua sem nenhuma rota/menu apontando pra ela. Reverificado nesta sessão: `pnpm check`, `pnpm migrate:verify`, `pnpm test` (99/99) e `pnpm build`, todos limpos.
+
 ## Nota Fiscal Eletrônica — arquitetura de preparação (2026-09-08, terceira rodada)
 
 A pedido do cliente: deixar o sistema **pronto para receber qualquer API de emissão de

@@ -221,9 +221,19 @@ function ProductCard({ product: p }: { product: CatalogProduct }) {
 export default function QuaseZero() {
   const [cat, setCat] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const { data, isLoading } = trpc.marketplace.quaseZeroProducts.useQuery();
+  // O endpoint dedicado `marketplace.quaseZeroProducts` foi desativado (ver
+  // docs/ideal-prime/AUDITORIA_PERMUPAY_IDEAL_PRIME.md — a marca "Quase Zero" não deve
+  // ficar exposta com esse nome/formato no Ideal Prime). Esta página continua existindo
+  // mas está inacessível (nenhuma rota/menu aponta pra ela — ver client/src/App.tsx e
+  // client/src/components/DashboardLayout.tsx); para não depender de um endpoint
+  // removido, ela volta a usar `marketplace.products` (o mesmo usado pelo restante do
+  // site) com o filtro heurístico `isQuaseZeroProduct` já definido acima neste arquivo.
+  const { data, isLoading } = trpc.marketplace.products.useQuery();
 
-  const quaseZeroProducts = useMemo(() => ((data ?? []) as CatalogProduct[]).filter((p) => hasStock(p)), [data]);
+  const quaseZeroProducts = useMemo(
+    () => ((data ?? []) as CatalogProduct[]).filter((p) => hasStock(p) && isQuaseZeroProduct(p)),
+    [data],
+  );
 
   const cats = useMemo(() => Array.from(new Set(quaseZeroProducts.map((p) => p.category))), [quaseZeroProducts]);
 
