@@ -38,7 +38,17 @@ export const b2bRouter = router({
   myOrders: buyerPermissionProcedure(PERMISSIONS.B2B_ORDER_HISTORY).query(({ ctx }) => b2b.myOrders(ctx.user.id)),
   order: authenticatedProcedure
     .input(z.object({ id: z.number().int().positive() }))
-    .query(({ ctx, input }) => b2b.getOrder(ctx.user.id, input.id, (ctx.user as any).accountType !== "BUYER")),
+    .query(({ ctx, input }) => {
+      const isStaff = (ctx.user as any).accountType !== "BUYER";
+      // Autorização explícita no servidor: staff precisa da permissão operacional B2B
+      // para consultar QUALQUER pedido; comprador precisa da permissão de histórico e
+      // só enxerga pedidos da própria empresa (garantido por membership em getOrder).
+      const requiredPermission = isStaff ? PERMISSIONS.B2B_OPERATIONS : PERMISSIONS.B2B_ORDER_HISTORY;
+      if (!hasPermission(ctx.user.permissions, requiredPermission, ctx.user.role)) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Este recurso não está liberado para seu usuário." });
+      }
+      return b2b.getOrder(ctx.user.id, input.id, isStaff);
+    }),
   admin: router({
     businesses: permissionProcedure(PERMISSIONS.B2B_OPERATIONS).query(() => b2b.listBusinesses()),
     approve: adminProcedure.input(z.object({ id: z.number().int().positive(), priceListId: z.number().int().positive().nullable().optional(), accountManagerUserId: z.number().int().positive().nullable().optional(), paymentTerms: z.unknown().optional(), minOrderCents: z.number().int().min(0).optional() })).mutation(({ input }) => b2b.approveBusiness(input.id, input)),
@@ -50,5 +60,14 @@ export const b2bRouter = router({
     quotes: permissionProcedure(PERMISSIONS.B2B_OPERATIONS).query(() => b2b.listQuotes()),
     transitionQuote: adminProcedure.input(z.object({ id: z.number().int().positive(), action: z.enum(["APPROVE", "REJECT", "CANCEL"]) })).mutation(({ input }) => b2b.transitionQuote(input.id, input.action)),
     imports: permissionProcedure(PERMISSIONS.B2B_OPERATIONS).query(() => b2b.listImportJobs()),
+    inviteMember: permissionProcedure(PERMISSIONS.B2B_OPERATIONS)
+      .input(z.object({
+        businessAccountId: z.number().int().positive(),
+        name: z.string().min(2),
+        email: z.string().email(),
+        password: z.string().min(8),
+        role: z.enum(["MANAGER", "BUYER"]).default("BUYER"),
+      }))
+      .mutation(({ input }) => b2b.inviteBusinessMember(input)),
   }),
 });

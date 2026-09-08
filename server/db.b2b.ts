@@ -81,10 +81,26 @@ export async function buyerCatalog(userId:number){
  } finally {c.release()}
 }
 
-export async function createOrder(userId:number,input:{items:{productId:number;quantity:number}[];paymentMethod?:string;delivery?:unknown;idempotencyKey:string}){
- const c=await getPool().connect(); try {
-  await c.query('BEGIN ISOLATION LEVEL SERIALIZABLE'); const b=await resolveBusinessContext(c,userId);
-  const previous=await c.query(`select * from permupay_b2b_orders where business_account_id=$1 and idempotency_key=$2`,[b.id,input.idempotencyKey]); if(previous.rows[0]){await c.query('COMMIT');return previous.rows[0]}
+/**
+ * Cria um pedido B2B multitem, idempotente e transacional.
+ *
+ * Quando `externalClient` é informado, a função REUTILIZA a conexão/transação já
+ * aberta pelo chamador (não emite BEGIN/COMMIT/ROLLBACK nem libera a conexão) — isso
+ * permite compor `createOrder` dentro de uma transação maior, como faz
+ * `createOrderFromQuote`, garantindo atomicidade entre a leitura da cotação e a
+ * criação do pedido (corrige a conversão dupla de uma mesma cotação sob concorrência).
+ */
+export async function createOrder(
+  userId:number,
+  input:{items:{productId:number;quantity:number}[];paymentMethod?:string;delivery?:unknown;idempotencyKey:string},
+  externalClient?: PoolClient,
+){
+ const owned = !externalClient;
+ const c = externalClient ?? await getPool().connect();
+ try {
+  if (owned) await c.query('BEGIN ISOLATION LEVEL SERIALIZABLE');
+  const b=await resolveBusinessContext(c,userId);
+  const previous=await c.query(`select * from permupay_b2b_orders where business_account_id=$1 and idempotency_key=$2`,[b.id,input.idempotencyKey]); if(previous.rows[0]){if(owned)await c.query('COMMIT');return previous.rows[0]}
   const v=await resolvePriceListVersion(c,b); const merged=new Map<number,number>(); for(const x of input.items) merged.set(x.productId,(merged.get(x.productId)||0)+x.quantity); if(!merged.size)throw new Error('Carrinho vazio');
   const ids=[...merged.keys()]; const products=await c.query(`select p.id,p.sku,p.name,p.unit,p.sales_multiple,p.stock_quantity,pli.price_cents from permupay_products p join permupay_price_list_items pli on pli.product_id=p.id and pli.version_id=$1 and pli.active=true where p.id=any($2::int[]) and p.active=true and p.b2b_enabled=true for update of p`,[v.versionId,ids]);
   if(products.rows.length!==ids.length) throw new Error('Um ou mais produtos estão indisponíveis comercialmente');
@@ -95,8 +111,9 @@ export async function createOrder(userId:number,input:{items:{productId:number;q
   const o=await c.query(`insert into permupay_b2b_orders(order_number,business_account_id,buyer_user_id,price_list_version_id,idempotency_key,payment_method,total_cents,delivery_snapshot,terms_snapshot,assigned_to_user_id) values($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10) returning *`,[orderNumber,b.id,userId,v.versionId,input.idempotencyKey,input.paymentMethod||null,total,JSON.stringify(input.delivery||{}),JSON.stringify(b.payment_terms||{}),b.account_manager_user_id]);
   for(const p of normalized){ const ir=await c.query(`insert into permupay_b2b_order_items(order_id,product_id,sku_snapshot,name_snapshot,unit_snapshot,quantity,unit_price_cents,total_cents) values($1,$2,$3,$4,$5,$6,$7,$8) returning id`,[o.rows[0].id,p.id,p.sku,p.name,p.unit,p.quantity,p.price_cents,p.total]); await c.query(`insert into permupay_b2b_stock_reservations(order_id,order_item_id,product_id,quantity,status,expires_at) values($1,$2,$3,$4,'ACTIVE',now()+interval '24 hours')`,[o.rows[0].id,ir.rows[0].id,p.id,p.quantity]); }
   await c.query(`insert into permupay_b2b_notifications(user_id,order_id,title,body) values($1,$2,$3,$4)`,[b.account_manager_user_id||null,o.rows[0].id,'Novo pedido empresarial',`Pedido ${orderNumber} recebido`]);
-  await c.query('COMMIT'); return o.rows[0];
- } catch(e:any){await c.query('ROLLBACK').catch(()=>{}); if(e?.code==='40001')throw new Error('Estoque alterado por outra compra; revise o carrinho e tente novamente'); throw e} finally{c.release()}
+  if (owned) await c.query('COMMIT');
+  return o.rows[0];
+ } catch(e:any){ if(owned) await c.query('ROLLBACK').catch(()=>{}); if(e?.code==='40001')throw new Error('Estoque alterado por outra compra; revise o carrinho e tente novamente'); throw e} finally{ if(owned) c.release()}
 }
 
 export async function myOrders(userId:number){ const {rows}=await getPool().query(`select o.* from permupay_b2b_orders o join permupay_business_memberships m on m.business_account_id=o.business_account_id where m.user_id=$1 and m.active=true order by o.created_at desc`,[userId]); return rows; }
@@ -104,13 +121,93 @@ export async function getOrder(userId:number,orderId:number,isStaff:boolean){
  const p=getPool(); const o=await p.query(isStaff?`select o.*,b.legal_name,b.trade_name from permupay_b2b_orders o join permupay_business_accounts b on b.id=o.business_account_id where o.id=$1`:`select o.*,b.legal_name,b.trade_name from permupay_b2b_orders o join permupay_business_accounts b on b.id=o.business_account_id join permupay_business_memberships m on m.business_account_id=o.business_account_id where o.id=$1 and m.user_id=$2 and m.active=true`,isStaff?[orderId]:[orderId,userId]); if(!o.rows[0])throw new Error('Pedido não encontrado'); const items=await p.query(`select * from permupay_b2b_order_items where order_id=$1 order by id`,[orderId]); return {...o.rows[0],items:items.rows};
 }
 export async function listOrders(){ const {rows}=await getPool().query(`select o.*,b.legal_name,b.trade_name,u.name as buyer_name from permupay_b2b_orders o join permupay_business_accounts b on b.id=o.business_account_id join permupay_users u on u.id=o.buyer_user_id order by o.created_at desc`); return rows; }
+/**
+ * Máquina de estados do pedido B2B. Cada ação só é aceita a partir de estados
+ * comerciais/fulfillment específicos — transições fora dessa tabela são rejeitadas
+ * (corrige a ausência de validação de estado do achado A3 da auditoria).
+ */
+function assertOrderTransition(order: any, action: 'ACCEPT' | 'PAY' | 'SHIP' | 'CANCEL') {
+  if (action === 'ACCEPT' && order.commercial_status !== 'ENVIADO') {
+    throw new Error(`Pedido não pode ser aceito a partir do status comercial "${order.commercial_status}"`);
+  }
+  if (action === 'PAY') {
+    if (order.commercial_status === 'CANCELADO') throw new Error('Pedido cancelado não pode receber confirmação de pagamento');
+    if (order.payment_status === 'PAGO') throw new Error('Pagamento já confirmado para este pedido');
+  }
+  if (action === 'CANCEL') {
+    if (order.commercial_status === 'CANCELADO') throw new Error('Pedido já está cancelado');
+    if (order.fulfillment_status === 'ENVIADO' || order.fulfillment_status === 'ENTREGUE') {
+      throw new Error('Pedido já expedido não pode ser cancelado por este fluxo');
+    }
+  }
+  if (action === 'SHIP') {
+    if (order.commercial_status !== 'ACEITO') throw new Error('Pedido precisa ser aceito comercialmente antes da expedição');
+    if (order.fulfillment_status !== 'AGUARDANDO_SEPARACAO') throw new Error(`Pedido já está no status de expedição "${order.fulfillment_status}"`);
+    if (order.payment_status !== 'PAGO' && !Boolean(order.terms_snapshot?.allowShippingBeforePayment)) {
+      throw new Error('Pagamento precisa estar confirmado antes da expedição');
+    }
+  }
+}
+
 export async function transitionOrder(orderId:number,action:'ACCEPT'|'PAY'|'SHIP'|'CANCEL'){
  const c=await getPool().connect();try{await c.query('BEGIN');const o=(await c.query(`select * from permupay_b2b_orders where id=$1 for update`,[orderId])).rows[0];if(!o)throw new Error('Pedido não encontrado');
+ assertOrderTransition(o, action);
  if(action==='ACCEPT') await c.query(`update permupay_b2b_orders set commercial_status='ACEITO',updated_at=now() where id=$1`,[orderId]);
  if(action==='PAY') await c.query(`update permupay_b2b_orders set payment_status='PAGO',updated_at=now() where id=$1`,[orderId]);
- if(action==='CANCEL'){if(o.fulfillment_status==='ENVIADO'||o.fulfillment_status==='ENTREGUE')throw new Error('Pedido já expedido não pode ser cancelado por este fluxo');await c.query(`update permupay_b2b_orders set commercial_status='CANCELADO',updated_at=now() where id=$1`,[orderId]);await c.query(`update permupay_b2b_stock_reservations set status='RELEASED',updated_at=now() where order_id=$1 and status='ACTIVE'`,[orderId]);}
- if(action==='SHIP'){if(o.payment_status!=='PAGO' && !Boolean(o.terms_snapshot?.allowShippingBeforePayment))throw new Error('Pagamento precisa estar confirmado antes da expedição');const rs=await c.query(`select * from permupay_b2b_stock_reservations where order_id=$1 and status='ACTIVE' for update`,[orderId]);for(const r of rs.rows){const up=await c.query(`update permupay_products set stock_quantity=stock_quantity-$2,updated_at=now() where id=$1 and stock_quantity >= $2 returning id`,[r.product_id,r.quantity]);if(!up.rowCount)throw new Error('Saldo insuficiente durante expedição');}await c.query(`update permupay_b2b_stock_reservations set status='CONSUMED',updated_at=now() where order_id=$1 and status='ACTIVE'`,[orderId]);await c.query(`update permupay_b2b_orders set fulfillment_status='ENVIADO',updated_at=now() where id=$1`,[orderId]);}
+ if(action==='CANCEL'){await c.query(`update permupay_b2b_orders set commercial_status='CANCELADO',updated_at=now() where id=$1`,[orderId]);await c.query(`update permupay_b2b_stock_reservations set status='RELEASED',updated_at=now() where order_id=$1 and status='ACTIVE'`,[orderId]);}
+ if(action==='SHIP'){const rs=await c.query(`select * from permupay_b2b_stock_reservations where order_id=$1 and status='ACTIVE' for update`,[orderId]);for(const r of rs.rows){const up=await c.query(`update permupay_products set stock_quantity=stock_quantity-$2,updated_at=now() where id=$1 and stock_quantity >= $2 returning id`,[r.product_id,r.quantity]);if(!up.rowCount)throw new Error('Saldo insuficiente durante expedição');}await c.query(`update permupay_b2b_stock_reservations set status='CONSUMED',updated_at=now() where order_id=$1 and status='ACTIVE'`,[orderId]);await c.query(`update permupay_b2b_orders set fulfillment_status='ENVIADO',updated_at=now() where id=$1`,[orderId]);}
  await c.query('COMMIT');return (await getPool().query(`select * from permupay_b2b_orders where id=$1`,[orderId])).rows[0];}catch(e){await c.query('ROLLBACK');throw e}finally{c.release()}
+}
+
+/**
+ * Expira reservas de estoque B2B (`permupay_b2b_stock_reservations`) cujo prazo
+ * (`expires_at`) já passou e ainda estão ACTIVE. Sem isso, pedidos nunca confirmados
+ * mantêm estoque reservado para sempre (achado B4 da auditoria). Deve ser chamada
+ * periodicamente pelo job em `server/_core/index.ts`.
+ */
+export async function expireStaleB2BReservations(): Promise<number> {
+  const { rowCount } = await getPool().query(
+    `update permupay_b2b_stock_reservations
+     set status='EXPIRED', updated_at=now()
+     where status='ACTIVE' and expires_at is not null and expires_at < now()`,
+  );
+  return rowCount ?? 0;
+}
+
+export async function inviteBusinessMember(input: { businessAccountId: number; name: string; email: string; password: string; role: 'MANAGER' | 'BUYER' }) {
+  const c = await getPool().connect();
+  try {
+    await c.query('BEGIN');
+    const business = (await c.query(`select * from permupay_business_accounts where id=$1 for update`, [input.businessAccountId])).rows[0];
+    if (!business) throw new Error('Empresa não encontrada');
+    const email = input.email.toLowerCase().trim();
+    const existingUser = (await c.query(`select id, account_type from permupay_users where lower(email)=$1`, [email])).rows[0];
+    let userId: number;
+    if (existingUser) {
+      if (existingUser.account_type !== 'BUYER') throw new Error('Este e-mail já pertence a uma conta interna Ideal Prime');
+      userId = existingUser.id;
+    } else {
+      const hash = await bcrypt.hash(input.password, 12);
+      const created = await c.query(
+        `insert into permupay_users(email,name,"passwordHash",role,account_type,permissions,active) values($1,$2,$3,'user','BUYER',$4::jsonb,true) returning id`,
+        [email, input.name.trim(), hash, JSON.stringify(BUYER_DEFAULT_PERMISSIONS)],
+      );
+      userId = created.rows[0].id;
+    }
+    const existingMembership = (await c.query(`select id from permupay_business_memberships where business_account_id=$1 and user_id=$2`, [input.businessAccountId, userId])).rows[0];
+    if (existingMembership) {
+      await c.query(`update permupay_business_memberships set role=$2, active=true where id=$1`, [existingMembership.id, input.role]);
+    } else {
+      await c.query(`insert into permupay_business_memberships(business_account_id,user_id,role) values($1,$2,$3)`, [input.businessAccountId, userId, input.role]);
+    }
+    await c.query('COMMIT');
+    return { userId, businessAccountId: input.businessAccountId };
+  } catch (e) {
+    await c.query('ROLLBACK').catch(() => {});
+    throw e;
+  } finally {
+    c.release();
+  }
 }
 
 export type ImportRow={sku:string;nome?:string;categoria?:string;unidade?:string;multiplo_venda?:number;preco_venda:unknown;estoque_fisico?:number|null;ativo?:boolean};
@@ -249,39 +346,101 @@ export async function listQuotes() {
   return rows;
 }
 
+// Máquina de estados: de qual status atual cada ação é permitida.
+const QUOTE_TRANSITIONS: Record<B2BQuoteAction, { from: string[]; to: string }> = {
+  APPROVE: { from: ['PENDING'], to: 'APPROVED' },
+  REJECT: { from: ['PENDING'], to: 'REJECTED' },
+  CANCEL: { from: ['PENDING', 'APPROVED'], to: 'CANCELLED' },
+};
+
 export async function transitionQuote(id: number, action: B2BQuoteAction) {
-  const status = { APPROVE: 'APPROVED', REJECT: 'REJECTED', CANCEL: 'CANCELLED' }[action];
+  const transition = QUOTE_TRANSITIONS[action];
   const { rows } = await getPool().query(
-    `update permupay_b2b_quotes set status=$2,updated_at=now() where id=$1 and status in ('PENDING','APPROVED') returning *`,
-    [id, status],
+    `update permupay_b2b_quotes set status=$3,updated_at=now() where id=$1 and status = any($2::text[]) returning *`,
+    [id, transition.from, transition.to],
   );
-  if (!rows[0]) throw new Error('Cotação não encontrada ou não pode ser alterada');
+  if (!rows[0]) throw new Error('Cotação não encontrada ou transição inválida para o status atual');
   return rows[0];
 }
 
+/**
+ * Converte uma cotação aprovada em pedido de forma atômica: a leitura/trava da
+ * cotação, a criação do pedido e a marcação CONVERTED acontecem na MESMA transação
+ * SERIALIZABLE com `SELECT ... FOR UPDATE`. Isso impede que duas conversões
+ * concorrentes da mesma cotação (duplo clique, retry) gerem dois pedidos — bug
+ * reproduzido e corrigido (ver AUDITORIA_PERMUPAY_IDEAL_PRIME.md, achado B3).
+ */
+async function createOrderFromQuoteAttempt(userId: number, quoteId: number, idempotencyKey: string) {
+  const c = await getPool().connect();
+  try {
+    await c.query('BEGIN ISOLATION LEVEL SERIALIZABLE');
+    const { rows } = await c.query(
+      `select q.* from permupay_b2b_quotes q
+       join permupay_business_memberships m on m.business_account_id=q.business_account_id and m.user_id=$1 and m.active=true
+       where q.id=$2
+       for update of q`,
+      [userId, quoteId],
+    );
+    const quote = rows[0];
+    if (!quote) throw new Error('Cotação não encontrada');
+
+    if (quote.status === 'CONVERTED') {
+      // Idempotência da própria conversão: se já foi convertida (por esta ou outra
+      // requisição concorrente), devolve o pedido já existente em vez de duplicar.
+      const existingOrder = await c.query(
+        `select * from permupay_b2b_orders where business_account_id=$1 and delivery_snapshot->>'quoteId' = $2 order by id limit 1`,
+        [quote.business_account_id, String(quoteId)],
+      );
+      await c.query('COMMIT');
+      if (existingOrder.rows[0]) return existingOrder.rows[0];
+      throw new Error('Cotação já foi convertida em pedido');
+    }
+    if (quote.status !== 'APPROVED') throw new Error('A cotação precisa ser aprovada antes de virar pedido');
+
+    const itemRows = await c.query(
+      `select product_id as "productId",quantity from permupay_b2b_quote_items where quote_id=$1 order by id`,
+      [quoteId],
+    );
+    const order = await createOrder(
+      userId,
+      { items: itemRows.rows, paymentMethod: 'QUOTE', delivery: { quoteId }, idempotencyKey },
+      c,
+    );
+    await c.query(`update permupay_b2b_quotes set status='CONVERTED',updated_at=now() where id=$1 and status='APPROVED'`, [quoteId]);
+    await c.query('COMMIT');
+    return order;
+  } catch (e: any) {
+    await c.query('ROLLBACK').catch(() => {});
+    throw e;
+  } finally {
+    c.release();
+  }
+}
+
+/**
+ * Converte uma cotação aprovada em pedido de forma atômica: a leitura/trava da
+ * cotação, a criação do pedido e a marcação CONVERTED acontecem na MESMA transação
+ * SERIALIZABLE com `SELECT ... FOR UPDATE`. Isso impede que duas conversões
+ * concorrentes da mesma cotação (duplo clique, retry) gerem dois pedidos — bug
+ * reproduzido e corrigido (ver AUDITORIA_PERMUPAY_IDEAL_PRIME.md, achado B3).
+ *
+ * Sob SERIALIZABLE, quando duas transações disputam o `FOR UPDATE` da mesma
+ * cotação, a que fica bloqueada recebe erro `40001` (serialization_failure) assim
+ * que a primeira commita — é o comportamento padrão do Postgres, não um bug. Como a
+ * operação é idempotente (a segunda tentativa vai enxergar `status='CONVERTED'` e
+ * devolver o pedido já criado), a resposta correta é reexecutar a transação, não
+ * propagar o erro ao usuário — por isso o retry automático abaixo.
+ */
 export async function createOrderFromQuote(userId: number, quoteId: number, idempotencyKey: string) {
-  const { rows } = await getPool().query(
-    `select q.* from permupay_b2b_quotes q
-     join permupay_business_memberships m on m.business_account_id=q.business_account_id and m.user_id=$1 and m.active=true
-     where q.id=$2`,
-    [userId, quoteId],
-  );
-  const quote = rows[0];
-  if (!quote) throw new Error('Cotação não encontrada');
-  if (quote.status !== 'APPROVED') throw new Error('A cotação precisa ser aprovada antes de virar pedido');
-  const itemRows = await getPool().query(
-    `select product_id as "productId",quantity from permupay_b2b_quote_items where quote_id=$1 order by id`,
-    [quoteId],
-  );
-  const order = await createOrder(userId, {
-    items: itemRows.rows,
-    paymentMethod: 'QUOTE',
-    delivery: { quoteId },
-    idempotencyKey,
-  });
-  await getPool().query(
-    `update permupay_b2b_quotes set status='CONVERTED',updated_at=now() where id=$1 and status='APPROVED'`,
-    [quoteId],
-  );
-  return order;
+  const MAX_ATTEMPTS = 5;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      return await createOrderFromQuoteAttempt(userId, quoteId, idempotencyKey);
+    } catch (e: any) {
+      if (e?.code === '40001' && attempt < MAX_ATTEMPTS) continue;
+      if (e?.code === '40001') throw new Error('Cotação alterada por outra operação concorrente; tente novamente');
+      throw e;
+    }
+  }
+  throw new Error('Não foi possível converter a cotação após múltiplas tentativas concorrentes');
 }

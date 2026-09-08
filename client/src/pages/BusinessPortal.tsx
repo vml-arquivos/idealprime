@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { BrandLogo } from "@/components/BrandLogo";
@@ -27,7 +28,16 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default function BusinessPortal() {
-  const { user, logout } = useAuth();
+  const { user, loading, logout } = useAuth();
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    if (loading) return;
+    if (!user) {
+      setLocation(`/login?redirect=${encodeURIComponent("/portal")}`, { replace: true });
+    }
+  }, [loading, user, setLocation]);
+
   const utils = trpc.useUtils();
   const me = trpc.b2b.me.useQuery();
   const canCatalog = hasPermission(user?.permissions, PERMISSIONS.B2B_CATALOG, user?.role);

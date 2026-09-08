@@ -211,6 +211,13 @@
       "when": 1788200000000,
       "tag": "0030_enterprise_permissions_quotes",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1788300000000,
+      "tag": "0031_b2b_hardening",
+      "breakpoints": true
     }
   ]
 }

@@ -12,7 +12,8 @@ import { serveStatic } from "./serveStatic";
 import { expireStaleReservations } from "../db.orders";
 import { sdk } from "./sdk";
 import { parseImportBuffer } from "../b2b.import";
-import { applyImport, pingDatabase } from "../db.b2b";
+import { applyImport, expireStaleB2BReservations, pingDatabase } from "../db.b2b";
+import { PERMISSIONS, hasPermission } from "../../shared/permissions";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -137,6 +138,9 @@ async function startServer() {
     try {
       const user = await sdk.authenticateRequest(req);
       if (!user || (user as any).accountType === "BUYER") return res.status(403).json({ error: "Importação restrita à equipe Ideal Prime." });
+      if (!hasPermission((user as any).permissions, PERMISSIONS.B2B_OPERATIONS, (user as any).role)) {
+        return res.status(403).json({ error: "Este usuário não possui permissão para importar produtos/preços B2B." });
+      }
       const max = 10 * 1024 * 1024; const chunks: Buffer[] = []; let size = 0;
       await new Promise<void>((resolve, reject) => { req.on("data", (chunk: Buffer) => { size += chunk.length; if (size > max) reject(new Error("Arquivo excede 10MB")); else chunks.push(chunk); }); req.on("end", resolve); req.on("error", reject); });
       const filename = String(req.query.filename || "produtos.csv"); const mode = String(req.query.mode || "PRICES").toUpperCase();
@@ -179,14 +183,20 @@ async function startServer() {
     console.log(`Server running on http://localhost:${port}/`);
   });
 
-  // Job: expirar reservas vencidas a cada 10 minutos
+  // Job: expirar reservas vencidas a cada 10 minutos (fluxo legado PermuPay + B2B)
   setInterval(
     async () => {
       try {
         const count = await expireStaleReservations();
-        if (count > 0) console.log(`[job] ${count} reserva(s) expirada(s)`);
+        if (count > 0) console.log(`[job] ${count} reserva(s) legada(s) expirada(s)`);
       } catch (err) {
-        console.error("[job] Erro ao expirar reservas:", err);
+        console.error("[job] Erro ao expirar reservas legadas:", err);
+      }
+      try {
+        const countB2B = await expireStaleB2BReservations();
+        if (countB2B > 0) console.log(`[job] ${countB2B} reserva(s) B2B expirada(s)`);
+      } catch (err) {
+        console.error("[job] Erro ao expirar reservas B2B:", err);
       }
     },
     10 * 60 * 1000
