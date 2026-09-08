@@ -13,7 +13,7 @@ import { TRPCError } from "@trpc/server";
 import { COOKIE_NAME, CUSTOMER_COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { publicProcedure, protectedProcedure, customerProcedure, router } from "./_core/trpc";
+import { publicProcedure, protectedProcedure, adminProcedure, customerProcedure, router } from "./_core/trpc";
 import { b2bRouter } from "./b2b.router";
 import { fiscalRouter } from "./fiscal.router";
 import { sdk } from "./_core/sdk";
@@ -1160,8 +1160,103 @@ export const appRouter = router({
     // `Clientes.tsx` combina as duas listas no cliente.
     admin: router({
       list: protectedProcedure
-        .input(z.object({ search: z.string().trim().max(120).optional() }).optional())
-        .query(({ input }) => dbCustomers.listCustomers({ search: input?.search })),
+        .input(
+          z
+            .object({
+              search: z.string().trim().max(120).optional(),
+              creditStatus: z
+                .enum(["NAO_ANALISADO", "APROVADO", "REPROVADO"])
+                .optional(),
+            })
+            .optional()
+        )
+        .query(async ({ input }) => {
+          const rows = await dbCustomers.listCustomers({
+            search: input?.search,
+            creditStatus: input?.creditStatus,
+          });
+          // Nunca envia passwordHash ao navegador — mesma proteção já
+          // aplicada em `get` (esta lista alimenta a ficha de clientes,
+          // que roda no navegador da equipe).
+          return rows.map(dbCustomers.toSafeCustomer);
+        }),
+
+      // ── Cadastro manual pela equipe ("Novo cliente") ────────────────────
+      // Mesmo upsert-por-contato usado no checkout rápido, mas aqui a
+      // equipe preenche o cadastro completo de uma vez — dados pessoais,
+      // documentos (KYC) e endereço — pedido explicitamente para poder
+      // registrar vendas, crediário e análise de crédito.
+      register: protectedProcedure
+        .input(
+          z.object({
+            name: z.string().trim().min(2),
+            contact: z.string().trim().min(8),
+            contactType: z.enum(["WHATSAPP", "EMAIL"]).default("WHATSAPP"),
+            email: z.string().trim().email().optional().or(z.literal("")),
+            address: z.string().trim().optional(),
+            city: z.string().trim().optional(),
+            state: z.string().trim().length(2).optional(),
+            zipCode: z.string().trim().optional(),
+            cpf: z.string().trim().optional(),
+            rg: z.string().trim().optional(),
+            birthDate: z.string().trim().optional(),
+            documentFrontUrl: z.string().trim().optional().or(z.literal("")),
+            documentBackUrl: z.string().trim().optional().or(z.literal("")),
+            proofAddressUrl: z.string().trim().optional().or(z.literal("")),
+          })
+        )
+        .mutation(async ({ input }) => {
+          const created = await dbCustomers.identifyOrCreateCustomer({
+            ...input,
+            email: input.email || undefined,
+            documentFrontUrl: input.documentFrontUrl || undefined,
+            documentBackUrl: input.documentBackUrl || undefined,
+            proofAddressUrl: input.proofAddressUrl || undefined,
+          });
+          return dbCustomers.toSafeCustomer(created);
+        }),
+
+      // ── Excluir cadastro — só admin, ação irreversível (pedidos já
+      // emitidos são preservados; ver deleteCustomer em db.customers.ts).
+      delete: adminProcedure
+        .input(z.object({ id: z.number().int().positive() }))
+        .mutation(async ({ input }) => {
+          await dbCustomers.deleteCustomer(input.id);
+          return { success: true } as const;
+        }),
+
+      // ── Análise de crédito — só admin decide aprovar/reprovar.
+      updateCreditStatus: adminProcedure
+        .input(
+          z.object({
+            customerId: z.number().int().positive(),
+            creditStatus: z.enum(["NAO_ANALISADO", "APROVADO", "REPROVADO"]),
+            creditNotes: z.string().trim().max(1000).optional(),
+            creditLimit: z.number().min(0).optional(),
+          })
+        )
+        .mutation(async ({ input, ctx }) => {
+          const updated = await dbCustomers.updateCreditStatus({
+            ...input,
+            reviewerUserId: ctx.user.id,
+          });
+          return dbCustomers.toSafeCustomer(updated);
+        }),
+
+      creditHistory: protectedProcedure
+        .input(
+          z.object({
+            customerId: z.number().int().positive(),
+            limit: z.number().int().min(1).max(100).optional(),
+            offset: z.number().int().min(0).optional(),
+          })
+        )
+        .query(({ input }) =>
+          dbCustomers.getCreditHistory(input.customerId, {
+            limit: input.limit,
+            offset: input.offset,
+          })
+        ),
 
       get: protectedProcedure
         .input(z.object({ id: z.number().int().positive() }))

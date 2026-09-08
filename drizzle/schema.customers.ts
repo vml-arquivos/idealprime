@@ -2,6 +2,7 @@ import {
   date,
   integer,
   pgTable,
+  real,
   serial,
   text,
   timestamp,
@@ -31,6 +32,15 @@ export const customers = pgTable("permupay_customers", {
   documentFrontUrl: text("document_front_url"),
   documentBackUrl: text("document_back_url"),
   proofAddressUrl: text("proof_address_url"),
+  // Análise de crédito (crediário/boleto) — pedida explicitamente para o
+  // cadastro de clientes ("deixe também a de crédito, pode deixar tudo,
+  // sem distinção"), sem diferenciar PF/PJ; ver
+  // docs/ideal-prime/AUDITORIA_EVOLUCAO_COMERCIAL.md.
+  creditStatus: text("credit_status").notNull().default("NAO_ANALISADO"),
+  creditNotes: text("credit_notes"),
+  creditLimit: real("credit_limit"),
+  reviewedBy: integer("reviewed_by"),
+  reviewedAt: timestamp("reviewed_at"),
   // Área do cliente — login com senha própria (separado da sessão da
   // equipe). Nullable: cadastros criados antes desta funcionalidade
   // (checkout rápido, cadastro interno) continuam existindo sem senha até
@@ -41,12 +51,37 @@ export const customers = pgTable("permupay_customers", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+export const CUSTOMER_CREDIT_STATUSES = [
+  "NAO_ANALISADO",
+  "APROVADO",
+  "REPROVADO",
+] as const;
+export type CustomerCreditStatus = (typeof CUSTOMER_CREDIT_STATUSES)[number];
+
 export type Customer = typeof customers.$inferSelect;
 export type InsertCustomer = typeof customers.$inferInsert;
 
 // Nunca enviado ao navegador — mesma convenção usada para SafeUser (usuários
 // internos) em drizzle/schema.ts.
 export type SafeCustomer = Omit<Customer, "passwordHash">;
+
+// ── Histórico de análise de crédito ────────────────────────────────────────
+// Uma linha por mudança de status — permite mostrar o histórico completo na
+// aba "Crédito" da ficha do cliente, não só o status atual.
+export const creditStatusHistory = pgTable("permupay_credit_status_history", {
+  id: serial("id").primaryKey(),
+  customerId: integer("customer_id")
+    .notNull()
+    .references(() => customers.id, { onDelete: "cascade" }),
+  previousStatus: text("previous_status"),
+  newStatus: text("new_status").notNull(),
+  notes: text("notes"),
+  creditLimit: real("credit_limit"),
+  changedByUserId: integer("changed_by_user_id"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export type CreditStatusHistoryEntry = typeof creditStatusHistory.$inferSelect;
 
 // ── Trilha de comunicações com o cliente (WhatsApp/e-mail) ─────────────────
 // Registrada quando a equipe aciona um envio pela ficha do cliente. Não é

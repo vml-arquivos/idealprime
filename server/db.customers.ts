@@ -3,10 +3,12 @@ import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
 import {
   customers,
   customerCommunications,
+  creditStatusHistory,
   type Customer,
   type InsertCustomer,
   type SafeCustomer,
   type CustomerCommunicationChannel,
+  type CustomerCreditStatus,
 } from "../drizzle/schema.customers";
 import { sellers } from "../drizzle/schema.sellers";
 import { getDb } from "./db";
@@ -24,6 +26,14 @@ export type CustomerInput = {
   state?: string;
   zipCode?: string;
   referredBySellerReferralCode?: string;
+  // KYC / documentação e crediário — cadastro completo pedido para "Novo
+  // cliente" na ficha da equipe (opcionais: podem ser preenchidos depois).
+  cpf?: string;
+  rg?: string;
+  birthDate?: string;
+  documentFrontUrl?: string;
+  documentBackUrl?: string;
+  proofAddressUrl?: string;
 };
 
 /**
@@ -97,10 +107,18 @@ export async function identifyOrCreateCustomer(
       "city",
       "state",
       "zipCode",
+      "rg",
+      "documentFrontUrl",
+      "documentBackUrl",
+      "proofAddressUrl",
     ] as const;
     for (const field of optionalFields) {
       const value = cleanOptional(data[field]);
       if (value !== undefined) update[field] = value;
+    }
+    if (data.cpf !== undefined) update.cpf = normalizeCpf(data.cpf);
+    if (data.birthDate !== undefined) {
+      update.birthDate = cleanOptional(data.birthDate) ?? null;
     }
     const [updated] = await db
       .update(customers)
@@ -126,6 +144,12 @@ export async function identifyOrCreateCustomer(
       state: cleanOptional(data.state)?.toUpperCase() ?? null,
       zipCode: cleanOptional(data.zipCode) ?? null,
       referredBySellerId,
+      cpf: normalizeCpf(data.cpf),
+      rg: cleanOptional(data.rg) ?? null,
+      birthDate: cleanOptional(data.birthDate) ?? null,
+      documentFrontUrl: cleanOptional(data.documentFrontUrl) ?? null,
+      documentBackUrl: cleanOptional(data.documentBackUrl) ?? null,
+      proofAddressUrl: cleanOptional(data.proofAddressUrl) ?? null,
     })
     .returning();
 
@@ -350,6 +374,7 @@ export async function updateCustomerLastSignedIn(id: number): Promise<void> {
 
 export type ListCustomersFilters = {
   search?: string;
+  creditStatus?: CustomerCreditStatus;
 };
 
 /**
@@ -375,6 +400,9 @@ export async function listCustomers(
         ilike(customers.cpf, term)
       )
     );
+  }
+  if (filters.creditStatus) {
+    conditions.push(eq(customers.creditStatus, filters.creditStatus));
   }
 
   const query = db.select().from(customers);
@@ -443,6 +471,121 @@ export async function listCustomerCommunications(
       .select({ count: sql<number>`count(*)` })
       .from(customerCommunications)
       .where(eq(customerCommunications.customerId, customerId)),
+  ]);
+
+  return { items, total: Number(totalRows[0]?.count ?? 0) };
+}
+
+/**
+ * Exclui o cadastro do cliente. Pedidos já existentes NÃO são apagados — a
+ * coluna `customer_id` deles é apenas zerada (ON DELETE SET NULL, ver
+ * drizzle/schema.orders.ts), então o histórico de vendas/faturamento
+ * permanece intacto. Só o histórico de análise de crédito e a trilha de
+ * comunicações deste cliente (que só fazem sentido junto do cadastro) são
+ * removidos em cascata pelo próprio banco.
+ *
+ * Ação irreversível e administrativa — o chamador (router) restringe a
+ * admin (adminProcedure) e a UI deve confirmar explicitamente antes de
+ * chamar isto.
+ */
+export async function deleteCustomer(id: number): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const existing = await getCustomerById(id);
+  if (!existing) throw new Error("Cliente não encontrado");
+  await db.delete(customers).where(eq(customers.id, id));
+}
+
+/**
+ * Atualiza a análise de crédito do cliente (aprovar/reprovar, limite,
+ * observações) e registra a mudança no histórico — pedido explicitamente
+ * para a ficha de clientes ("deixe também a de crédito, pode deixar tudo,
+ * sem distinção").
+ */
+export async function updateCreditStatus(params: {
+  customerId: number;
+  creditStatus: CustomerCreditStatus;
+  creditNotes?: string;
+  creditLimit?: number;
+  reviewerUserId?: number;
+}): Promise<Customer> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  // Guarda o status anterior antes de sobrescrever — é o que alimenta o
+  // histórico de análise de crédito exibido na ficha do cliente.
+  const [before] = await db
+    .select({ creditStatus: customers.creditStatus })
+    .from(customers)
+    .where(eq(customers.id, params.customerId))
+    .limit(1);
+
+  const update: Partial<InsertCustomer> = {
+    creditStatus: params.creditStatus,
+    reviewedAt: new Date(),
+    updatedAt: new Date(),
+  };
+  if (params.creditNotes !== undefined) {
+    update.creditNotes = cleanOptional(params.creditNotes) ?? null;
+  }
+  if (params.creditLimit !== undefined) {
+    update.creditLimit = params.creditLimit;
+  }
+  if (params.reviewerUserId !== undefined) {
+    update.reviewedBy = params.reviewerUserId;
+  }
+
+  const [updated] = await db
+    .update(customers)
+    .set(update)
+    .where(eq(customers.id, params.customerId))
+    .returning();
+  if (!updated) throw new Error("Cliente não encontrado");
+
+  // Nunca bloqueia a atualização de crédito se o log de histórico falhar
+  // por algum motivo — o status em si já foi salvo com sucesso acima.
+  try {
+    await db.insert(creditStatusHistory).values({
+      customerId: params.customerId,
+      previousStatus: before?.creditStatus ?? null,
+      newStatus: params.creditStatus,
+      notes: cleanOptional(params.creditNotes) ?? null,
+      creditLimit: params.creditLimit ?? null,
+      changedByUserId: params.reviewerUserId ?? null,
+    });
+  } catch (error) {
+    console.error("[customers] Falha ao registrar histórico de crédito:", error);
+  }
+
+  return updated;
+}
+
+/**
+ * Histórico de análise de crédito de um cliente, mais recente primeiro —
+ * paginado para clientes com muitas mudanças de status ao longo do tempo.
+ */
+export async function getCreditHistory(
+  customerId: number,
+  opts: { limit?: number; offset?: number } = {}
+): Promise<{ items: Array<Record<string, unknown>>; total: number }> {
+  const db = await getDb();
+  if (!db) return { items: [], total: 0 };
+
+  const limit = Math.min(Math.max(opts.limit ?? 20, 1), 100);
+  const offset = Math.max(opts.offset ?? 0, 0);
+
+  const [items, totalRows] = await Promise.all([
+    db
+      .select()
+      .from(creditStatusHistory)
+      .where(eq(creditStatusHistory.customerId, customerId))
+      .orderBy(desc(creditStatusHistory.createdAt))
+      .limit(limit)
+      .offset(offset),
+    db
+      .select({ count: sql<number>`count(*)` })
+      .from(creditStatusHistory)
+      .where(eq(creditStatusHistory.customerId, customerId)),
   ]);
 
   return { items, total: Number(totalRows[0]?.count ?? 0) };

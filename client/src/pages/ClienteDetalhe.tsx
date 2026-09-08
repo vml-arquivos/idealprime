@@ -10,11 +10,13 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/_core/hooks/useAuth";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -23,7 +25,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, MessageSquare, Package, Send, User } from "lucide-react";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  History,
+  MessageSquare,
+  Package,
+  Send,
+  ShieldCheck,
+  User,
+} from "lucide-react";
 import { toast } from "sonner";
 import { STATUS_COLOR, STATUS_LABEL, PAYMENT_LABEL, type OrderStatus } from "@/lib/orderStatus";
 
@@ -31,11 +42,39 @@ const fmt = (value: number) =>
   Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const fmtDateTime = (value: string | Date) => new Date(value).toLocaleString("pt-BR");
 
+const CREDIT_STATUS_LABEL: Record<string, string> = {
+  NAO_ANALISADO: "Não analisado",
+  APROVADO: "Aprovado",
+  REPROVADO: "Reprovado",
+};
+
+const CREDIT_STATUS_VARIANT: Record<string, "secondary" | "outline" | "destructive"> = {
+  NAO_ANALISADO: "outline",
+  APROVADO: "secondary",
+  REPROVADO: "destructive",
+};
+
 export default function ClienteDetalhe({ id }: { id: number }) {
+  const { user } = useAuth();
+  const isAdmin = (user as any)?.role === "admin";
   const utils = trpc.useUtils();
   const customer = trpc.customers.admin.get.useQuery({ id });
   const orders = trpc.customers.admin.orders.useQuery({ id });
   const communications = trpc.customers.admin.communications.useQuery({ customerId: id });
+  const creditHistory = trpc.customers.admin.creditHistory.useQuery({ customerId: id });
+
+  const [creditNotes, setCreditNotes] = useState("");
+  const [creditLimit, setCreditLimit] = useState("");
+  const updateCredit = trpc.customers.admin.updateCreditStatus.useMutation({
+    onSuccess: async () => {
+      toast.success("Análise de crédito atualizada.");
+      await Promise.all([
+        utils.customers.admin.get.invalidate({ id }),
+        utils.customers.admin.creditHistory.invalidate({ customerId: id }),
+      ]);
+    },
+    onError: error => toast.error(error.message),
+  });
 
   const [edit, setEdit] = useState<Record<string, string>>({});
   const editing = customer.data
@@ -101,12 +140,15 @@ export default function ClienteDetalhe({ id }: { id: number }) {
         </div>
 
         <Tabs defaultValue="compras" className="space-y-4">
-          <TabsList className="grid h-auto w-full grid-cols-3">
+          <TabsList className="grid h-auto w-full grid-cols-4">
             <TabsTrigger value="compras" className="gap-1.5">
               <Package className="h-4 w-4" /> Compras
             </TabsTrigger>
             <TabsTrigger value="dados" className="gap-1.5">
               <User className="h-4 w-4" /> Dados
+            </TabsTrigger>
+            <TabsTrigger value="credito" className="gap-1.5">
+              <ShieldCheck className="h-4 w-4" /> Crédito
             </TabsTrigger>
             <TabsTrigger value="comunicacoes" className="gap-1.5">
               <MessageSquare className="h-4 w-4" /> Comunicações
@@ -182,6 +224,106 @@ export default function ClienteDetalhe({ id }: { id: number }) {
                 </Button>
               </>
             )}
+          </TabsContent>
+
+          <TabsContent value="credito" className="space-y-3">
+            <div className="rounded-xl border p-4">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <p className="font-semibold">Análise de crédito — status atual</p>
+                <Badge variant={CREDIT_STATUS_VARIANT[(customer.data as any).creditStatus] ?? "outline"}>
+                  {CREDIT_STATUS_LABEL[(customer.data as any).creditStatus] ?? (customer.data as any).creditStatus}
+                </Badge>
+              </div>
+              {(customer.data as any).creditNotes && (
+                <p className="mb-3 text-xs text-muted-foreground">
+                  Observação atual: {(customer.data as any).creditNotes}
+                </p>
+              )}
+              {(customer.data as any).creditLimit != null && (
+                <p className="mb-3 text-xs text-muted-foreground">
+                  Limite de crédito: {fmt(Number((customer.data as any).creditLimit))}
+                </p>
+              )}
+              {isAdmin ? (
+                <div className="space-y-2">
+                  <Textarea
+                    placeholder="Observações da análise de crédito (opcional)"
+                    value={creditNotes}
+                    onChange={e => setCreditNotes(e.target.value)}
+                  />
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="Limite de crédito (R$, opcional)"
+                    value={creditLimit}
+                    onChange={e => setCreditLimit(e.target.value)}
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      className="gap-1 bg-emerald-600 hover:bg-emerald-700"
+                      disabled={updateCredit.isPending}
+                      onClick={() =>
+                        updateCredit.mutate({
+                          customerId: id,
+                          creditStatus: "APROVADO",
+                          creditNotes: creditNotes || undefined,
+                          creditLimit: creditLimit ? Number(creditLimit) : undefined,
+                        })
+                      }
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" /> Aprovar crédito
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1 text-destructive"
+                      disabled={updateCredit.isPending}
+                      onClick={() =>
+                        updateCredit.mutate({
+                          customerId: id,
+                          creditStatus: "REPROVADO",
+                          creditNotes: creditNotes || undefined,
+                        })
+                      }
+                    >
+                      Reprovar crédito
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Somente o administrador pode alterar a análise de crédito.
+                </p>
+              )}
+            </div>
+
+            <div className="rounded-xl border p-4">
+              <p className="mb-3 flex items-center gap-2 text-sm font-semibold">
+                <History className="h-4 w-4" /> Histórico de análise de crédito
+              </p>
+              {creditHistory.isLoading ? (
+                <p className="text-xs text-muted-foreground">Carregando…</p>
+              ) : creditHistory.data?.items.length ? (
+                <div className="space-y-2">
+                  {creditHistory.data.items.map((h: any) => (
+                    <div key={h.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-2.5 text-xs">
+                      <div className="min-w-0">
+                        <p>
+                          {h.previousStatus ? `${CREDIT_STATUS_LABEL[h.previousStatus] ?? h.previousStatus} → ` : ""}
+                          <strong>{CREDIT_STATUS_LABEL[h.newStatus] ?? h.newStatus}</strong>
+                        </p>
+                        {h.notes && <p className="text-muted-foreground">{h.notes}</p>}
+                      </div>
+                      <span className="shrink-0 text-muted-foreground">{fmtDateTime(h.createdAt)}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">Nenhuma mudança de status registrada ainda.</p>
+              )}
+            </div>
           </TabsContent>
 
           <TabsContent value="comunicacoes" className="space-y-4">

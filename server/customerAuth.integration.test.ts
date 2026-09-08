@@ -98,6 +98,22 @@ describe.skipIf(!DATABASE_URL)("Área do cliente — integração contra Postgre
     return { req: fakeReq(), res: fakeRes(), user: null, customer: null };
   }
 
+  function adminCtx() {
+    return {
+      req: fakeReq(),
+      res: fakeRes(),
+      user: {
+        id: staffUserId,
+        email: "admin@customerauthtest.local",
+        name: "Admin",
+        role: "admin",
+        accountType: "STAFF",
+        permissions: ["customers"],
+      } as any,
+      customer: null,
+    };
+  }
+
   it("cria conta nova com senha e abre sessão só com a senha correta", async () => {
     const registerCtx = anonCtx();
     const caller = appRouter.createCaller(registerCtx);
@@ -192,6 +208,9 @@ describe.skipIf(!DATABASE_URL)("Área do cliente — integração contra Postgre
 
     const list = await staff.customers.admin.list({ search: contactSuffix });
     expect(list.some(row => row.id === customer.id)).toBe(true);
+    // A listagem nunca deve vazar o hash de senha do cliente ao navegador
+    // da equipe.
+    expect(list.every(row => !("passwordHash" in row))).toBe(true);
   });
 
   it("registra e lista comunicações da ficha do cliente (equipe)", async () => {
@@ -216,5 +235,63 @@ describe.skipIf(!DATABASE_URL)("Área do cliente — integração contra Postgre
     const { items, total } = await staff.customers.admin.communications({ customerId: customer.id });
     expect(total).toBe(1);
     expect(items[0].purpose).toBe("Confirmação de pedido");
+  });
+
+  it("customers.admin.register cadastra cliente completo (CPF, RG, documentos) sem senha de área do cliente", async () => {
+    const contact = `1165${contactSuffix}`;
+    const staff = appRouter.createCaller(staffCtx());
+
+    const created = await staff.customers.admin.register({
+      name: "Cliente Cadastro Completo",
+      contact,
+      contactType: "WHATSAPP",
+      cpf: "123.456.789-00",
+      rg: "MG-12.345.678",
+      birthDate: "1990-05-20",
+      documentFrontUrl: "https://files.example.com/doc-frente.jpg",
+      documentBackUrl: "https://files.example.com/doc-verso.jpg",
+      proofAddressUrl: "https://files.example.com/comprovante.pdf",
+    });
+
+    expect(created.cpf).toBe("12345678900");
+    expect((created as any).creditStatus).toBe("NAO_ANALISADO");
+    expect((created as any).passwordHash).toBeUndefined();
+
+    const fetched = await staff.customers.admin.get({ id: created.id });
+    expect(fetched.documentFrontUrl).toBe("https://files.example.com/doc-frente.jpg");
+  });
+
+  it("updateCreditStatus exige admin e registra o histórico de análise de crédito", async () => {
+    const dbCustomers = await import("./db.customers");
+    const contact = `1166${contactSuffix}`;
+    const customer = await dbCustomers.identifyOrCreateCustomer({
+      name: "Cliente Crédito",
+      contact,
+      contactType: "WHATSAPP",
+    });
+
+    // Staff sem privilégio de admin não pode aprovar/reprovar crédito.
+    await expect(
+      appRouter.createCaller(staffCtx()).customers.admin.updateCreditStatus({
+        customerId: customer.id,
+        creditStatus: "APROVADO",
+      })
+    ).rejects.toThrow();
+
+    const admin = appRouter.createCaller(adminCtx());
+    const approved = await admin.customers.admin.updateCreditStatus({
+      customerId: customer.id,
+      creditStatus: "APROVADO",
+      creditNotes: "Documentação completa, sem restrições.",
+      creditLimit: 5000,
+    });
+    expect(approved.creditStatus).toBe("APROVADO");
+    expect(Number(approved.creditLimit)).toBe(5000);
+    expect((approved as any).passwordHash).toBeUndefined();
+
+    const { items, total } = await admin.customers.admin.creditHistory({ customerId: customer.id });
+    expect(total).toBe(1);
+    expect(items[0].newStatus).toBe("APROVADO");
+    expect(items[0].previousStatus).toBe("NAO_ANALISADO");
   });
 });

@@ -219,11 +219,11 @@ comunicações com formulário de registro). Nova permissão `CUSTOMERS` (rótul
 "Clientes") controla o item de menu — adicionada aos padrões de equipe, não aos de
 comprador B2B.
 
-**Fora de escopo desta rodada, por decisão explícita da auditoria (Fase 1, seção 5)**:
-o fluxo de análise de crédito/nota promissória do PermuPay não foi portado — não foi
-pedido nesta rodada e adicionaria risco/escopo sem necessidade comprovada. Um "funil
-comercial" formal (estágios de pipeline) também não existia na base original; o que
-existe hoje (histórico de pedidos + trilha de comunicações) cobre o pedido de
+**Fora de escopo desta rodada (revisto na rodada seguinte, ver abaixo)**: por decisão
+explícita da auditoria (Fase 1, seção 5), o fluxo de análise de crédito/nota
+promissória do PermuPay não havia sido portado ainda. Um "funil comercial" formal
+(estágios de pipeline) também não existia na base original e segue fora de escopo; o
+que existe hoje (histórico de pedidos + trilha de comunicações) cobre o pedido de
 "relacionamento" e "conversas" sem inventar um modelo de dados novo sem validação do
 cliente.
 
@@ -236,3 +236,81 @@ comunicações) — suíte completa **104/104 testes passando, nenhuma regressã
 subido (`node dist/index.js`), `GET /healthz` 200, `customerAuth.register` via HTTP
 criou conta e setou cookie de sessão, `customerAuth.me` reconheceu a sessão pelo
 cookie.
+
+## Cadastro completo ("Novo cliente") + análise de crédito na ficha de clientes (mesmo dia, rodada seguinte)
+
+Depois de ver a ficha de clientes de referência (Shoop/PermuPay: cartões de resumo,
+coluna de CPF e de crédito, aba "+ Novo cliente", botão "Relatório") ao lado da
+`/clientes` recém-criada do Ideal Prime, o cliente confirmou explicitamente: o foco
+do negócio é venda para empresas (pessoa jurídica), mas também há venda direta para
+pessoa física (CPF) — e pediu para portar o cadastro completo **e** a análise de
+crédito "sem distinção", sem deixar nada de fora. Isto substitui a decisão de escopo
+da rodada anterior quanto a crédito (o funil comercial formal continua fora,
+inalterado).
+
+**Banco (aditivo, migration `0034_customer_credit.sql`)**: `permupay_customers`
+recebeu `credit_status` (default `NAO_ANALISADO`, nunca nulo), `credit_notes`,
+`credit_limit`, `reviewed_by`, `reviewed_at`. Nova tabela
+`permupay_credit_status_history` — uma linha por mudança de status (status
+anterior/novo, observações, limite, quem alterou, quando), para a aba "Crédito" da
+ficha mostrar o histórico completo, não só o status atual. Tudo aditivo: colunas
+novas nullable ou com `DEFAULT`, sem `DROP`/`TRUNCATE`, nenhuma linha existente
+alterada (cadastros já existentes passam a ter `credit_status = 'NAO_ANALISADO'`
+automaticamente pelo `DEFAULT`).
+
+**Backend**: `db.customers.ts` ganhou `updateCreditStatus` (grava o novo status,
+observações e limite, e registra a mudança no histórico — nunca bloqueia a
+atualização principal se o log de histórico falhar por algum motivo) e
+`getCreditHistory` (paginado, mais recente primeiro); `identifyOrCreateCustomer`
+passou a aceitar e persistir CPF/RG/data de nascimento/documentos também no cadastro
+via upsert (antes só `updateCustomerById`, usado na edição, aceitava esses campos).
+Também foi adicionado `deleteCustomer` (exclusão administrativa do cadastro — pedidos
+já emitidos são preservados, só o `customer_id` deles é zerado; histórico de crédito e
+comunicações somem em cascata) para paridade com a referência, embora a tela ainda não
+exponha um botão de excluir (deixado assim de propósito — ação irreversível, sem
+pedido explícito de UI para isso nesta rodada).
+
+Novos procedures em `customers.admin.*`: `register` (`protectedProcedure` — cadastro
+completo pela equipe, mesmo nível de acesso de `list`/`update`, chama
+`identifyOrCreateCustomer`), `delete` (`adminProcedure` — só admin, ação
+irreversível), `updateCreditStatus` (`adminProcedure` — só admin aprova/reprova
+crédito, mesma regra do PermuPay de referência) e `creditHistory`
+(`protectedProcedure` — qualquer um da equipe pode consultar o histórico). `list`
+passou a aceitar filtro `creditStatus`.
+
+**Correção de segurança encontrada e corrigida nesta mesma rodada**: `customers.admin.list`
+retornava as linhas de `permupay_customers` sem passar por `toSafeCustomer` — o hash
+da senha (`passwordHash`) do cliente ia junto no JSON para o navegador da equipe,
+mesma classe de problema que a área do cliente foi criada para evitar (nunca expor a
+senha/hash a quem não é o dono). Corrigido para sempre retornar
+`rows.map(toSafeCustomer)`, e `updateCreditStatus` também passou a retornar
+`toSafeCustomer(updated)` em vez do registro cru. Coberto por asserção nos testes
+(`passwordHash` nunca aparece na resposta de `list` nem de `updateCreditStatus`).
+
+**Frontend**: `/clientes` ganhou cartões de resumo (Total de clientes / Crédito
+aprovado / Aguardando análise), colunas de CPF e de situação de crédito (badge) na
+tabela, filtro de situação, aba "+ Novo cliente" com formulário completo (dados
+pessoais, endereço, documentos — reaproveitando `useDocumentUpload` já existente) e
+botão "Relatório" por cliente (diálogo com contato/CPF/total pago/em aberto e abas
+Compras/Documentos/Crédito — adaptado da referência: sem nota promissória, que não
+existe no Ideal Prime; a aba "Documentos" mostra os arquivos de KYC do próprio
+cadastro). `/clientes/:id` ganhou a aba "Crédito" (status atual, observações, limite,
+aprovar/reprovar — só admin — e histórico completo de mudanças).
+
+Verificação: `pnpm check` limpo, `pnpm migrate:verify` (**34 migrations OK**),
+`pnpm test` contra PostgreSQL 16 real com **2 testes de integração novos** (cadastro
+completo via `customers.admin.register` com CPF/RG/documentos; `updateCreditStatus`
+exige admin — staff sem o cargo é rejeitado — e registra corretamente o histórico) e
+**2 asserções novas de segurança** (passwordHash nunca vaza em `list`/
+`updateCreditStatus`) adicionadas aos testes existentes — suíte completa **106/106
+testes passando, nenhuma regressão**; `pnpm build` concluído com sucesso; e
+verificação end-to-end real contra o build de produção (`node dist/index.js`): login
+de admin via HTTP, `customers.admin.register` criou cliente com CPF/documentos,
+`updateCreditStatus` aprovou crédito e gravou o histórico, `creditHistory` e `list`
+(filtrados por situação) retornaram os dados esperados sem `passwordHash` no JSON.
+
+**Não endereçado nesta rodada**: migração dos ~13 clientes já cadastrados no
+Shoop/PermuPay de produção para o banco do Ideal Prime — são bancos de dados
+diferentes e não há acesso/exportação deles configurado neste ambiente; se for
+necessário, o próximo passo é o cliente exportar esses cadastros (CSV/dump) para
+importação, ou informar como acessar o banco de origem.
