@@ -14,7 +14,8 @@
     "db:push": "echo \"Use pnpm db:migrate em ambientes controlados; drizzle-kit push foi desabilitado para produção.\" && exit 1",
     "db:migrate": "node scripts/migrate.mjs",
     "seed:catalog": "node scripts/seed-catalog-master.mjs",
-    "release:verify": "pnpm migrate:verify && pnpm check && pnpm test && pnpm build"
+    "seed:catalog:validate": "node scripts/seed-catalog-master.mjs --validate-only",
+    "release:verify": "pnpm migrate:verify && pnpm seed:catalog:validate && pnpm check && pnpm test && pnpm build"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",

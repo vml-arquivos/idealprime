@@ -5,7 +5,7 @@ COPY package.json pnpm-lock.yaml ./
 COPY patches/ ./patches/
 RUN pnpm install --frozen-lockfile
 COPY . .
-RUN pnpm migrate:verify && pnpm check && pnpm build
+RUN pnpm migrate:verify && pnpm seed:catalog:validate && pnpm check && pnpm build
 
 FROM node:22-alpine AS runtime
 WORKDIR /app

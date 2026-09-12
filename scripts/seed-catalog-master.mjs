@@ -1,16 +1,14 @@
 #!/usr/bin/env node
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import pg from "pg";
-import * as XLSX from "xlsx";
+import * as XLSXModule from "xlsx";
 
+const XLSX = XLSXModule.default ?? XLSXModule;
 const { Pool } = pg;
-
+const VALIDATE_ONLY = process.argv.includes("--validate-only");
 const DATABASE_URL = process.env.DATABASE_URL;
-if (!DATABASE_URL) {
-  console.error("[Ideal Prime][seed] DATABASE_URL não configurada.");
-  process.exit(1);
-}
 
 const FILE = process.env.CATALOG_SEED_FILE || path.resolve("data/seed/IDEAL_PRIME_CATALOGO_MASTER_SEED.xlsx");
 const STOCK_MODE = String(process.env.CATALOG_SEED_STOCK_MODE || "SKIP").toUpperCase(); // SKIP | SET_IF_EMPTY | FORCE
@@ -103,12 +101,34 @@ async function ensurePriceVersion(client, priceListId, hasRows) {
 
 async function main() {
   const rows = readRows();
+  if (VALIDATE_ONLY) {
+    console.log(`[Ideal Prime][seed] validação concluída: ${rows.length} produto(s) na aba PRODUTOS.`);
+    return;
+  }
+  if (!DATABASE_URL) {
+    console.error("[Ideal Prime][seed] DATABASE_URL não configurada.");
+    process.exitCode = 1;
+    return;
+  }
+
+  const contentHash = crypto.createHash("sha256").update(fs.readFileSync(FILE)).digest("hex");
   const pool = new Pool({ connectionString: DATABASE_URL, max: 2 });
   const client = await pool.connect();
   const summary = { created: 0, updated: 0, categories: 0, prices: 0, stockSkipped: 0, rows: rows.length };
 
   try {
     await client.query("BEGIN");
+    await client.query(`select pg_advisory_xact_lock(hashtext($1)::bigint)`, [PROFILE_KEY]);
+    const previous = await client.query(
+      `select id from permupay_import_jobs where content_hash=$1 and profile_key=$2 and status='COMPLETED' limit 1`,
+      [contentHash, PROFILE_KEY],
+    );
+    if (previous.rows[0]) {
+      await client.query("COMMIT");
+      console.log(`[Ideal Prime][seed] arquivo já aplicado (${contentHash.slice(0, 12)}…); nenhuma alteração necessária.`);
+      return;
+    }
+
     const priceListId = await ensureDefaultPriceList(client);
     const versionId = await ensurePriceVersion(client, priceListId, rows.length > 0);
 
@@ -230,9 +250,9 @@ async function main() {
 
     await client.query(`
       insert into permupay_import_jobs (content_hash,profile_key,mode,price_list_id,status,summary,created_at,completed_at)
-      values (md5($1),$2,'PRICES',$3,'COMPLETED',$4::jsonb,now(),now())
+      values ($1,$2,'PRICES',$3,'COMPLETED',$4::jsonb,now(),now())
       on conflict (content_hash,profile_key) do update set summary=excluded.summary, completed_at=now(), status='COMPLETED'
-    `, [JSON.stringify({ file: path.basename(FILE), rows: rows.length }), PROFILE_KEY, priceListId, JSON.stringify(summary)]);
+    `, [contentHash, PROFILE_KEY, priceListId, JSON.stringify(summary)]);
 
     await client.query("COMMIT");
     console.log(`[Ideal Prime][seed] concluído: ${JSON.stringify(summary)}`);
