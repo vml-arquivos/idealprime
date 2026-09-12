@@ -32,6 +32,9 @@ function bool(v, fallback = false) {
   return fallback;
 }
 
+const FORCE_ACTIVE = bool(process.env.CATALOG_SEED_FORCE_ACTIVE, false);
+const FORCE_PUBLISH = bool(process.env.CATALOG_SEED_FORCE_PUBLISH, false);
+
 function num(v) {
   const raw = String(v ?? "").trim();
   if (!raw) return 0;
@@ -67,8 +70,12 @@ function categoryEmoji(label) {
 
 function slugify(value) {
   return String(value ?? "OUTROS")
-    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-    .toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 80) || "OUTROS";
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 80) || "OUTROS";
 }
 
 function readRows() {
@@ -86,8 +93,8 @@ async function ensureDefaultPriceList(client) {
   return Number(result.rows[0].id);
 }
 
-async function ensurePriceVersion(client, priceListId, hasPrices) {
-  if (!hasPrices) return null;
+async function ensurePriceVersion(client, priceListId, hasRows) {
+  if (!hasRows) return null;
   const current = await client.query(`select coalesce(max(version),0) as version from permupay_price_list_versions where price_list_id=$1`, [priceListId]);
   const version = Number(current.rows[0]?.version ?? 0) + 1;
   const inserted = await client.query(`insert into permupay_price_list_versions (price_list_id,version,effective_from,created_at) values ($1,$2,now(),now()) returning id`, [priceListId, version]);
@@ -103,8 +110,7 @@ async function main() {
   try {
     await client.query("BEGIN");
     const priceListId = await ensureDefaultPriceList(client);
-    const hasPrices = rows.some((r) => num(r.preco_venda) > 0);
-    const versionId = await ensurePriceVersion(client, priceListId, hasPrices);
+    const versionId = await ensurePriceVersion(client, priceListId, rows.length > 0);
 
     const existingCategories = new Set((await client.query(`select slug from permupay_categories`)).rows.map((r) => r.slug));
 
@@ -116,8 +122,8 @@ async function main() {
       const price = num(row.preco_venda);
       const incomingStock = num(row.estoque_fisico);
       const minimumStock = optionalNum(row.estoque_minimo);
-      const active = bool(row.ativo, true);
-      const published = bool(row.publicado, false) && price > 0;
+      const active = FORCE_ACTIVE ? true : bool(row.ativo, true);
+      const published = FORCE_PUBLISH ? true : bool(row.publicado, false);
       const b2bEnabled = bool(row.b2b_habilitado, true);
       const initialStock = STOCK_MODE === "SKIP" ? 0 : incomingStock;
 
@@ -126,7 +132,10 @@ async function main() {
         values ($1,$2,$3,500,true,now(),now())
         on conflict (slug) do update set label=excluded.label, active=true, updated_at=now()
       `, [categorySlug, categoryLabel, categoryEmoji(categoryLabel)]);
-      if (!existingCategories.has(categorySlug)) { existingCategories.add(categorySlug); summary.categories += 1; }
+      if (!existingCategories.has(categorySlug)) {
+        existingCategories.add(categorySlug);
+        summary.categories += 1;
+      }
 
       const found = await client.query(`select id, stock_quantity from permupay_products where upper(sku)=upper($1) limit 1`, [sku]);
       let productId;
@@ -141,7 +150,9 @@ async function main() {
             throw new Error(`SKU ${sku}: estoque não pode ser forçado porque há fila FIFO ativa/aguardando.`);
           }
           stockSql = "$17";
-        } else if (STOCK_MODE === "SKIP") summary.stockSkipped += 1;
+        } else if (STOCK_MODE === "SKIP") {
+          summary.stockSkipped += 1;
+        }
 
         await client.query(`
           update permupay_products set
@@ -152,9 +163,27 @@ async function main() {
             active=$16, stock_quantity=${stockSql}, published=case when $18 then true else published end,
             notes=coalesce($19,notes), updated_at=now()
           where id=$1
-        `, [productId, name, text(row.unidade) || "UN", Math.max(1, Math.round(num(row.multiplo_venda) || 1)), b2bEnabled,
-          categoryLabel, text(row.subcategoria), text(row.marca), text(row.ncm), minimumStock, text(row.descricao_curta), text(row.descricao),
-          text(row.imagem_url), text(row.fonte_url), text(row.termo_busca), active, incomingStock, published, text(row.observacoes)]);
+        `, [
+          productId,
+          name,
+          text(row.unidade) || "UN",
+          Math.max(1, Math.round(num(row.multiplo_venda) || 1)),
+          b2bEnabled,
+          categoryLabel,
+          text(row.subcategoria),
+          text(row.marca),
+          text(row.ncm),
+          minimumStock,
+          text(row.descricao_curta),
+          text(row.descricao),
+          text(row.imagem_url),
+          text(row.fonte_url),
+          text(row.termo_busca),
+          active,
+          incomingStock,
+          published,
+          text(row.observacoes),
+        ]);
         summary.updated += 1;
       } else {
         const inserted = await client.query(`
@@ -167,14 +196,33 @@ async function main() {
             $10,$11,$12,$13,$14,$15,$16,
             $17,$17,$17,$17,$18,$19,$20,now(),now()
           ) returning id
-        `, [sku, name, categoryLabel, text(row.subcategoria), text(row.marca), text(row.unidade) || "UN",
-          Math.max(1, Math.round(num(row.multiplo_venda) || 1)), b2bEnabled, text(row.ncm), initialStock, minimumStock ?? 0,
-          text(row.imagem_url), text(row.descricao_curta), text(row.descricao), text(row.fonte_url), text(row.termo_busca), price, published, active, text(row.observacoes)]);
+        `, [
+          sku,
+          name,
+          categoryLabel,
+          text(row.subcategoria),
+          text(row.marca),
+          text(row.unidade) || "UN",
+          Math.max(1, Math.round(num(row.multiplo_venda) || 1)),
+          b2bEnabled,
+          text(row.ncm),
+          initialStock,
+          minimumStock ?? 0,
+          text(row.imagem_url),
+          text(row.descricao_curta),
+          text(row.descricao),
+          text(row.fonte_url),
+          text(row.termo_busca),
+          price,
+          published,
+          active,
+          text(row.observacoes),
+        ]);
         productId = Number(inserted.rows[0].id);
         summary.created += 1;
       }
 
-      if (versionId && price > 0) {
+      if (versionId) {
         await client.query(`insert into permupay_price_list_items (version_id,product_id,price_cents,active) values ($1,$2,$3,true) on conflict (version_id,product_id) do update set price_cents=excluded.price_cents, active=true`, [versionId, productId, Math.round(price * 100)]);
         summary.prices += 1;
       }

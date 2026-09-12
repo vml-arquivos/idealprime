@@ -34,6 +34,8 @@ Variáveis recomendadas:
 SEED_CATALOG_MASTER_ON_STARTUP=false
 CATALOG_SEED_FILE=/app/data/seed/IDEAL_PRIME_CATALOGO_MASTER_SEED.xlsx
 CATALOG_SEED_STOCK_MODE=SKIP
+CATALOG_SEED_FORCE_ACTIVE=false
+CATALOG_SEED_FORCE_PUBLISH=false
 ```
 
 Para popular um banco novo, execute as migrations e depois `pnpm seed:catalog` de forma controlada. Use `FORCE` somente em reconciliação expressa e nunca para substituir o fluxo normal de Entrada/FIFO.

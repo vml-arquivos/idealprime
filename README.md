@@ -52,6 +52,7 @@ Variáveis de segurança:
 
 - `SEED_CATALOG_MASTER_ON_STARTUP=false` por padrão;
 - `CATALOG_SEED_STOCK_MODE=SKIP` por padrão;
+- `CATALOG_SEED_FORCE_ACTIVE=false` e `CATALOG_SEED_FORCE_PUBLISH=false` por padrão;
 - `SET_IF_EMPTY` só preenche saldo quando o produto ainda está zerado;
 - `FORCE` é bloqueado quando existe fila FIFO ativa/aguardando.
 

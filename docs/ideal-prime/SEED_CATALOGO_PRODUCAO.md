@@ -14,7 +14,7 @@ Acesse **Comercial B2B > Relacionamento Comercial** e envie XLSX/CSV. O importad
 ### CLI controlada
 
 ```bash
-DATABASE_URL=... CATALOG_SEED_STOCK_MODE=SKIP pnpm seed:catalog
+DATABASE_URL=... CATALOG_SEED_STOCK_MODE=SKIP CATALOG_SEED_FORCE_ACTIVE=false CATALOG_SEED_FORCE_PUBLISH=false pnpm seed:catalog
 ```
 
 ### Startup do container
@@ -24,6 +24,8 @@ Use somente para uma carga planejada:
 SEED_CATALOG_MASTER_ON_STARTUP=true
 CATALOG_SEED_FILE=/app/data/seed/IDEAL_PRIME_CATALOGO_MASTER_SEED.xlsx
 CATALOG_SEED_STOCK_MODE=SKIP
+CATALOG_SEED_FORCE_ACTIVE=false
+CATALOG_SEED_FORCE_PUBLISH=false
 ```
 
 Depois da primeira carga bem-sucedida, volte `SEED_CATALOG_MASTER_ON_STARTUP=false`.
