@@ -55,7 +55,7 @@ interface Category {
   createdAt: string | Date;
 }
 
-const EMOJI_SUGGESTIONS = ["📱", "💻", "🌸", "📦", "👗", "🏠", "🎮", "⌚", "📷", "🎧", "👟", "💄"];
+const EMOJI_SUGGESTIONS = ["🧽", "🧴", "🥤", "🦺", "🧹", "🧻", "💻", "🧸", "📎", "🍽️", "🥫", "📦"];
 
 const emptyForm = { slug: "", label: "", emoji: "📦", sortOrder: 0, active: true };
 
@@ -301,7 +301,7 @@ export default function CategoriasAdmin() {
                     ...f,
                     label,
                     // Auto-preenche slug se ainda não foi editado
-                    slug: editing ? f.slug : label.toUpperCase().replace(/\s+/g, "_").replace(/[^A-Z0-9_]/g, ""),
+                    slug: editing ? f.slug : label.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/\s+/g, "_").replace(/[^A-Z0-9_]/g, ""),
                   }));
                 }}
                 placeholder="Ex: Celulares"
@@ -319,7 +319,7 @@ export default function CategoriasAdmin() {
                 onChange={(e) =>
                   setForm((f) => ({
                     ...f,
-                    slug: e.target.value.toUpperCase().replace(/\s+/g, "_").replace(/[^A-Z0-9_]/g, ""),
+                    slug: e.target.value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/\s+/g, "_").replace(/[^A-Z0-9_]/g, ""),
                   }))
                 }
                 placeholder="Ex: CELULAR"

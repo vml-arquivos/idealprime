@@ -1,4 +1,4 @@
-const CACHE_NAME = "permupay-static-v1";
+const CACHE_NAME = "ideal-prime-static-v2";
 const STATIC_SHELL = ["/", "/index.html", "/manifest.json"];
 
 self.addEventListener("install", (event) => {

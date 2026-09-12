@@ -18,16 +18,24 @@ type CartContextValue = {
   itemCount: number;
 };
 
-const STORAGE_KEY = "permupay_cart";
+const STORAGE_KEY = "ideal_prime_cart";
+const LEGACY_STORAGE_KEY = "permupay_cart";
 const CartContext = createContext<CartContextValue | null>(null);
 
 function readStoredCart(): CartItem[] {
   if (typeof window === "undefined") return [];
   try {
-    const parsed = JSON.parse(window.localStorage.getItem(STORAGE_KEY) || "[]");
-    return Array.isArray(parsed)
+    const current = window.localStorage.getItem(STORAGE_KEY);
+    const legacy = window.localStorage.getItem(LEGACY_STORAGE_KEY);
+    const parsed = JSON.parse(current || legacy || "[]");
+    const items = Array.isArray(parsed)
       ? parsed.filter(item => item && Number(item.productId) > 0)
       : [];
+    if (!current && legacy) {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+      window.localStorage.removeItem(LEGACY_STORAGE_KEY);
+    }
+    return items;
   } catch {
     return [];
   }

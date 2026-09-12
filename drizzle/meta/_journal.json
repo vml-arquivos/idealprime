@@ -239,6 +239,13 @@
       "when": 1788600000000,
       "tag": "0034_customer_credit",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1789200000000,
+      "tag": "0035_ideal_prime_catalog_master",
+      "breakpoints": true
     }
   ]
 }

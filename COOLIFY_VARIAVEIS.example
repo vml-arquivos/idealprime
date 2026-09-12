@@ -32,3 +32,10 @@ S3_ENDPOINT=
 BUILT_IN_FORGE_API_URL=
 BUILT_IN_FORGE_API_KEY=
 LLM_MODEL_NAME=
+
+# Catálogo Mestre / carga inicial segura (opcional)
+# false por padrão: habilite apenas no deploy de popularização controlada.
+SEED_CATALOG_MASTER_ON_STARTUP=false
+CATALOG_SEED_FILE=/app/data/seed/IDEAL_PRIME_CATALOGO_MASTER_SEED.xlsx
+# SKIP = não altera estoque existente; SET_IF_EMPTY = só preenche saldo <= 0; FORCE = força, mas bloqueia se houver FIFO ativo/aguardando.
+CATALOG_SEED_STOCK_MODE=SKIP

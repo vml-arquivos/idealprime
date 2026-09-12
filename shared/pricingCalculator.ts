@@ -1,5 +1,5 @@
 /**
- * PermuPay Vendas — Motor de Precificação
+ * Ideal Prime — Motor de Precificação
  *
  * Motor de cálculo isolado para simulação de preços por forma de pagamento.
  * Implementa cálculo reverso de margem, juros compostos e diagnóstico financeiro.

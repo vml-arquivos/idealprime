@@ -1209,7 +1209,13 @@ export async function triggerStockTransition(
     );
 
     if (newStock > 0) {
-      // Ainda tem saldo — nenhuma transição necessária
+      // Mantém a visão da fila sincronizada com o saldo vendável do lote ativo.
+      await tx.execute(
+        sql`UPDATE permupay_stock_queue
+            SET quantity_remaining = ${newStock}, updated_at = NOW()
+            WHERE product_id = ${productId}
+              AND status = 'ATIVO'`
+      );
       return { newStock, transitioned: false };
     }
 
@@ -1350,10 +1356,17 @@ export async function cancelQueueEntry(queueId: number): Promise<void> {
   if (!entry) throw new Error("Entrada não encontrada na fila");
   if (entry.status === "ATIVO") throw new Error("Não é possível cancelar o lote ATIVO. Faça uma virada manual.");
 
-  await db
-    .update(stockQueue)
-    .set({ status: "CANCELADO", updatedAt: new Date() } as any)
-    .where(eq(stockQueue.id, queueId));
+  await db.transaction(async (tx) => {
+    await tx
+      .update(stockQueue)
+      .set({ status: "CANCELADO", updatedAt: new Date() } as any)
+      .where(eq(stockQueue.id, queueId));
+
+    await tx
+      .update(batchItems)
+      .set({ queueStatus: "CANCELADO" } as any)
+      .where(eq(batchItems.queueId, queueId));
+  });
 }
 
 /**

@@ -26,6 +26,7 @@ import {
   Package,
   Calculator,
   Layers,
+  ListOrdered,
   Users,
   Settings,
   LogOut,
@@ -59,21 +60,22 @@ const menuModules: MenuModule[] = [
     items: [{ icon: LayoutDashboard, label: "Dashboard", path: "/dashboard", permission: PERMISSIONS.DASHBOARD }],
   },
   {
-    label: "Produtos",
+    label: "Catálogo & Estoque",
     items: [
       { icon: Package, label: "Produtos", path: "/produtos", permission: PERMISSIONS.PRODUCTS },
       // Item "Quase Zero" removido: apontava para a mesma /produtos (duplicado) e
       // referenciava uma marca/aplicação separada que não deve aparecer no Ideal Prime.
       { icon: Warehouse, label: "Estoque", path: "/estoque", permission: PERMISSIONS.INVENTORY },
       { icon: Layers, label: "Entrada", path: "/lotes", permission: PERMISSIONS.INVENTORY },
+      { icon: ListOrdered, label: "Fila FIFO", path: "/fila-estoque", permission: PERMISSIONS.INVENTORY },
     ],
   },
   {
-    label: "B2B Ideal Prime",
+    label: "Comercial B2B",
     items: [{ icon: Building2, label: "Relacionamento Comercial", path: "/b2b-admin", permission: PERMISSIONS.B2B_OPERATIONS }],
   },
   {
-    label: "Vendas",
+    label: "Vendas & Clientes",
     items: [
       { icon: Users, label: "Clientes", path: "/clientes", permission: PERMISSIONS.CUSTOMERS },
       { icon: ClipboardList, label: "Pedidos", path: "/pedidos", permission: PERMISSIONS.SALES },
@@ -81,7 +83,7 @@ const menuModules: MenuModule[] = [
     ],
   },
   {
-    label: "Financeiro",
+    label: "Financeiro & Fiscal",
     items: [
       { icon: Calculator, label: "Simulações", path: "/simulacoes", permission: PERMISSIONS.PRICING },
       { icon: ShoppingCart, label: "Cotações", path: "/cotacoes", permission: PERMISSIONS.PRICING },
@@ -241,9 +243,10 @@ function DashboardLayoutContent({
                   <div className="h-8 w-8 rounded-md overflow-hidden shrink-0 bg-transparent flex items-center justify-center">
                     <BrandSymbol className="h-full w-full" />
                   </div>
-                  <span className="font-semibold tracking-tight truncate text-sm">
-                    Ideal Prime
-                  </span>
+                  <div className="min-w-0">
+                    <span className="block truncate text-sm font-semibold tracking-tight">Ideal Prime</span>
+                    <span className="block truncate text-[9px] font-semibold uppercase tracking-[0.14em] text-sidebar-foreground/55">Gestão empresarial</span>
+                  </div>
                 </div>
               )}
             </div>
@@ -388,17 +391,26 @@ function DashboardLayoutContent({
             <span className="text-muted-foreground text-sm hidden sm:inline">
               /
             </span>
-            <span className="font-medium text-sm">{activeLabel}</span>
+            <div className="min-w-0">
+              <span className="block truncate text-sm font-semibold text-[#12352B]">{activeLabel}</span>
+              <span className="hidden text-[9px] font-bold uppercase tracking-[0.16em] text-[#7B9188] md:block">Operação Ideal Prime</span>
+            </div>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setLocation("/b2b-admin")}
+              className="hidden lg:inline-flex items-center gap-1.5 rounded-lg border border-[#D5E8E0] bg-white px-3 py-1.5 text-xs font-semibold text-[#41675A] transition-colors hover:border-[#9ED2BC] hover:text-[#068A5B]"
+            >
+              <Building2 className="h-3.5 w-3.5" /> Gestão B2B
+            </button>
             <a
-              href="/vitrine"
+              href="/portal"
               target="_blank"
               rel="noopener noreferrer"
-              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-primary/30 text-primary text-xs font-medium hover:bg-primary/5 transition-colors"
+              className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-white px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/5"
             >
-              <Store className="h-3.5 w-3.5" />
-              Ver Vitrine
+              <Building2 className="h-3.5 w-3.5" />
+              Portal da empresa
               <ExternalLink className="h-3 w-3 opacity-60" />
             </a>
           </div>

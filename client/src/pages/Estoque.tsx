@@ -132,7 +132,7 @@ export default function Estoque() {
                               </span>
                               <p className="font-medium text-sm truncate">{p.name}</p>
                             </div>
-                            <p className="text-xs text-muted-foreground">{p.category}</p>
+                            <p className="text-xs text-muted-foreground">{p.categoryLabel || p.category}</p>
                           </div>
                         </div>
                       </div>

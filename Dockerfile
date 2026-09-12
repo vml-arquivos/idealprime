@@ -14,6 +14,7 @@ COPY --from=builder --chown=node:node /app/node_modules ./node_modules
 COPY --from=builder --chown=node:node /app/dist ./dist
 COPY --from=builder --chown=node:node /app/drizzle ./drizzle
 COPY --from=builder --chown=node:node /app/scripts ./scripts
+COPY --from=builder --chown=node:node /app/data ./data
 COPY --from=builder --chown=node:node /app/package.json ./package.json
 COPY --chown=node:node docker-entrypoint.sh ./docker-entrypoint.sh
 RUN chmod +x docker-entrypoint.sh && mkdir -p /var/data/ideal-prime/uploads /var/data/ideal-prime/private && chown -R node:node /var/data/ideal-prime

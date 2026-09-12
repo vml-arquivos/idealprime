@@ -80,6 +80,8 @@ interface FormState {
   description: string;
   category: ProductCategory;
   categoryLabel: string;
+  subcategory: string;
+  brand: string;
   ncm: string;
   promoTag: string;
   salesChannel: "SHOP" | "QUASE_ZERO" | "BOTH";
@@ -127,8 +129,10 @@ const defaultForm: FormState = {
   name: "",
   shortDescription: "",
   description: "",
-  category: "CELULAR",
+  category: "OUTRO",
   categoryLabel: "",
+  subcategory: "",
+  brand: "",
   ncm: "",
   promoTag: "",
   salesChannel: "SHOP",
@@ -378,6 +382,16 @@ function ResultCard({ result, isBest }: { result: PaymentResult; isBest: boolean
   );
 }
 
+// Categorias comerciais são dinâmicas. O enum legado permanece apenas como
+// compatibilidade interna do cálculo/banco; categorias novas usam OUTRO + categoryLabel.
+function legacyCategoryFor(slug: string, label: string): ProductCategory {
+  const value = `${slug} ${label}`.toUpperCase();
+  if (value.includes("CELULAR")) return "CELULAR";
+  if (value.includes("ELETRON")) return "ELETRONICO";
+  if (value.includes("PERFUME") || value.includes("FRAGR")) return "PERFUME";
+  return "OUTRO";
+}
+
 // ── Componente Principal ──────────────────────────────────────────────────────
 
 export default function ProductForm() {
@@ -406,6 +420,7 @@ export default function ProductForm() {
     { id: productId! },
     { enabled: isEditing }
   );
+  const categoriesQuery = trpc.categories.list.useQuery({ onlyActive: true }, { staleTime: 60_000 });
   // Pré-visualização do próximo ID ao criar um novo produto
   const nextIdQuery = trpc.products.nextId.useQuery(undefined, {
     enabled: !isEditing,
@@ -558,8 +573,10 @@ export default function ProductForm() {
         name: p.name || "",
         shortDescription: p.shortDescription || "",
         description: p.description || "",
-        category: (p.category as ProductCategory) || "CELULAR",
+        category: (p.category as ProductCategory) || "OUTRO",
         categoryLabel: p.categoryLabel || "",
+        subcategory: (p as any).subcategory || "",
+        brand: (p as any).brand || "",
         ncm: p.ncm || "",
         promoTag: p.promoTag || "",
         salesChannel: (p.salesChannel as any) || "SHOP",
@@ -641,6 +658,8 @@ export default function ProductForm() {
       description: selected.description || prev.description,
       category: (selected.category as ProductCategory) || prev.category,
       categoryLabel: selected.categoryLabel || prev.categoryLabel,
+      subcategory: selected.subcategory || prev.subcategory,
+      brand: selected.brand || prev.brand,
       ncm: selected.ncm || prev.ncm,
       promoTag: selected.promoTag || prev.promoTag,
       salesChannel: (selected.salesChannel as any) || prev.salesChannel,
@@ -766,6 +785,8 @@ export default function ProductForm() {
       description: form.description,
       category: form.category,
       categoryLabel: form.categoryLabel,
+      subcategory: form.subcategory || undefined,
+      brand: form.brand || undefined,
       ncm: form.ncm || undefined,
       promoTag: form.promoTag || undefined,
       salesChannel: form.salesChannel,
@@ -982,25 +1003,69 @@ export default function ProductForm() {
                 </div>
 
                 <Field label="Categoria" required>
-                  <Select value={form.category} onValueChange={(v) => set("category")(v)}>
+                  <Select
+                    value={form.categoryLabel || form.category}
+                    onValueChange={(value) => {
+                      const selected = categoriesQuery.data?.find((category: any) => category.label === value);
+                      if (selected) {
+                        setForm((current) => ({
+                          ...current,
+                          category: legacyCategoryFor(selected.slug, selected.label),
+                          categoryLabel: selected.label,
+                        }));
+                        return;
+                      }
+                      setForm((current) => ({
+                        ...current,
+                        category: value as ProductCategory,
+                        categoryLabel: current.categoryLabel || value,
+                      }));
+                    }}
+                  >
                     <SelectTrigger className="h-9 text-sm">
-                      <SelectValue />
+                      <SelectValue placeholder="Selecione uma categoria" />
                     </SelectTrigger>
                     <SelectContent>
-                      {(["CELULAR", "ELETRONICO", "PERFUME", "BEBIDA", "OUTRO"]).map((c) => (
-                        <SelectItem key={c} value={c as any} className="text-sm capitalize">
-                          {c.charAt(0) + c.slice(1).toLowerCase()}
+                      {categoriesQuery.data?.map((category: any) => (
+                        <SelectItem key={category.id} value={category.label} className="text-sm">
+                          {category.emoji ? `${category.emoji} ` : ""}{category.label}
                         </SelectItem>
+                      ))}
+                      {!categoriesQuery.data?.length && (["CELULAR", "ELETRONICO", "PERFUME", "OUTRO"] as ProductCategory[]).map((category) => (
+                        <SelectItem key={category} value={category} className="text-sm">{category}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </Field>
 
-                <Field label="Label de categoria" tooltip="Exibida na vitrine. Ex: Perfumes Importados">
+                <Field label="Categoria personalizada" tooltip="Nome exibido na vitrine e no catálogo B2B.">
+                  <div className="flex gap-2">
+                    <Input
+                      value={form.categoryLabel}
+                      onChange={(e) => set("categoryLabel")(e.target.value)}
+                      placeholder="Ex: Brinquedos Educativos"
+                      className="h-9 text-sm"
+                    />
+                    <Button type="button" variant="outline" className="h-9 shrink-0" onClick={() => setLocation("/categorias")}>
+                      Gerenciar
+                    </Button>
+                  </div>
+                </Field>
+
+                <Field label="Subcategoria">
                   <Input
-                    value={form.categoryLabel}
-                    onChange={(e) => set("categoryLabel")(e.target.value)}
-                    placeholder="Ex: Perfumes Importados"
+                    value={form.subcategory}
+                    onChange={(e) => set("subcategory")(e.target.value)}
+                    placeholder="Ex: Tratamento de pisos"
+                    className="h-9 text-sm"
+                  />
+                </Field>
+
+                <Field label="Marca">
+                  <Input
+                    value={form.brand}
+                    onChange={(e) => set("brand")(e.target.value)}
+                    placeholder="Ex: Audax"
                     className="h-9 text-sm"
                   />
                 </Field>

@@ -431,6 +431,8 @@ export async function createProduct(data: any) {
       name: String(data.name).trim(),
       category: data.category,
       ncm: data.ncm ? String(data.ncm).trim() : null,
+      brand: data.brand ? String(data.brand).trim() : null,
+      subcategory: data.subcategory ? String(data.subcategory).trim() : null,
       costPrice: Math.max(0, Number(data.costPrice) || 0),
       packagingCost: Math.max(0, Number(data.packagingCost) || 0),
       inboundShippingCost: Math.max(0, Number(data.inboundShippingCost) || 0),
@@ -451,6 +453,8 @@ export async function createProduct(data: any) {
       finalUnitCostBrl,
       shortDescription: data.shortDescription ? String(data.shortDescription).trim() : null,
       description: data.description ? String(data.description).trim() : null,
+      sourceUrl: data.sourceUrl ? String(data.sourceUrl).trim() : null,
+      searchTerm: data.searchTerm ? String(data.searchTerm).trim() : null,
       categoryLabel: data.categoryLabel ? String(data.categoryLabel).trim() : null,
       promoTag: data.promoTag ? String(data.promoTag).trim() : null,
       published: data.published === true,
@@ -534,6 +538,8 @@ export async function updateProduct(id: number, data: any, _userId?: number) {
     if (data.name !== undefined) updateData.name = String(data.name).trim();
     if (data.category !== undefined) updateData.category = data.category;
     if (data.ncm !== undefined) updateData.ncm = data.ncm ? String(data.ncm).trim() : null;
+    if (data.brand !== undefined) updateData.brand = data.brand ? String(data.brand).trim() : null;
+    if (data.subcategory !== undefined) updateData.subcategory = data.subcategory ? String(data.subcategory).trim() : null;
     if (data.costPrice !== undefined) updateData.costPrice = Number(data.costPrice) || 0;
     if (data.packagingCost !== undefined) updateData.packagingCost = Number(data.packagingCost) || 0;
     if (data.inboundShippingCost !== undefined) updateData.inboundShippingCost = Number(data.inboundShippingCost) || 0;
@@ -545,6 +551,8 @@ export async function updateProduct(id: number, data: any, _userId?: number) {
     if (data.active !== undefined) updateData.active = data.active;
     if (data.shortDescription !== undefined) updateData.shortDescription = data.shortDescription ? String(data.shortDescription).trim() : null;
     if (data.description !== undefined) updateData.description = data.description ? String(data.description).trim() : null;
+    if (data.sourceUrl !== undefined) updateData.sourceUrl = data.sourceUrl ? String(data.sourceUrl).trim() : null;
+    if (data.searchTerm !== undefined) updateData.searchTerm = data.searchTerm ? String(data.searchTerm).trim() : null;
     if (data.categoryLabel !== undefined) updateData.categoryLabel = data.categoryLabel ? String(data.categoryLabel).trim() : null;
     if (data.promoTag !== undefined) updateData.promoTag = data.promoTag ? String(data.promoTag).trim() : null;
     if (data.salesChannel !== undefined) updateData.salesChannel = normalizeSalesChannel(data.salesChannel);
@@ -809,11 +817,98 @@ export async function deleteUser(userId: number, currentUserId: number) {
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
+type EnterpriseDashboardMetrics = {
+  publishedProducts: number;
+  b2bProducts: number;
+  lowStockProducts: number;
+  outOfStockProducts: number;
+  inventoryValue: number;
+  businessTotal: number;
+  businessApproved: number;
+  businessPending: number;
+  b2bOrdersTotal: number;
+  b2bOrdersOpen: number;
+  b2bOrdersPaid: number;
+  b2bRevenue: number;
+  quotesPending: number;
+  activeReservationQty: number;
+  fifoWaiting: number;
+  customersTotal: number;
+  activeSellers: number;
+  invoicesPending: number;
+  invoiceErrors: number;
+  invoicesAuthorized: number;
+};
+
+const EMPTY_ENTERPRISE_DASHBOARD: EnterpriseDashboardMetrics = {
+  publishedProducts: 0, b2bProducts: 0, lowStockProducts: 0, outOfStockProducts: 0, inventoryValue: 0,
+  businessTotal: 0, businessApproved: 0, businessPending: 0, b2bOrdersTotal: 0, b2bOrdersOpen: 0,
+  b2bOrdersPaid: 0, b2bRevenue: 0, quotesPending: 0, activeReservationQty: 0, fifoWaiting: 0,
+  customersTotal: 0, activeSellers: 0, invoicesPending: 0, invoiceErrors: 0, invoicesAuthorized: 0,
+};
+
+async function getEnterpriseDashboardMetrics(): Promise<EnterpriseDashboardMetrics> {
+  const db = await getDb();
+  if (!db) return { ...EMPTY_ENTERPRISE_DASHBOARD };
+  try {
+    const result = (await db.execute(sql`
+      SELECT
+        (SELECT COUNT(*) FROM permupay_products WHERE active = true AND published = true)::int AS published_products,
+        (SELECT COUNT(*) FROM permupay_products WHERE active = true AND b2b_enabled = true)::int AS b2b_products,
+        (SELECT COUNT(*) FROM permupay_products WHERE active = true AND minimum_stock > 0 AND stock_quantity <= minimum_stock)::int AS low_stock_products,
+        (SELECT COUNT(*) FROM permupay_products WHERE active = true AND stock_quantity <= 0)::int AS out_of_stock_products,
+        COALESCE((SELECT SUM(stock_quantity * COALESCE(NULLIF(final_unit_cost_brl, 0), NULLIF(average_cost_brl, 0), NULLIF(cost_price_brl, 0), cost_price, 0)) FROM permupay_products WHERE active = true), 0)::float AS inventory_value,
+        (SELECT COUNT(*) FROM permupay_business_accounts)::int AS business_total,
+        (SELECT COUNT(*) FROM permupay_business_accounts WHERE status = 'APPROVED')::int AS business_approved,
+        (SELECT COUNT(*) FROM permupay_business_accounts WHERE status = 'PENDING')::int AS business_pending,
+        (SELECT COUNT(*) FROM permupay_b2b_orders)::int AS b2b_orders_total,
+        (SELECT COUNT(*) FROM permupay_b2b_orders WHERE commercial_status <> 'CANCELADO' AND fulfillment_status <> 'ENTREGUE')::int AS b2b_orders_open,
+        (SELECT COUNT(*) FROM permupay_b2b_orders WHERE payment_status = 'PAGO')::int AS b2b_orders_paid,
+        COALESCE((SELECT SUM(total_cents) FROM permupay_b2b_orders WHERE payment_status = 'PAGO' AND commercial_status <> 'CANCELADO'), 0)::float / 100.0 AS b2b_revenue,
+        (SELECT COUNT(*) FROM permupay_b2b_quotes WHERE status = 'PENDING')::int AS quotes_pending,
+        COALESCE((SELECT SUM(quantity) FROM permupay_b2b_stock_reservations WHERE status = 'ACTIVE'), 0)::float AS active_reservation_qty,
+        (SELECT COUNT(*) FROM permupay_stock_queue WHERE status = 'EM_ESPERA')::int AS fifo_waiting,
+        (SELECT COUNT(*) FROM permupay_customers)::int AS customers_total,
+        (SELECT COUNT(*) FROM permupay_sellers WHERE active = true AND status = 'APROVADO')::int AS active_sellers,
+        (SELECT COUNT(*) FROM permupay_invoices WHERE status IN ('DRAFT','PENDING_PROVIDER','PROCESSING'))::int AS invoices_pending,
+        (SELECT COUNT(*) FROM permupay_invoices WHERE status IN ('REJECTED','ERROR'))::int AS invoice_errors,
+        (SELECT COUNT(*) FROM permupay_invoices WHERE status = 'AUTHORIZED')::int AS invoices_authorized
+    `)) as any;
+    const row = result?.rows?.[0] ?? {};
+    return {
+      publishedProducts: Number(row.published_products ?? 0),
+      b2bProducts: Number(row.b2b_products ?? 0),
+      lowStockProducts: Number(row.low_stock_products ?? 0),
+      outOfStockProducts: Number(row.out_of_stock_products ?? 0),
+      inventoryValue: Number(row.inventory_value ?? 0),
+      businessTotal: Number(row.business_total ?? 0),
+      businessApproved: Number(row.business_approved ?? 0),
+      businessPending: Number(row.business_pending ?? 0),
+      b2bOrdersTotal: Number(row.b2b_orders_total ?? 0),
+      b2bOrdersOpen: Number(row.b2b_orders_open ?? 0),
+      b2bOrdersPaid: Number(row.b2b_orders_paid ?? 0),
+      b2bRevenue: Number(row.b2b_revenue ?? 0),
+      quotesPending: Number(row.quotes_pending ?? 0),
+      activeReservationQty: Number(row.active_reservation_qty ?? 0),
+      fifoWaiting: Number(row.fifo_waiting ?? 0),
+      customersTotal: Number(row.customers_total ?? 0),
+      activeSellers: Number(row.active_sellers ?? 0),
+      invoicesPending: Number(row.invoices_pending ?? 0),
+      invoiceErrors: Number(row.invoice_errors ?? 0),
+      invoicesAuthorized: Number(row.invoices_authorized ?? 0),
+    };
+  } catch (error) {
+    console.warn("[DB] enterprise dashboard metrics unavailable:", error);
+    return { ...EMPTY_ENTERPRISE_DASHBOARD };
+  }
+}
+
 export async function getDashboardData(_userId?: number) {
   try {
-    const [prods, sims] = await Promise.all([
+    const [prods, sims, enterprise] = await Promise.all([
       listProducts(),
       listSimulations(),
+      getEnterpriseDashboardMetrics(),
     ]);
 
     let orderCounts = {
@@ -828,7 +923,7 @@ export async function getDashboardData(_userId?: number) {
       const { getOrderCounts } = await import("./db.orders");
       orderCounts = await getOrderCounts();
     } catch {
-      // tabela ainda não existe — ignora
+      // Compatibilidade com bancos ainda em migration parcial.
     }
 
     return {
@@ -848,6 +943,7 @@ export async function getDashboardData(_userId?: number) {
       ordersCancelados: orderCounts.cancelados,
       faturamentoConfirmado: orderCounts.faturamento,
       ticketMedio: orderCounts.ticketMedio,
+      enterprise,
     };
   } catch (err) {
     console.error("[DB] getDashboardData error:", err);
@@ -864,6 +960,7 @@ export async function getDashboardData(_userId?: number) {
       ordersCancelados: 0,
       faturamentoConfirmado: 0,
       ticketMedio: 0,
+      enterprise: { ...EMPTY_ENTERPRISE_DASHBOARD },
     };
   }
 }

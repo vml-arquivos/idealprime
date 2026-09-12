@@ -1,5 +1,5 @@
 /**
- * Testes unitários para o motor de precificação PermuPay Vendas
+ * Testes unitários para o motor de precificação Ideal Prime
  * Cobertura: Pix, Boleto, Débito, Crédito Parcelado, validações e diagnósticos
  * 
  * NOVA LÓGICA: Margem de lucro é calculada APENAS sobre o preço de custo,

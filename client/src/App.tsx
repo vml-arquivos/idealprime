@@ -28,6 +28,7 @@ import SimulationsExport from "./pages/SimulationsExport";
 import SimulationDetail from "./pages/SimulationDetail";
 import BatchPricing from "./pages/BatchPricing";
 import Estoque from "./pages/Estoque";
+import FilaEstoque from "./pages/FilaEstoque";
 import Usuarios from "./pages/Usuarios";
 import Configuracoes from "./pages/Configuracoes";
 import ConfiguracoesPagamento from "./pages/ConfiguracoesPagamento";
@@ -135,6 +136,13 @@ function Router() {
       </Route>
 
       {/* ── ESTOQUE ───────────────────────────────────────────────────── */}
+      <Route path="/fila-estoque">
+        {() => (
+          <PL permission={PERMISSIONS.INVENTORY}>
+            <FilaEstoque />
+          </PL>
+        )}
+      </Route>
       <Route path="/estoque">
         {() => (
           <P permission={PERMISSIONS.INVENTORY}>

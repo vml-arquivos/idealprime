@@ -73,6 +73,10 @@ const productInput = z.object({
   cardPaymentUrl: z.string().optional(),
   boletoUrl: z.string().optional(),
   categoryLabel: z.string().optional(),
+  brand: z.string().optional(),
+  subcategory: z.string().optional(),
+  sourceUrl: z.string().url().optional().or(z.literal("")),
+  searchTerm: z.string().optional(),
   promoTag: z.string().optional(),
   salesChannel: z.enum(["SHOP", "QUASE_ZERO", "BOTH"]).optional(),
   productCondition: z
@@ -1792,7 +1796,7 @@ export const appRouter = router({
 
           const response = await fetch(url, {
             headers: {
-              "User-Agent": "PermuPayVendas/1.0 (reverse-geocoding)",
+              "User-Agent": "IdealPrime/1.0 (reverse-geocoding)",
               Accept: "application/json",
             },
           });

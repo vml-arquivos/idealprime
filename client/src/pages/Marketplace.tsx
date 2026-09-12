@@ -8,11 +8,11 @@ import {
   Heart,
   Search,
   ShieldCheck,
-  ShoppingBag,
   Sparkles,
   Truck,
 } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
+import { ProductVisual } from "@/components/ProductVisual";
 import brandPattern from "@/assets/brand/ideal-prime-pattern.png";
 
 interface CatalogProduct {
@@ -101,17 +101,13 @@ function ProductCard({ product }: { product: CatalogProduct }) {
             </span>
           )}
 
-          {product.imageUrl ? (
-            <img
-              src={product.imageUrl}
-              alt={product.name}
-              className="absolute inset-0 h-full w-full object-contain p-5 transition-transform duration-500 group-hover:scale-[1.05]"
-            />
-          ) : (
-            <div className="absolute inset-0 flex items-center justify-center bg-[#F7FBF9]">
-              <ShoppingBag className="h-8 w-8 text-[#B9D5C8]" />
-            </div>
-          )}
+          <ProductVisual
+            src={product.imageUrl}
+            alt={product.name}
+            category={product.categoryLabel || product.category}
+            className="absolute inset-0"
+            imageClassName="p-5 transition-transform duration-500 group-hover:scale-[1.05]"
+          />
 
           {stock ? (
             <div className="absolute inset-x-0 bottom-0 translate-y-full transition-transform duration-300 group-hover:translate-y-0">
@@ -188,7 +184,7 @@ export default function Marketplace() {
   const shopProducts = useMemo(() => products.filter(isShopProduct), [products]);
   const inStockProducts = useMemo(() => shopProducts.filter(hasStock), [shopProducts]);
   const categories = useMemo(
-    () => Array.from(new Set(inStockProducts.map((product) => product.category))),
+    () => Array.from(new Set(inStockProducts.map((product) => product.categoryLabel || CAT[product.category] || product.category))),
     [inStockProducts]
   );
 
@@ -199,7 +195,8 @@ export default function Marketplace() {
   const filteredProducts = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
     return inStockProducts.filter((product) => {
-      const byCategory = category ? product.category === category : true;
+      const productCategory = product.categoryLabel || CAT[product.category] || product.category;
+      const byCategory = category ? productCategory === category : true;
       const bySearch = normalizedSearch
         ? `${product.name} ${product.shortDescription ?? ""} ${product.categoryLabel ?? ""}`
             .toLowerCase()
@@ -234,20 +231,21 @@ export default function Marketplace() {
             </button>
             <Link href="/desejos">
               <span className="cursor-pointer text-[10px] font-medium uppercase tracking-[0.22em] text-[#6C8278] transition-colors hover:text-[#068A5B]">
-                Lista de desejos
+                Solicitar produto
               </span>
             </Link>
-            <a href={`${PANEL}/login`} className="text-[10px] font-medium uppercase tracking-[0.22em] text-[#6C8278] transition-colors hover:text-[#068A5B]">
-              Gerenciar
-            </a>
+            <Link href="/empresa/cadastro">
+              <span className="cursor-pointer text-[10px] font-medium uppercase tracking-[0.22em] text-[#6C8278] transition-colors hover:text-[#068A5B]">
+                Quero comprar como empresa
+              </span>
+            </Link>
           </nav>
 
-          <a
-            href={`${PANEL}/login`}
-            className="border border-[#12352B] px-5 py-2.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-[#12352B] transition-colors hover:bg-[#12352B] hover:text-white"
-          >
-            Entrar
-          </a>
+          <Link href="/portal">
+            <span className="cursor-pointer border border-[#12352B] px-5 py-2.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-[#12352B] transition-colors hover:bg-[#12352B] hover:text-white">
+              Portal da empresa
+            </span>
+          </Link>
         </div>
       </header>
 
@@ -277,7 +275,7 @@ export default function Marketplace() {
             </h1>
 
             <p className="mt-6 max-w-md text-[0.98rem] leading-relaxed text-[#6C8278]">
-              Produtos selecionados, disponibilidade transparente e uma experiência de compra pensada para quem exige padrão PRIME.
+              Suprimentos, higiene, limpeza, descartáveis e novas categorias em um catálogo empresarial com tabela comercial, cotação e recompra organizada.
             </p>
 
             <div className="mt-8 flex flex-wrap gap-3">
@@ -287,9 +285,9 @@ export default function Marketplace() {
               >
                 Explorar produtos <ArrowRight className="h-4 w-4" />
               </button>
-              <Link href="/desejos">
+              <Link href="/empresa/cadastro">
                 <span className="inline-flex cursor-pointer items-center gap-2 border border-[#C8DED5] bg-white px-6 py-3.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-[#12352B] transition-colors hover:border-[#068A5B] hover:text-[#068A5B]">
-                  Falar com a PRIME
+                  Comprar como empresa
                 </span>
               </Link>
             </div>
@@ -335,7 +333,7 @@ export default function Marketplace() {
                   A sua próxima escolha começa aqui.
                 </h2>
                 <p className="mt-5 max-w-sm text-sm leading-relaxed text-white/70">
-                  Uma seleção objetiva de produtos para comprar com clareza, confiança e atendimento próximo.
+                  Um canal B2B para pesquisar preços, solicitar itens, gerar cotações e acompanhar pedidos com clareza operacional.
                 </p>
               </div>
 
@@ -390,7 +388,7 @@ export default function Marketplace() {
 
         {categories.length > 1 && (
           <div className="mb-10 flex flex-wrap gap-2 border-y border-[#E3EFE9] py-4">
-            {[{ key: null, label: "Todos" }, ...categories.map((categoryName) => ({ key: categoryName, label: CAT[categoryName] || categoryName }))].map(({ key, label }) => (
+            {[{ key: null, label: "Todos" }, ...categories.map((categoryName) => ({ key: categoryName, label: categoryName }))].map(({ key, label }) => (
               <button
                 key={String(key)}
                 onClick={() => setCategory(key)}

@@ -23,3 +23,19 @@ Variáveis `VITE_*` são públicas e não podem conter segredos.
 ## Rollback
 
 Não faça `DROP`, `TRUNCATE`, force-push nem limpeza global de volumes. Antes de novas migrations, faça backup do PostgreSQL e do volume. O rollback de aplicação deve usar um commit anterior compatível com o schema; migrations aditivas permanecem no banco.
+
+## Catálogo Mestre (produção)
+
+O container contém `data/seed/IDEAL_PRIME_CATALOGO_MASTER_SEED.xlsx`, mas **não o executa automaticamente** por padrão.
+
+Variáveis recomendadas:
+
+```env
+SEED_CATALOG_MASTER_ON_STARTUP=false
+CATALOG_SEED_FILE=/app/data/seed/IDEAL_PRIME_CATALOGO_MASTER_SEED.xlsx
+CATALOG_SEED_STOCK_MODE=SKIP
+```
+
+Para popular um banco novo, execute as migrations e depois `pnpm seed:catalog` de forma controlada. Use `FORCE` somente em reconciliação expressa e nunca para substituir o fluxo normal de Entrada/FIFO.
+
+Antes de cada publicação, rode `pnpm release:verify` em um ambiente com dependências instaladas e PostgreSQL de homologação.

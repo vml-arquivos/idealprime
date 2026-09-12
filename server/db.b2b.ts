@@ -220,7 +220,7 @@ export async function transitionOrder(orderId:number,action:'ACCEPT'|'PAY'|'SHIP
  if(action==='ACCEPT') await c.query(`update permupay_b2b_orders set commercial_status='ACEITO',updated_at=now() where id=$1`,[orderId]);
  if(action==='PAY') await c.query(`update permupay_b2b_orders set payment_status='PAGO',updated_at=now() where id=$1`,[orderId]);
  if(action==='CANCEL'){await c.query(`update permupay_b2b_orders set commercial_status='CANCELADO',updated_at=now() where id=$1`,[orderId]);await c.query(`update permupay_b2b_stock_reservations set status='RELEASED',updated_at=now() where order_id=$1 and status='ACTIVE'`,[orderId]);}
- if(action==='SHIP'){const rs=await c.query(`select * from permupay_b2b_stock_reservations where order_id=$1 and status='ACTIVE' for update`,[orderId]);for(const r of rs.rows){const up=await c.query(`update permupay_products set stock_quantity=stock_quantity-$2,updated_at=now() where id=$1 and stock_quantity >= $2 returning id`,[r.product_id,r.quantity]);if(!up.rowCount)throw new Error('Saldo insuficiente durante expedição');}await c.query(`update permupay_b2b_stock_reservations set status='CONSUMED',updated_at=now() where order_id=$1 and status='ACTIVE'`,[orderId]);await c.query(`update permupay_b2b_orders set fulfillment_status='ENVIADO',updated_at=now() where id=$1`,[orderId]);}
+ if(action==='SHIP'){const rs=await c.query(`select * from permupay_b2b_stock_reservations where order_id=$1 and status='ACTIVE' for update`,[orderId]);for(const r of rs.rows){await consumeB2BStockFifo(c,Number(r.product_id),Number(r.quantity));}await c.query(`update permupay_b2b_stock_reservations set status='CONSUMED',updated_at=now() where order_id=$1 and status='ACTIVE'`,[orderId]);await c.query(`update permupay_b2b_orders set fulfillment_status='ENVIADO',updated_at=now() where id=$1`,[orderId]);}
  await c.query('COMMIT');return (await getPool().query(`select * from permupay_b2b_orders where id=$1`,[orderId])).rows[0];}catch(e){await c.query('ROLLBACK');throw e}finally{c.release()}
 }
 
@@ -275,21 +275,406 @@ export async function inviteBusinessMember(input: { businessAccountId: number; n
   }
 }
 
-export type ImportRow={sku:string;nome?:string;categoria?:string;unidade?:string;multiplo_venda?:number;preco_venda:unknown;estoque_fisico?:number|null;ativo?:boolean};
-export async function applyImport(actorUserId:number,input:{hash:string;profileKey:string;mode:'PRICES'|'INVENTORY';priceListId:number;referenceAt?:Date|null;rows:ImportRow[]}){
- const c=await getPool().connect();try{await c.query('BEGIN');const prev=await c.query(`select * from permupay_import_jobs where content_hash=$1 and profile_key=$2`,[input.hash,input.profileKey]);if(prev.rows[0]){await c.query('COMMIT');return {repeated:true,job:prev.rows[0]}}
- if(!input.rows.length)throw new Error('Arquivo sem linhas');const seen=new Set<string>();const normalized=input.rows.map((r,i)=>{const sku=normalizeSku(r.sku);if(!sku)throw new Error(`Linha ${i+2}: SKU obrigatório`);if(seen.has(sku))throw new Error(`Linha ${i+2}: SKU duplicado ${sku}`);seen.add(sku);const mult=Number(r.multiplo_venda??1);if(!Number.isInteger(mult)||mult<=0)throw new Error(`Linha ${i+2}: múltiplo inválido`);return {...r,sku,multiplo_venda:mult,priceCents:parseMoneyToCents(r.preco_venda)};});
- const ver=(await c.query(`select coalesce(max(version),0)+1 as next from permupay_price_list_versions where price_list_id=$1`,[input.priceListId])).rows[0].next;const v=(await c.query(`insert into permupay_price_list_versions(price_list_id,version,created_by) values($1,$2,$3) returning id`,[input.priceListId,ver,actorUserId])).rows[0];
- const job=(await c.query(`insert into permupay_import_jobs(content_hash,profile_key,mode,price_list_id,reference_at,actor_user_id,status) values($1,$2,$3,$4,$5,$6,'RUNNING') returning *`,[input.hash,input.profileKey,input.mode,input.priceListId,input.referenceAt??null,actorUserId])).rows[0];let created=0,updated=0;
- for(let i=0;i<normalized.length;i++){const r=normalized[i];const existing=(await c.query(`select * from permupay_products where upper(trim(sku))=$1 for update`,[r.sku])).rows[0];let productId:number;let before=existing||null;
-  if(existing){if(input.mode==='INVENTORY'&&r.estoque_fisico!=null){const reserved=Number((await c.query(`select coalesce(sum(quantity),0) as q from permupay_b2b_stock_reservations where product_id=$1 and status='ACTIVE'`,[existing.id])).rows[0].q||0);if(Number(r.estoque_fisico)<reserved)throw new Error(`Linha ${i+2}: estoque físico menor que reservas ativas`);} const q=await c.query(`update permupay_products set name=coalesce($2,name),category_label=coalesce($3,category_label),unit=coalesce($4,unit),sales_multiple=$5,active=coalesce($6,active),b2b_enabled=true,stock_quantity=case when $7::boolean then coalesce($8,stock_quantity) else stock_quantity end,updated_at=now() where id=$1 returning *`,[existing.id,r.nome?.trim()||null,r.categoria?.trim()||null,r.unidade?.trim().toUpperCase()||null,r.multiplo_venda,r.ativo??null,input.mode==='INVENTORY',r.estoque_fisico??null]);productId=existing.id;updated++;await c.query(`insert into permupay_import_rows(job_id,row_number,sku,status,before_data,after_data) values($1,$2,$3,'UPDATED',$4::jsonb,$5::jsonb)`,[job.id,i+2,r.sku,JSON.stringify(before),JSON.stringify(q.rows[0])]);}
-  else {if(!r.nome||!r.categoria||!r.unidade)throw new Error(`Linha ${i+2}: produto novo exige nome, categoria e unidade`);const q=await c.query(`insert into permupay_products(sku,name,category,category_label,unit,sales_multiple,b2b_enabled,active,stock_quantity) values($1,$2,'OUTRO',$3,$4,$5,true,$6,$7) returning *`,[r.sku,r.nome.trim(),r.categoria.trim(),r.unidade.trim().toUpperCase(),r.multiplo_venda,r.ativo??true,input.mode==='INVENTORY'?(r.estoque_fisico??0):0]);productId=q.rows[0].id;created++;await c.query(`insert into permupay_import_rows(job_id,row_number,sku,status,after_data) values($1,$2,$3,'CREATED',$4::jsonb)`,[job.id,i+2,r.sku,JSON.stringify(q.rows[0])]);}
-  await c.query(`insert into permupay_price_list_items(version_id,product_id,price_cents,active) values($1,$2,$3,true)`,[v.id,productId,r.priceCents]);
- }
- const summary={created,updated,total:normalized.length,version:Number(ver)};await c.query(`update permupay_import_jobs set status='COMPLETED',summary=$2::jsonb,completed_at=now() where id=$1`,[job.id,JSON.stringify(summary)]);await c.query('COMMIT');return {repeated:false,job:{...job,status:'COMPLETED',summary}};
- }catch(e){await c.query('ROLLBACK').catch(()=>{});throw e}finally{c.release()}
+export type ImportRow = {
+  sku: string;
+  nome?: string;
+  categoria?: string;
+  subcategoria?: string;
+  marca?: string;
+  unidade?: string;
+  multiplo_venda?: number;
+  preco_venda: unknown;
+  estoque_fisico?: number | null;
+  estoque_minimo?: number | null;
+  ncm?: string;
+  descricao_curta?: string;
+  descricao?: string;
+  imagem_url?: string;
+  fonte_url?: string;
+  termo_busca?: string;
+  publicado?: boolean;
+  b2b_habilitado?: boolean;
+  ativo?: boolean;
+  observacoes?: string;
+};
+
+function normalizeCategorySlug(label: string) {
+  const slug = label
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 50);
+  return slug || 'OUTROS';
 }
-export async function listImportJobs(){const {rows}=await getPool().query(`select j.*,u.name as actor_name,p.name as price_list_name from permupay_import_jobs j left join permupay_users u on u.id=j.actor_user_id left join permupay_price_lists p on p.id=j.price_list_id order by j.created_at desc limit 100`);return rows}
+
+async function ensureDynamicCategory(c: PoolClient, label?: string) {
+  const normalizedLabel = label?.trim();
+  if (!normalizedLabel) return;
+  const slug = normalizeCategorySlug(normalizedLabel);
+  await c.query(
+    `insert into permupay_categories(slug,label,emoji,sort_order,active)
+     values($1,$2,'📦',0,true)
+     on conflict (slug) do update
+       set label=excluded.label, active=true, updated_at=now()`,
+    [slug, normalizedLabel],
+  );
+}
+
+/**
+ * Concilia estoque vindo da planilha sem permitir que um saldo agregado
+ * sobrescreva a ordem de lotes FIFO. Quando há lote em espera, a entrada física
+ * precisa passar pelo módulo Entrada/FIFO para que custo e ordem sejam preservados.
+ */
+async function reconcileImportedInventory(
+  c: PoolClient,
+  productId: number,
+  targetStock: number,
+  rowNumber: number,
+) {
+  const reserved = Number(
+    (await c.query(
+      `select coalesce(sum(quantity),0) as q
+       from permupay_b2b_stock_reservations
+       where product_id=$1 and status='ACTIVE'`,
+      [productId],
+    )).rows[0]?.q || 0,
+  );
+  if (targetStock < reserved) {
+    throw new Error(`Linha ${rowNumber}: estoque físico menor que reservas B2B ativas (${reserved})`);
+  }
+
+  const queue = await c.query(
+    `select id,status,quantity,quantity_remaining,batch_item_id
+     from permupay_stock_queue
+     where product_id=$1 and status in ('ATIVO','EM_ESPERA')
+     order by position asc, created_at asc
+     for update`,
+    [productId],
+  );
+  const waiting = queue.rows.filter((entry) => entry.status === 'EM_ESPERA');
+  const active = queue.rows.filter((entry) => entry.status === 'ATIVO');
+
+  if (waiting.length) {
+    throw new Error(
+      `Linha ${rowNumber}: produto possui ${waiting.length} lote(s) em espera na Fila FIFO. ` +
+      `Para preservar a ordem dos lotes, registre nova entrada pelo módulo Entrada/FIFO.`,
+    );
+  }
+  if (active.length > 1) {
+    throw new Error(`Linha ${rowNumber}: inconsistência FIFO — mais de um lote ativo para o produto`);
+  }
+
+  if (active[0]) {
+    if (targetStock <= 0) {
+      await c.query(
+        `update permupay_stock_queue
+         set status='ESGOTADO', quantity_remaining=0, exhausted_at=coalesce(exhausted_at,now()), updated_at=now()
+         where id=$1`,
+        [active[0].id],
+      );
+      await c.query(
+        `update permupay_batch_items set queue_status='ESGOTADO' where queue_id=$1`,
+        [active[0].id],
+      );
+    } else {
+      await c.query(
+        `update permupay_stock_queue
+         set quantity_remaining=$2, updated_at=now()
+         where id=$1`,
+        [active[0].id, targetStock],
+      );
+    }
+  }
+}
+
+/**
+ * Consumo B2B integrado à fila FIFO, dentro da mesma transação do pedido.
+ * Mantém `stock_quantity` e `quantity_remaining` sincronizados e promove o
+ * próximo lote automaticamente quando o estoque ativo zera.
+ */
+async function consumeB2BStockFifo(c: PoolClient, productId: number, quantity: number) {
+  const product = (await c.query(
+    `select id,stock_quantity from permupay_products where id=$1 for update`,
+    [productId],
+  )).rows[0];
+  if (!product) throw new Error('Produto não encontrado durante expedição');
+
+  const currentStock = Number(product.stock_quantity || 0);
+  if (quantity <= 0 || currentStock < quantity) throw new Error('Saldo insuficiente durante expedição');
+  const newStock = Math.max(0, currentStock - quantity);
+
+  await c.query(
+    `update permupay_products set stock_quantity=$2,updated_at=now() where id=$1`,
+    [productId, newStock],
+  );
+
+  if (newStock > 0) {
+    await c.query(
+      `update permupay_stock_queue
+       set quantity_remaining=$2,updated_at=now()
+       where product_id=$1 and status='ATIVO'`,
+      [productId, newStock],
+    );
+    return;
+  }
+
+  await c.query(
+    `update permupay_stock_queue
+     set status='ESGOTADO',quantity_remaining=0,exhausted_at=now(),updated_at=now()
+     where product_id=$1 and status='ATIVO'`,
+    [productId],
+  );
+  await c.query(
+    `update permupay_batch_items
+     set queue_status='ESGOTADO'
+     where queue_id in (
+       select id from permupay_stock_queue where product_id=$1 and status='ESGOTADO' and exhausted_at is not null
+     ) and queue_status='ATIVO'`,
+    [productId],
+  );
+
+  const next = (await c.query(
+    `select id,quantity,unit_cost,suggested_price_pix,suggested_price_card,suggested_price_boleto,batch_id
+     from permupay_stock_queue
+     where product_id=$1 and status='EM_ESPERA'
+     order by position asc,created_at asc
+     limit 1
+     for update`,
+    [productId],
+  )).rows[0];
+  if (!next) return;
+
+  await c.query(
+    `update permupay_stock_queue
+     set status='ATIVO',quantity_remaining=quantity,activated_at=now(),updated_at=now()
+     where id=$1`,
+    [next.id],
+  );
+  await c.query(
+    `update permupay_batch_items set queue_status='ATIVO' where queue_id=$1`,
+    [next.id],
+  );
+  await c.query(
+    `update permupay_products set
+       stock_quantity=$2,
+       average_cost_brl=$3,
+       final_unit_cost_brl=$3,
+       suggested_price_pix=$4,
+       suggested_price_card=$5,
+       suggested_price_boleto=$6,
+       updated_at=now()
+     where id=$1`,
+    [
+      productId,
+      Number(next.quantity || 0),
+      Number(next.unit_cost || 0),
+      Number(next.suggested_price_pix || 0),
+      Number(next.suggested_price_card || 0),
+      Number(next.suggested_price_boleto || 0),
+    ],
+  );
+}
+
+export async function applyImport(
+  actorUserId: number,
+  input: {
+    hash: string;
+    profileKey: string;
+    mode: 'PRICES' | 'INVENTORY';
+    priceListId: number;
+    referenceAt?: Date | null;
+    rows: ImportRow[];
+  },
+) {
+  const c = await getPool().connect();
+  try {
+    await c.query('BEGIN');
+    const previous = await c.query(
+      `select * from permupay_import_jobs where content_hash=$1 and profile_key=$2`,
+      [input.hash, input.profileKey],
+    );
+    if (previous.rows[0]) {
+      await c.query('COMMIT');
+      return { repeated: true, job: previous.rows[0] };
+    }
+    if (!input.rows.length) throw new Error('Arquivo sem linhas');
+
+    const seen = new Set<string>();
+    const normalized = input.rows.map((row, index) => {
+      const sku = normalizeSku(row.sku);
+      if (!sku) throw new Error(`Linha ${index + 2}: SKU obrigatório`);
+      if (seen.has(sku)) throw new Error(`Linha ${index + 2}: SKU duplicado ${sku}`);
+      seen.add(sku);
+      const multiple = Number(row.multiplo_venda ?? 1);
+      if (!Number.isInteger(multiple) || multiple <= 0) throw new Error(`Linha ${index + 2}: múltiplo inválido`);
+      return { ...row, sku, multiplo_venda: multiple, priceCents: parseMoneyToCents(row.preco_venda) };
+    });
+
+    const priceList = await c.query(`select id from permupay_price_lists where id=$1 and active=true`, [input.priceListId]);
+    if (!priceList.rows[0]) throw new Error('Tabela de preços não encontrada ou inativa');
+
+    const nextVersion = (await c.query(
+      `select coalesce(max(version),0)+1 as next from permupay_price_list_versions where price_list_id=$1`,
+      [input.priceListId],
+    )).rows[0].next;
+    const version = (await c.query(
+      `insert into permupay_price_list_versions(price_list_id,version,created_by) values($1,$2,$3) returning id`,
+      [input.priceListId, nextVersion, actorUserId],
+    )).rows[0];
+    const job = (await c.query(
+      `insert into permupay_import_jobs(content_hash,profile_key,mode,price_list_id,reference_at,actor_user_id,status)
+       values($1,$2,$3,$4,$5,$6,'RUNNING') returning *`,
+      [input.hash, input.profileKey, input.mode, input.priceListId, input.referenceAt ?? null, actorUserId],
+    )).rows[0];
+
+    let created = 0;
+    let updated = 0;
+
+    for (let index = 0; index < normalized.length; index++) {
+      const row = normalized[index];
+      const rowNumber = index + 2;
+      await ensureDynamicCategory(c, row.categoria);
+
+      const existing = (await c.query(
+        `select * from permupay_products where upper(trim(sku))=$1 for update`,
+        [row.sku],
+      )).rows[0];
+      let productId: number;
+
+      if (existing) {
+        if (input.mode === 'INVENTORY' && row.estoque_fisico != null) {
+          await reconcileImportedInventory(c, existing.id, Number(row.estoque_fisico), rowNumber);
+        }
+
+        const updatedProduct = await c.query(
+          `update permupay_products set
+             name=coalesce($2,name),
+             category_label=coalesce($3,category_label),
+             subcategory=coalesce($4,subcategory),
+             brand=coalesce($5,brand),
+             unit=coalesce($6,unit),
+             sales_multiple=$7,
+             active=coalesce($8,active),
+             b2b_enabled=coalesce($9,b2b_enabled),
+             stock_quantity=case when $10::boolean then coalesce($11,stock_quantity) else stock_quantity end,
+             minimum_stock=coalesce($12,minimum_stock),
+             ncm=coalesce($13,ncm),
+             short_description=coalesce($14,short_description),
+             description=coalesce($15,description),
+             image_url=coalesce($16,image_url),
+             source_url=coalesce($17,source_url),
+             search_term=coalesce($18,search_term),
+             published=coalesce($19,published),
+             notes=coalesce($20,notes),
+             updated_at=now()
+           where id=$1 returning *`,
+          [
+            existing.id,
+            row.nome?.trim() || null,
+            row.categoria?.trim() || null,
+            row.subcategoria?.trim() || null,
+            row.marca?.trim() || null,
+            row.unidade?.trim().toUpperCase() || null,
+            row.multiplo_venda,
+            row.ativo ?? null,
+            row.b2b_habilitado ?? null,
+            input.mode === 'INVENTORY',
+            row.estoque_fisico ?? null,
+            row.estoque_minimo ?? null,
+            row.ncm?.trim() || null,
+            row.descricao_curta?.trim() || null,
+            row.descricao?.trim() || null,
+            row.imagem_url?.trim() || null,
+            row.fonte_url?.trim() || null,
+            row.termo_busca?.trim() || null,
+            row.publicado ?? null,
+            row.observacoes?.trim() || null,
+          ],
+        );
+        productId = existing.id;
+        updated++;
+        await c.query(
+          `insert into permupay_import_rows(job_id,row_number,sku,status,before_data,after_data)
+           values($1,$2,$3,'UPDATED',$4::jsonb,$5::jsonb)`,
+          [job.id, rowNumber, row.sku, JSON.stringify(existing), JSON.stringify(updatedProduct.rows[0])],
+        );
+      } else {
+        if (!row.nome || !row.categoria || !row.unidade) {
+          throw new Error(`Linha ${rowNumber}: produto novo exige nome, categoria e unidade`);
+        }
+        const inserted = await c.query(
+          `insert into permupay_products(
+             sku,name,category,category_label,subcategory,brand,unit,sales_multiple,
+             b2b_enabled,active,stock_quantity,minimum_stock,ncm,short_description,
+             description,image_url,source_url,search_term,published,notes
+           ) values(
+             $1,$2,'OUTRO',$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19
+           ) returning *`,
+          [
+            row.sku,
+            row.nome.trim(),
+            row.categoria.trim(),
+            row.subcategoria?.trim() || null,
+            row.marca?.trim() || null,
+            row.unidade.trim().toUpperCase(),
+            row.multiplo_venda,
+            row.b2b_habilitado ?? true,
+            row.ativo ?? true,
+            input.mode === 'INVENTORY' ? (row.estoque_fisico ?? 0) : 0,
+            row.estoque_minimo ?? 0,
+            row.ncm?.trim() || null,
+            row.descricao_curta?.trim() || null,
+            row.descricao?.trim() || null,
+            row.imagem_url?.trim() || null,
+            row.fonte_url?.trim() || null,
+            row.termo_busca?.trim() || null,
+            row.publicado ?? false,
+            row.observacoes?.trim() || null,
+          ],
+        );
+        productId = inserted.rows[0].id;
+        created++;
+        await c.query(
+          `insert into permupay_import_rows(job_id,row_number,sku,status,after_data)
+           values($1,$2,$3,'CREATED',$4::jsonb)`,
+          [job.id, rowNumber, row.sku, JSON.stringify(inserted.rows[0])],
+        );
+      }
+
+      await c.query(
+        `insert into permupay_price_list_items(version_id,product_id,price_cents,active)
+         values($1,$2,$3,true)`,
+        [version.id, productId, row.priceCents],
+      );
+    }
+
+    const summary = { created, updated, total: normalized.length, version: Number(nextVersion) };
+    await c.query(
+      `update permupay_import_jobs set status='COMPLETED',summary=$2::jsonb,completed_at=now() where id=$1`,
+      [job.id, JSON.stringify(summary)],
+    );
+    await c.query('COMMIT');
+    return { repeated: false, job: { ...job, status: 'COMPLETED', summary } };
+  } catch (error) {
+    await c.query('ROLLBACK').catch(() => {});
+    throw error;
+  } finally {
+    c.release();
+  }
+}
+
+export async function listImportJobs() {
+  const { rows } = await getPool().query(
+    `select j.*,u.name as actor_name,p.name as price_list_name
+     from permupay_import_jobs j
+     left join permupay_users u on u.id=j.actor_user_id
+     left join permupay_price_lists p on p.id=j.price_list_id
+     order by j.created_at desc limit 100`,
+  );
+  return rows;
+}
 
 
 export type B2BQuoteAction = 'APPROVE' | 'REJECT' | 'CANCEL';

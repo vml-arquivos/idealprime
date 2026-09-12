@@ -4,6 +4,7 @@ import { Link } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { formatCurrency } from "../../../shared/pricingCalculator";
 import { Button } from "@/components/ui/button";
+import { ProductVisual } from "@/components/ProductVisual";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -36,7 +37,6 @@ import {
   RefreshCw,
   Search,
   Share2,
-  ShoppingBag,
   Store,
   Trash2,
   X,
@@ -197,7 +197,7 @@ export default function Products() {
         !term ||
         String(p.id).includes(term) ||
         String(p.name || "").toLowerCase().includes(term) ||
-        String(p.category || "").toLowerCase().includes(term);
+        String(p.categoryLabel || p.category || "").toLowerCase().includes(term);
 
       const matchView =
         view === "todos" ||
@@ -226,7 +226,7 @@ export default function Products() {
     const catalogRows = (products as any[]).map((p) => ({
       "Nome do Produto": p.name,
       "Canal": p.salesChannel || "SHOP",
-      "Categoria": p.category,
+      "Categoria": p.categoryLabel || p.category,
       "Descrição Curta": p.shortDescription || "—",
       "Publicado na Vitrine": p.published ? "Sim" : "Não",
       "Status": p.active ? "Ativo" : "Inativo",
@@ -237,7 +237,7 @@ export default function Products() {
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(catalogRows);
     XLSX.utils.book_append_sheet(wb, ws, "Catálogo");
-    XLSX.writeFile(wb, `permupay-produtos-${now}.xlsx`);
+    XLSX.writeFile(wb, `ideal-prime-produtos-${now}.xlsx`);
     toast.success("Planilha exportada!");
   };
 
@@ -298,19 +298,18 @@ export default function Products() {
                 <span className="w-6 shrink-0 text-center font-mono text-xs font-bold text-muted-foreground">{index + 1}</span>
                 <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground/50" />
 
-                {product.imageUrl ? (
-                  <div className="h-10 w-10 shrink-0 overflow-hidden rounded border bg-white">
-                    <img src={product.imageUrl} alt={product.name} className="h-full w-full object-contain p-0.5" />
-                  </div>
-                ) : (
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded border bg-muted">
-                    <ShoppingBag className="h-4 w-4 text-muted-foreground/40" />
-                  </div>
-                )}
+                <ProductVisual
+                  src={product.imageUrl}
+                  alt={product.name}
+                  category={product.categoryLabel || product.category}
+                  compact
+                  className="h-10 w-10 shrink-0 rounded border"
+                  imageClassName="p-0.5"
+                />
 
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-foreground">{product.name}</p>
-                  <p className="text-xs text-muted-foreground">{product.category}</p>
+                  <p className="text-xs text-muted-foreground">{product.categoryLabel || product.category}</p>
                 </div>
 
                 <div className="shrink-0">
@@ -458,15 +457,14 @@ export default function Products() {
                     <div className="space-y-3 p-3 sm:p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex min-w-0 flex-1 items-start gap-3">
-                          {product.imageUrl ? (
-                            <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg border bg-white">
-                              <img src={product.imageUrl} alt={product.name} className="h-full w-full object-contain p-1" />
-                            </div>
-                          ) : (
-                            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border bg-white">
-                              <ShoppingBag className="h-4 w-4 text-muted-foreground/40" />
-                            </div>
-                          )}
+                          <ProductVisual
+                            src={product.imageUrl}
+                            alt={product.name}
+                            category={product.categoryLabel || product.category}
+                            compact
+                            className="h-12 w-12 shrink-0 rounded-lg border"
+                            imageClassName="p-1"
+                          />
 
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2">
@@ -540,7 +538,7 @@ export default function Products() {
                             </div>
 
                             <p className="mt-1 text-xs text-muted-foreground">
-                              {product.category}
+                              {product.categoryLabel || product.category}
                               {product.ncm && ` • NCM: ${product.ncm}`}
                               {product.shortDescription && <span className="ml-1 text-muted-foreground/70">— {product.shortDescription}</span>}
                             </p>

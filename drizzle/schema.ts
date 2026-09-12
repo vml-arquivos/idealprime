@@ -85,6 +85,8 @@ export const products = pgTable("permupay_products", {
   name: text("name").notNull(),
   category: productCategoryEnum("category").notNull(),
   ncm: text("ncm"),
+  brand: text("brand"),
+  subcategory: text("subcategory"),
 
   // Custos base
   costPrice: real("cost_price").notNull().default(0),
@@ -156,6 +158,8 @@ export const products = pgTable("permupay_products", {
   // Catálogo e vitrine
   shortDescription: text("short_description"),
   description: text("description"),
+  sourceUrl: text("source_url"),
+  searchTerm: text("search_term"),
 
   // Preços sugeridos calculados (salvos para exibição na vitrine)
   suggestedPrice: real("suggested_price").notNull().default(0),

@@ -328,6 +328,59 @@ describe.skipIf(!DATABASE_URL)("B2B — integração contra PostgreSQL real", ()
     expect(versions.rows[0].n).toBe(1);
   });
 
+  it("importação mestre preserva metadados e cria categoria dinâmica", async () => {
+    const suffix = randomUUID().slice(0, 6);
+    const pl = await pool.query(`insert into permupay_price_lists(name,is_default,active) values($1,false,true) returning id`, [`Tabela Master ${suffix}`]);
+    const admin = await pool.query(`insert into permupay_users(email,name,"passwordHash",role,account_type,active) values($1,'Admin','x','admin','STAFF',true) returning id`, [`master-${suffix}@b2btest.local`]);
+    const category = `Brinquedos ${suffix}`;
+    await b2b.applyImport(admin.rows[0].id, {
+      hash: `master-${suffix}`,
+      profileKey: `PRICES:master:${suffix}`,
+      mode: "PRICES",
+      priceListId: pl.rows[0].id,
+      rows: [{
+        sku: `TEST-MASTER-${suffix}`, nome: "Brinquedo Educativo", categoria: category, subcategoria: "Montagem",
+        marca: "Ideal Kids", unidade: "UN", multiplo_venda: 1, preco_venda: "29,90", estoque_minimo: 3,
+        descricao_curta: "Brinquedo educativo para catálogo B2B.", descricao: "Descrição completa do produto.",
+        fonte_url: "https://example.com/produto", termo_busca: "brinquedo educativo", publicado: false, b2b_habilitado: true, ativo: true,
+      }],
+    });
+    const product = await pool.query(`select category_label,subcategory,brand,minimum_stock,short_description,source_url,search_term,published,b2b_enabled from permupay_products where sku=$1`, [`TEST-MASTER-${suffix}`.toUpperCase()]);
+    expect(product.rows[0]).toMatchObject({ category_label: category, subcategory: "Montagem", brand: "Ideal Kids", published: false, b2b_enabled: true });
+    expect(Number(product.rows[0].minimum_stock)).toBe(3);
+    const dynamicCategory = await pool.query(`select label,active from permupay_categories where label=$1`, [category]);
+    expect(dynamicCategory.rows[0]).toMatchObject({ label: category, active: true });
+  });
+
+  it("importação de estoque bloqueia sobrescrita quando há lote FIFO em espera", async () => {
+    const suffix = randomUUID().slice(0, 6);
+    const pl = await pool.query(`insert into permupay_price_lists(name,is_default,active) values($1,false,true) returning id`, [`Tabela FIFO ${suffix}`]);
+    const admin = await pool.query(`insert into permupay_users(email,name,"passwordHash",role,account_type,active) values($1,'Admin','x','admin','STAFF',true) returning id`, [`fifo-import-${suffix}@b2btest.local`]);
+    const product = await pool.query(`insert into permupay_products(sku,name,category,category_label,unit,b2b_enabled,active,stock_quantity) values($1,'Produto FIFO','OUTRO','Limpeza','UN',true,true,5) returning id`, [`TEST-FIFO-IMP-${suffix}`]);
+    await pool.query(`insert into permupay_stock_queue(product_id,quantity,quantity_remaining,status,position) values($1,10,10,'EM_ESPERA',1)`, [product.rows[0].id]);
+    await expect(b2b.applyImport(admin.rows[0].id, {
+      hash: `fifo-${suffix}`, profileKey: `INVENTORY:${suffix}`, mode: "INVENTORY", priceListId: pl.rows[0].id,
+      rows: [{ sku: `TEST-FIFO-IMP-${suffix}`, nome: "Produto FIFO", categoria: "Limpeza", unidade: "UN", multiplo_venda: 1, preco_venda: "10,00", estoque_fisico: 8, ativo: true }],
+    })).rejects.toThrow(/Fila FIFO/);
+    const stock = await pool.query(`select stock_quantity from permupay_products where id=$1`, [product.rows[0].id]);
+    expect(Number(stock.rows[0].stock_quantity)).toBe(5);
+  });
+
+  it("expedição B2B promove automaticamente o próximo lote FIFO", async () => {
+    const seeded = await seedApprovedBusiness({ priceCents: 1000, stock: 2 });
+    await pool.query(`insert into permupay_stock_queue(product_id,quantity,quantity_remaining,status,position,activated_at,unit_cost) values($1,2,2,'ATIVO',0,now(),5)`, [seeded.productId]);
+    const waiting = await pool.query(`insert into permupay_stock_queue(product_id,quantity,quantity_remaining,status,position,unit_cost) values($1,7,7,'EM_ESPERA',1,6) returning id`, [seeded.productId]);
+    const order = await b2b.createOrder(seeded.buyerId, { items: [{ productId: seeded.productId, quantity: 2 }], idempotencyKey: randomUUID() });
+    await b2b.transitionOrder(order.id, "ACCEPT");
+    await b2b.transitionOrder(order.id, "PAY");
+    await b2b.transitionOrder(order.id, "SHIP");
+    const product = await pool.query(`select stock_quantity from permupay_products where id=$1`, [seeded.productId]);
+    expect(Number(product.rows[0].stock_quantity)).toBe(7);
+    const promoted = await pool.query(`select status,quantity_remaining from permupay_stock_queue where id=$1`, [waiting.rows[0].id]);
+    expect(promoted.rows[0].status).toBe("ATIVO");
+    expect(Number(promoted.rows[0].quantity_remaining)).toBe(7);
+  });
+
   it("produto criado via importação não é publicado automaticamente na vitrine pública", async () => {
     const suffix = randomUUID().slice(0, 6);
     const pl = await pool.query(`insert into permupay_price_lists(name,is_default,active) values($1,false,true) returning id`, [`Tabela Publicação ${suffix}`]);
