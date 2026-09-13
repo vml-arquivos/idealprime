@@ -4,7 +4,7 @@
  * Acrescente este arquivo em server/ e importe as funções em server/routers.ts
  */
 
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import {
   batchItems,
   pricingBatches,
@@ -898,6 +898,27 @@ export async function togglePublished(
     .returning();
 
   return updated;
+}
+
+export async function bulkSetPublished(
+  productIds: number[],
+  _userId: number,
+  published: boolean,
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const ids = [...new Set(productIds.filter((id) => Number.isInteger(id) && id > 0))];
+  if (ids.length === 0) return [];
+
+  return db
+    .update(products)
+    .set({
+      published,
+      updatedAt: new Date(),
+    })
+    .where(inArray(products.id, ids))
+    .returning({ id: products.id, published: products.published });
 }
 
 export async function toggleFeatured(

@@ -409,6 +409,16 @@ export const appRouter = router({
           input.promoTag
         )
       ),
+    bulkSetPublished: protectedProcedure
+      .input(
+        z.object({
+          productIds: z.array(z.number().int().positive()).min(1).max(1000),
+          published: z.boolean(),
+        })
+      )
+      .mutation(({ input, ctx }) =>
+        dbBatches.bulkSetPublished(input.productIds, ctx.user.id, input.published)
+      ),
 
     toggleFeatured: protectedProcedure
       .input(

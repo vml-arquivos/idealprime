@@ -4,10 +4,18 @@ import { Link } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { formatCurrency } from "../../../shared/pricingCalculator";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ProductVisual } from "@/components/ProductVisual";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,6 +31,7 @@ import {
   ArrowUpDown,
   Ban,
   Check,
+  CheckCheck,
   ChevronDown,
   ChevronUp,
   Copy,
@@ -33,10 +42,12 @@ import {
   Globe,
   GripVertical,
   ImageOff,
+  ListFilter,
   Plus,
   RefreshCw,
   Search,
   Share2,
+  SlidersHorizontal,
   Star,
   Store,
   Trash2,
@@ -51,6 +62,18 @@ type ProductView =
   | "rascunhos"
   | "paraPublicar";
 
+type ImageFilter = "all" | "with" | "without";
+type PriceFilter = "all" | "without" | "under100" | "100to500" | "over500";
+
+const productPrice = (product: any) =>
+  Number(
+    product.suggestedPricePix ||
+      product.suggestedPriceCard ||
+      product.suggestedPriceBoleto ||
+      product.suggestedPrice ||
+      0
+  );
+
 export default function Products() {
   const utils = trpc.useUtils();
   const { data: products = [] } = trpc.products.list.useQuery();
@@ -63,6 +86,11 @@ export default function Products() {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [view, setView] = useState<ProductView>("todos");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [productTypeFilter, setProductTypeFilter] = useState("all");
+  const [imageFilter, setImageFilter] = useState<ImageFilter>("all");
+  const [priceFilter, setPriceFilter] = useState<PriceFilter>("all");
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: number; name: string } | null>(null);
   const [collapsedCards, setCollapsedCards] = useState<Record<number, boolean>>({});
 
@@ -176,6 +204,17 @@ export default function Products() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const bulkSetPublished = trpc.products.bulkSetPublished.useMutation({
+    onSuccess: (updated: any[]) => {
+      void utils.products.list.invalidate();
+      void utils.products.pendingToPublish.invalidate();
+      const count = updated?.length ?? selectedIds.size;
+      setSelectedIds(new Set());
+      toast.success(`${count} produto${count === 1 ? "" : "s"} atualizado${count === 1 ? "" : "s"} na vitrine.`);
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   const shareProduct = (product: any) => {
     const baseUrl = import.meta.env.VITE_STOREFRONT_URL || window.location.origin;
     // A vitrine "/quase-zero" está desativada no Ideal Prime (ver AUDITORIA) — todo
@@ -199,6 +238,22 @@ export default function Products() {
 
   const listForCurrentView = view === "paraPublicar" ? (pendingProducts as any[]) : (products as any[]);
 
+  const categoryOptions = useMemo(
+    () =>
+      [...new Set((products as any[]).map((p) => String(p.categoryLabel || p.category || "").trim()).filter(Boolean))].sort((a, b) =>
+        a.localeCompare(b, "pt-BR")
+      ),
+    [products]
+  );
+
+  const productTypeOptions = useMemo(
+    () =>
+      [...new Set((products as any[]).map((p) => String(p.subcategory || p.category || "").trim()).filter(Boolean))].sort((a, b) =>
+        a.localeCompare(b, "pt-BR")
+      ),
+    [products]
+  );
+
   const filteredProducts = useMemo(() => {
     return listForCurrentView.filter((p: any) => {
       const term = searchTerm.toLowerCase().trim();
@@ -208,6 +263,22 @@ export default function Products() {
         String(p.name || "").toLowerCase().includes(term) ||
         String(p.categoryLabel || p.category || "").toLowerCase().includes(term);
 
+      const category = String(p.categoryLabel || p.category || "").trim();
+      const productType = String(p.subcategory || p.category || "").trim();
+      const price = productPrice(p);
+      const matchCategory = categoryFilter === "all" || category === categoryFilter;
+      const matchProductType = productTypeFilter === "all" || productType === productTypeFilter;
+      const matchImage =
+        imageFilter === "all" ||
+        (imageFilter === "with" && !!p.imageUrl) ||
+        (imageFilter === "without" && !p.imageUrl);
+      const matchPrice =
+        priceFilter === "all" ||
+        (priceFilter === "without" && price <= 0) ||
+        (priceFilter === "under100" && price > 0 && price < 100) ||
+        (priceFilter === "100to500" && price >= 100 && price <= 500) ||
+        (priceFilter === "over500" && price > 500);
+
       const matchView =
         view === "todos" ||
         view === "paraPublicar" ||
@@ -215,9 +286,49 @@ export default function Products() {
         (view === "publicados" && p.published) ||
         (view === "rascunhos" && !p.published);
 
-      return matchSearch && matchView;
+      return matchSearch && matchView && matchCategory && matchProductType && matchImage && matchPrice;
     });
-  }, [listForCurrentView, searchTerm, view]);
+  }, [categoryFilter, imageFilter, listForCurrentView, priceFilter, productTypeFilter, searchTerm, view]);
+
+  const filteredIds = useMemo(() => filteredProducts.map((product: any) => product.id), [filteredProducts]);
+  const selectedFilteredCount = filteredIds.filter((id) => selectedIds.has(id)).length;
+  const allFilteredSelected = filteredIds.length > 0 && selectedFilteredCount === filteredIds.length;
+  const hasActiveFilters =
+    categoryFilter !== "all" || productTypeFilter !== "all" || imageFilter !== "all" || priceFilter !== "all" || !!searchTerm;
+
+  const setSelectionForFiltered = (selected: boolean) => {
+    setSelectedIds((previous) => {
+      const next = new Set(previous);
+      filteredIds.forEach((id) => (selected ? next.add(id) : next.delete(id)));
+      return next;
+    });
+  };
+
+  const toggleProductSelection = (productId: number, selected: boolean) => {
+    setSelectedIds((previous) => {
+      const next = new Set(previous);
+      if (selected) next.add(productId);
+      else next.delete(productId);
+      return next;
+    });
+  };
+
+  const applyBulkPublished = (published: boolean) => {
+    const ids = [...selectedIds];
+    if (ids.length === 0) {
+      toast.info("Selecione ao menos um produto.");
+      return;
+    }
+    bulkSetPublished.mutate({ productIds: ids, published });
+  };
+
+  const clearFilters = () => {
+    setSearchTerm("");
+    setCategoryFilter("all");
+    setProductTypeFilter("all");
+    setImageFilter("all");
+    setPriceFilter("all");
+  };
 
   const publishedCount = (products as any[]).filter((p) => p.published).length;
   const draftCount = (products as any[]).filter((p) => !p.published).length;
@@ -408,6 +519,98 @@ export default function Products() {
                   </Button>
                 </div>
               </div>
+
+              <div className="rounded-xl border border-primary/20 bg-primary/[0.035] p-3 shadow-sm">
+                <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Checkbox
+                      aria-label="Selecionar todos os produtos filtrados"
+                      checked={allFilteredSelected ? true : selectedFilteredCount > 0 ? "indeterminate" : false}
+                      onCheckedChange={(checked) => setSelectionForFiltered(checked === true)}
+                    />
+                    <div className="mr-2">
+                      <p className="text-sm font-semibold text-foreground">Seleção rápida</p>
+                      <p className="text-xs text-muted-foreground">
+                        {selectedIds.size} selecionado{selectedIds.size === 1 ? "" : "s"} · {filteredProducts.length} resultado{filteredProducts.length === 1 ? "" : "s"}
+                      </p>
+                    </div>
+                    <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setSelectionForFiltered(true)} disabled={filteredProducts.length === 0}>
+                      <CheckCheck className="h-3.5 w-3.5" /> Marcar todos
+                    </Button>
+                    <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setSelectionForFiltered(false)} disabled={filteredProducts.length === 0}>
+                      <X className="h-3.5 w-3.5" /> Desmarcar todos
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="gap-1.5 bg-emerald-600 text-white hover:bg-emerald-700"
+                      onClick={() => applyBulkPublished(true)}
+                      disabled={selectedIds.size === 0 || bulkSetPublished.isPending}
+                    >
+                      <Eye className="h-3.5 w-3.5" /> Exibir na vitrine
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 text-amber-700 hover:text-amber-800"
+                      onClick={() => applyBulkPublished(false)}
+                      disabled={selectedIds.size === 0 || bulkSetPublished.isPending}
+                    >
+                      <EyeOff className="h-3.5 w-3.5" /> Retirar da vitrine
+                    </Button>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                      <SlidersHorizontal className="h-3.5 w-3.5" /> Filtros
+                    </span>
+                    <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                      <SelectTrigger size="sm" className="w-[180px] bg-background">
+                        <SelectValue placeholder="Categoria" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas as categorias</SelectItem>
+                        {categoryOptions.map((category) => <SelectItem key={category} value={category}>{category}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <Select value={productTypeFilter} onValueChange={setProductTypeFilter}>
+                      <SelectTrigger size="sm" className="w-[170px] bg-background">
+                        <SelectValue placeholder="Tipo de produto" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos os tipos</SelectItem>
+                        {productTypeOptions.map((type) => <SelectItem key={type} value={type}>{type}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <Select value={imageFilter} onValueChange={(value) => setImageFilter(value as ImageFilter)}>
+                      <SelectTrigger size="sm" className="w-[150px] bg-background">
+                        <SelectValue placeholder="Imagem" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas as fotos</SelectItem>
+                        <SelectItem value="with">Somente com foto</SelectItem>
+                        <SelectItem value="without">Sem foto</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select value={priceFilter} onValueChange={(value) => setPriceFilter(value as PriceFilter)}>
+                      <SelectTrigger size="sm" className="w-[160px] bg-background">
+                        <SelectValue placeholder="Faixa de preço" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Qualquer preço</SelectItem>
+                        <SelectItem value="without">Sem preço / consulta</SelectItem>
+                        <SelectItem value="under100">Até R$ 100</SelectItem>
+                        <SelectItem value="100to500">R$ 100 a R$ 500</SelectItem>
+                        <SelectItem value="over500">Acima de R$ 500</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {hasActiveFilters && (
+                      <Button variant="ghost" size="sm" className="gap-1.5" onClick={clearFilters}>
+                        <ListFilter className="h-3.5 w-3.5" /> Limpar filtros
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
@@ -466,6 +669,12 @@ export default function Products() {
                     <div className="space-y-3 p-3 sm:p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex min-w-0 flex-1 items-start gap-3">
+                          <Checkbox
+                            aria-label={`Selecionar ${product.name}`}
+                            checked={selectedIds.has(product.id)}
+                            onCheckedChange={(checked) => toggleProductSelection(product.id, checked === true)}
+                            className="mt-4"
+                          />
                           <ProductVisual
                             src={product.imageUrl}
                             alt={product.name}
@@ -560,7 +769,7 @@ export default function Products() {
                             <Switch
                               checked={product.published ?? false}
                               onCheckedChange={(checked) => togglePublished.mutate({ productId: product.id, published: checked })}
-                              disabled={togglePublished.isPending}
+                              disabled={togglePublished.isPending || bulkSetPublished.isPending}
                             />
                           </div>
                           <Button variant="outline" size="sm" className="gap-1.5" onClick={() => toggleCard(product.id)}>
@@ -662,7 +871,7 @@ export default function Products() {
                               size="sm"
                               className={`gap-1.5 ${product.published ? "text-amber-600 hover:text-amber-700" : "text-green-600 hover:text-green-700"}`}
                               onClick={() => togglePublished.mutate({ productId: product.id, published: !product.published })}
-                              disabled={togglePublished.isPending}
+                              disabled={togglePublished.isPending || bulkSetPublished.isPending}
                             >
                               {product.published ? (
                                 <>
