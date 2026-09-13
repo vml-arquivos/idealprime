@@ -46,4 +46,16 @@ describe("Catálogo Mestre", () => {
     expect(fs.existsSync(catalogFile)).toBe(true);
     expect(fs.statSync(catalogFile).size).toBeGreaterThan(0);
   });
+
+  it("enriquece imagens somente por correspondência rastreável e mantém preços sob consulta", async () => {
+    const { readCatalogRows } = await import("../scripts/seed-catalog-master.mjs");
+    const catalog = readCatalogRows(catalogFile);
+    expect(catalog.sourceRows).toHaveLength(13);
+    expect(catalog.headers).toEqual(expect.arrayContaining(["destaque", "ordem_destaque"]));
+    expect(catalog.rows).toHaveLength(277);
+    expect(catalog.rows.filter((row) => row.imagem_url).length).toBe(5);
+    expect(catalog.rows.every((row) => row.preco_venda === 0)).toBe(true);
+    expect(catalog.rows.find((row) => row.nome.includes("BEPANTOL"))?.imagem_url).toBe("/catalog/ip-hig-0009.webp");
+    expect(catalog.sourceRows.find((row) => row.produto.includes("BEPANTOL"))?.imagem_url).toMatch(/^https:\/\//);
+  });
 });

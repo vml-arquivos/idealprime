@@ -75,6 +75,8 @@ const productInput = z.object({
   categoryLabel: z.string().optional(),
   brand: z.string().optional(),
   subcategory: z.string().optional(),
+  isFeatured: z.boolean().optional(),
+  featuredOrder: z.number().int().min(0).optional(),
   sourceUrl: z.string().url().optional().or(z.literal("")),
   searchTerm: z.string().optional(),
   promoTag: z.string().optional(),
@@ -408,6 +410,23 @@ export const appRouter = router({
         )
       ),
 
+    toggleFeatured: protectedProcedure
+      .input(
+        z.object({
+          productId: z.number(),
+          isFeatured: z.boolean(),
+          featuredOrder: z.number().int().min(0).optional(),
+        })
+      )
+      .mutation(({ input, ctx }) =>
+        dbBatches.toggleFeatured(
+          input.productId,
+          ctx.user.id,
+          input.isFeatured,
+          input.featuredOrder,
+        )
+      ),
+
     adjustStock: protectedProcedure
       .input(
         z.object({
@@ -591,6 +610,7 @@ export const appRouter = router({
   // ── Marketplace / Vitrine pública ──────────────────────────────────────────
   marketplace: router({
     products: publicProcedure.query(() => dbBatches.getPublishedProducts()),
+    featuredProducts: publicProcedure.query(() => dbBatches.getFeaturedProducts()),
     // "Quase Zero" é uma aplicação/marca à parte e não deve ficar exposta no
     // Ideal Prime com esse nome/formato — ver docs/ideal-prime/AUDITORIA_PERMUPAY_IDEAL_PRIME.md.
     // Endpoint público desativado por ora (nenhum cliente o consome mais desde que a

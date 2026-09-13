@@ -31,6 +31,16 @@ function text(value) {
   return normalized || null;
 }
 
+function normalizeName(value) {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
 function normalizeSku(value) {
   const sku = String(value ?? "").trim().toUpperCase();
   if (!sku) failValidation("SKU obrigatório");
@@ -110,6 +120,10 @@ export function readCatalogRows(file = FILE) {
   if (!workbook.SheetNames.includes("PRODUTOS")) throw new Error("Seed deve conter a aba PRODUTOS.");
 
   const sheet = workbook.Sheets.PRODUTOS;
+  const sourceRows = workbook.Sheets.FONTES_WEB
+    ? XLSX.utils.sheet_to_json(workbook.Sheets.FONTES_WEB, { defval: "", raw: false })
+    : [];
+  const sourceByProduct = new Map(sourceRows.map((source) => [normalizeName(source.produto), source]));
   const matrix = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "", raw: false });
   const headers = (matrix[0] || []).map((value) => String(value).trim().toLowerCase());
   validateHeaders(headers);
@@ -132,6 +146,13 @@ export function readCatalogRows(file = FILE) {
       if (!unit) failValidation("unidade obrigatória");
       if (seenSkus.has(sku)) failValidation(`SKU duplicado (case-insensitive): ${sku}`);
       seenSkus.add(sku);
+      const source = sourceByProduct.get(normalizeName(name));
+      const promotedSourceImage = String(source?.promover_imagem ?? "").trim().toUpperCase() === "SIM"
+        ? text(source?.imagem_url)
+        : null;
+      const imageUrl = text(raw.imagem_url) ?? promotedSourceImage;
+      const sourceUrl = text(raw.fonte_url) ?? text(source?.fonte_url);
+      const featuredValue = text(raw.destaque ?? raw.is_featured);
 
       rows.push({
         sku,
@@ -147,12 +168,14 @@ export function readCatalogRows(file = FILE) {
         ncm: text(raw.ncm),
         descricao_curta: text(raw.descricao_curta),
         descricao: text(raw.descricao),
-        imagem_url: text(raw.imagem_url),
-        fonte_url: text(raw.fonte_url),
+        imagem_url: imageUrl,
+        fonte_url: sourceUrl,
         termo_busca: text(raw.termo_busca),
         publicado: validatedBool(raw.publicado, "publicado", false),
         b2b_habilitado: validatedBool(raw.b2b_habilitado, "b2b_habilitado", true),
         ativo: validatedBool(raw.ativo, "ativo", true),
+        destaque: featuredValue ? validatedBool(featuredValue, "destaque", false) : null,
+        ordem_destaque: raw.ordem_destaque === undefined ? null : num(raw.ordem_destaque, "ordem_destaque", { optional: true, integer: true }),
         observacoes: text(raw.observacoes),
       });
     } catch (error) {
@@ -164,7 +187,36 @@ export function readCatalogRows(file = FILE) {
   }
 
   if (!rows.length) failValidation("aba PRODUTOS sem registros");
-  return { rows, sheetNames: workbook.SheetNames, headers };
+  return { rows, sheetNames: workbook.SheetNames, headers, sourceRows };
+}
+
+async function ensureProductMedia(client, productId, row, summary) {
+  if (!row.imagem_url) return;
+  const existing = await client.query(
+    `select id from permupay_product_images where product_id=$1 and url=$2 limit 1`,
+    [productId, row.imagem_url],
+  );
+  if (existing.rows[0]) return;
+  const hasThumbnail = await client.query(
+    `select 1 from permupay_product_images where product_id=$1 and is_thumbnail=true limit 1`,
+    [productId],
+  );
+  await client.query(
+    `insert into permupay_product_images (product_id,url,is_thumbnail,sort_order,alt_text,created_at)
+     values ($1,$2,$3,0,$4,now())`,
+    [productId, row.imagem_url, hasThumbnail.rows.length === 0, `${row.nome}${row.marca ? ` — ${row.marca}` : ""}`],
+  );
+  summary.mediaCreated += 1;
+}
+
+async function ensureCatalogMedia(client, rows, summary) {
+  for (const row of rows) {
+    const found = await client.query(
+      `select id from permupay_products where upper(trim(sku))=upper(trim($1)) limit 1`,
+      [row.sku],
+    );
+    if (found.rows[0]) await ensureProductMedia(client, Number(found.rows[0].id), row, summary);
+  }
 }
 
 async function ensureDefaultPriceList(client) {
@@ -219,7 +271,7 @@ function getSeedFlags() {
 }
 
 export async function runSeed({ file = FILE, databaseUrl = DATABASE_URL } = {}) {
-  const { rows, sheetNames } = readCatalogRows(file);
+  const { rows, sheetNames, sourceRows } = readCatalogRows(file);
   if (!databaseUrl) throw new Error("DATABASE_URL não configurada.");
   const { forceActive, forcePublish } = getSeedFlags();
   const contentHash = crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
@@ -238,10 +290,12 @@ export async function runSeed({ file = FILE, databaseUrl = DATABASE_URL } = {}) 
     priceItemsCreated: 0,
     priceItemsUpdated: 0,
     priceItemsPreserved: 0,
+    mediaCreated: 0,
     versionCreated: false,
     version: null,
     stockMode: STOCK_MODE,
     sheets: sheetNames.length,
+    sourceRows: sourceRows.length,
   };
 
   try {
@@ -252,8 +306,9 @@ export async function runSeed({ file = FILE, databaseUrl = DATABASE_URL } = {}) 
       [contentHash, PROFILE_KEY],
     );
     if (previous.rows[0]) {
+      await ensureCatalogMedia(client, rows, summary);
       await client.query("COMMIT");
-      return { repeated: true, contentHash, rows: rows.length, previousSummary: previous.rows[0].summary };
+      return { repeated: true, contentHash, rows: rows.length, previousSummary: previous.rows[0].summary, mediaCreated: summary.mediaCreated };
     }
 
     const priceListId = await ensureDefaultPriceList(client);
@@ -307,7 +362,8 @@ export async function runSeed({ file = FILE, databaseUrl = DATABASE_URL } = {}) 
              minimum_stock=coalesce($10,minimum_stock), short_description=coalesce($11,short_description), description=coalesce($12,description),
              image_url=coalesce($13,image_url), source_url=coalesce($14,source_url), search_term=coalesce($15,search_term),
              active=$16, stock_quantity=${stockSql}, published=case when $18 then true else published end,
-             notes=coalesce($19,notes), updated_at=now()
+             is_featured=coalesce($19,is_featured), featured_order=coalesce($20,featured_order),
+             notes=coalesce($21,notes), updated_at=now()
            where id=$1`,
           [
             productId,
@@ -328,6 +384,8 @@ export async function runSeed({ file = FILE, databaseUrl = DATABASE_URL } = {}) 
             active,
             incomingStock,
             published,
+            row.destaque,
+            row.ordem_destaque,
             row.observacoes,
           ],
         );
@@ -337,11 +395,11 @@ export async function runSeed({ file = FILE, databaseUrl = DATABASE_URL } = {}) 
           `insert into permupay_products (
              sku,name,category,category_label,subcategory,brand,unit,sales_multiple,b2b_enabled,ncm,
              stock_quantity,minimum_stock,image_url,short_description,description,source_url,search_term,
-             suggested_price,suggested_price_pix,suggested_price_card,suggested_price_boleto,published,active,notes,created_at,updated_at
+             suggested_price,suggested_price_pix,suggested_price_card,suggested_price_boleto,published,is_featured,featured_order,active,notes,created_at,updated_at
            ) values (
              $1,$2,'OUTRO',$3,$4,$5,$6,$7,$8,$9,
              $10,$11,$12,$13,$14,$15,$16,
-             $17,$17,$17,$17,$18,$19,$20,now(),now()
+             $17,$17,$17,$17,$18,$19,$20,$21,$22,now(),now()
            ) returning id`,
           [
             row.sku,
@@ -362,6 +420,8 @@ export async function runSeed({ file = FILE, databaseUrl = DATABASE_URL } = {}) 
             row.termo_busca,
             incomingPrice,
             published,
+            row.destaque ?? false,
+            row.ordem_destaque ?? 0,
             active,
             row.observacoes,
           ],
@@ -369,6 +429,8 @@ export async function runSeed({ file = FILE, databaseUrl = DATABASE_URL } = {}) 
         productId = Number(inserted.rows[0].id);
         summary.created += 1;
       }
+
+      await ensureProductMedia(client, productId, row, summary);
 
       if (version) await upsertCommercialPrice(client, version.id, productId, Math.round(incomingPrice * 100), summary);
     }

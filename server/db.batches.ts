@@ -673,7 +673,6 @@ export async function processInitialRegularizationBatch(
 }
 
 // ─── Marketplace / Vitrine ────────────────────────────────────────────────────
-
 export async function getPublishedProducts() {
   const db = await getDb();
   if (!db) return [];
@@ -681,12 +680,18 @@ export async function getPublishedProducts() {
   return db
     .select({
       id: products.id,
+      sku: products.sku,
       name: products.name,
       category: products.category,
       categoryLabel: products.categoryLabel,
+      brand: products.brand,
+      subcategory: products.subcategory,
       shortDescription: products.shortDescription,
       description: products.description,
       imageUrl: products.imageUrl,
+      isFeatured: products.isFeatured,
+      featuredOrder: products.featuredOrder,
+      displayOrder: products.displayOrder,
       promoTag: products.promoTag,
       suggestedPrice: products.suggestedPrice,
       suggestedPricePix: products.suggestedPricePix,
@@ -711,6 +716,13 @@ export async function getPublishedProducts() {
     .orderBy(asc(products.displayOrder), desc(products.createdAt));
 }
 
+export async function getFeaturedProducts() {
+  const productsList = await getPublishedProducts();
+  return productsList
+    .filter((product) => product.isFeatured)
+    .sort((a, b) => (a.featuredOrder - b.featuredOrder) || (a.displayOrder - b.displayOrder));
+}
+
 export async function getPublishedProductsByCategory(category?: string) {
   const db = await getDb();
   if (!db) return [];
@@ -718,12 +730,17 @@ export async function getPublishedProductsByCategory(category?: string) {
   const baseQuery = db
     .select({
       id: products.id,
+      sku: products.sku,
       name: products.name,
       category: products.category,
       categoryLabel: products.categoryLabel,
+      brand: products.brand,
+      subcategory: products.subcategory,
       shortDescription: products.shortDescription,
       description: products.description,
       imageUrl: products.imageUrl,
+      isFeatured: products.isFeatured,
+      featuredOrder: products.featuredOrder,
       promoTag: products.promoTag,
       suggestedPrice: products.suggestedPrice,
       suggestedPricePix: products.suggestedPricePix,
@@ -761,12 +778,17 @@ export async function getQuaseZeroProducts() {
   return db
     .select({
       id: products.id,
+      sku: products.sku,
       name: products.name,
       category: products.category,
       categoryLabel: products.categoryLabel,
+      brand: products.brand,
+      subcategory: products.subcategory,
       shortDescription: products.shortDescription,
       description: products.description,
       imageUrl: products.imageUrl,
+      isFeatured: products.isFeatured,
+      featuredOrder: products.featuredOrder,
       promoTag: products.promoTag,
       suggestedPrice: products.suggestedPrice,
       suggestedPricePix: products.suggestedPricePix,
@@ -800,16 +822,20 @@ export async function getQuaseZeroProducts() {
 export async function getPublishedProductById(id: number) {
   const db = await getDb();
   if (!db) return null;
-
   const result = await db
     .select({
       id: products.id,
+      sku: products.sku,
       name: products.name,
       category: products.category,
       categoryLabel: products.categoryLabel,
+      brand: products.brand,
+      subcategory: products.subcategory,
       shortDescription: products.shortDescription,
       description: products.description,
       imageUrl: products.imageUrl,
+      isFeatured: products.isFeatured,
+      featuredOrder: products.featuredOrder,
       promoTag: products.promoTag,
       suggestedPrice: products.suggestedPrice,
       suggestedPricePix: products.suggestedPricePix,
@@ -866,6 +892,28 @@ export async function togglePublished(
     .set({
       published,
       promoTag: promoTag ?? null,
+      updatedAt: new Date(),
+    })
+    .where(eq(products.id, productId))
+    .returning();
+
+  return updated;
+}
+
+export async function toggleFeatured(
+  productId: number,
+  _userId: number,
+  isFeatured: boolean,
+  featuredOrder?: number,
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const [updated] = await db
+    .update(products)
+    .set({
+      isFeatured,
+      featuredOrder: isFeatured ? Math.max(0, Math.trunc(featuredOrder ?? 0)) : 0,
       updatedAt: new Date(),
     })
     .where(eq(products.id, productId))

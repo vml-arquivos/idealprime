@@ -344,7 +344,9 @@ export default function B2BAdmin() {
             </CardTitle>
             <CardDescription>
               Use o modelo oficial Ideal Prime. O sistema cria produtos por SKU, atualiza descrições,
-              categorias, preços e, no modo estoque, concilia o saldo sem atropelar a Fila FIFO.
+              categorias, imagens rastreáveis e preços; deixe o preço em branco para manter “sob consulta”.
+              A coluna destaque controla quais itens podem aparecer na página principal e, no modo estoque,
+              a conciliação não atropela a Fila FIFO.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">

@@ -37,6 +37,7 @@ import {
   RefreshCw,
   Search,
   Share2,
+  Star,
   Store,
   Trash2,
   X,
@@ -163,6 +164,14 @@ export default function Products() {
     onSuccess: (updated: any) => {
       utils.products.list.invalidate();
       toast.success(updated?.published ? "Produto publicado na vitrine!" : "Produto removido da vitrine.");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const toggleFeatured = trpc.products.toggleFeatured.useMutation({
+    onSuccess: (updated: any) => {
+      utils.products.list.invalidate();
+      toast.success(updated?.isFeatured ? "Produto selecionado para a página principal!" : "Produto removido da página principal.");
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -663,7 +672,21 @@ export default function Products() {
                                 <>
                                   <Eye className="h-3.5 w-3.5" /> Publicar
                                 </>
-                              )}
+                                )}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className={`gap-1.5 ${product.isFeatured ? "border-amber-300 text-amber-700 hover:text-amber-800" : "text-muted-foreground hover:text-amber-700"}`}
+                              onClick={() => toggleFeatured.mutate({
+                                productId: product.id,
+                                isFeatured: !product.isFeatured,
+                                featuredOrder: Number(product.featuredOrder || 0),
+                              })}
+                              disabled={toggleFeatured.isPending}
+                            >
+                              <Star className={`h-3.5 w-3.5 ${product.isFeatured ? "fill-current" : ""}`} />
+                              {product.isFeatured ? "Remover destaque" : "Página principal"}
                             </Button>
                             <div className="ml-auto flex flex-wrap gap-2">
                               <Button

@@ -27,6 +27,8 @@ const OPTIONAL_HEADERS = [
   "termo_busca",
   "publicado",
   "b2b_habilitado",
+  "destaque",
+  "ordem_destaque",
   "observacoes",
 ] as const;
 
@@ -76,6 +78,8 @@ function normalizeRow(row: Record<string, unknown>): ImportRow {
     publicado: bool(row.publicado, "publicado"),
     b2b_habilitado: bool(row.b2b_habilitado, "b2b_habilitado"),
     ativo: bool(row.ativo, "ativo"),
+    destaque: bool(row.destaque, "destaque"),
+    ordem_destaque: number(row.ordem_destaque, "ordem de destaque", true),
     observacoes: text(row.observacoes),
   };
 }

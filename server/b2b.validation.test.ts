@@ -5,4 +5,8 @@ describe("Ideal Prime B2B normalization",()=>{
  it("normaliza CNPJ para 14 dígitos",()=>expect(normalizeCnpj("12.345.678/0001-90")).toBe("12345678000190"));
  it("converte moeda PT-BR em centavos",()=>expect(parseMoneyToCents("1.234,56")).toBe(123456));
  it("rejeita formato monetário ambíguo",()=>expect(()=>parseMoneyToCents("1,234.56")).toThrow());
+ it("aceita preço vazio somente no modo opcional de importação",()=>{
+   expect(parseMoneyToCents("",{optional:true})).toBe(0);
+   expect(()=>parseMoneyToCents("")).toThrow();
+ });
 });

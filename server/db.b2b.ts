@@ -17,10 +17,13 @@ export async function pingDatabase() { const r = await getPool().query("select 1
 
 export function normalizeCnpj(value: string) { return value.replace(/\D/g, ""); }
 export function normalizeSku(value: string) { return value.trim().toUpperCase(); }
-export function parseMoneyToCents(value: unknown): number {
+export function parseMoneyToCents(value: unknown, options: { optional?: boolean } = {}): number {
   if (typeof value === "number") return Math.round(value * 100);
   let text = String(value ?? "").trim();
-  if (!text) throw new Error("preço vazio");
+  if (!text) {
+    if (options.optional) return 0;
+    throw new Error("preço vazio");
+  }
   text = text.replace(/R\$/gi, "").replace(/\s/g, "");
   if (/^-?\d{1,3}(\.\d{3})*,\d{1,2}$/.test(text)) text = text.replace(/\./g, "").replace(",", ".");
   else if (/^-?\d+,\d{1,2}$/.test(text)) text = text.replace(",", ".");
@@ -295,6 +298,8 @@ export type ImportRow = {
   publicado?: boolean;
   b2b_habilitado?: boolean;
   ativo?: boolean;
+  destaque?: boolean;
+  ordem_destaque?: number | null;
   observacoes?: string;
 };
 
@@ -477,6 +482,26 @@ async function consumeB2BStockFifo(c: PoolClient, productId: number, quantity: n
   );
 }
 
+async function ensureImportedProductMedia(c: PoolClient, productId: number, row: ImportRow) {
+  const imageUrl = row.imagem_url?.trim();
+  if (!imageUrl) return false;
+  const existing = await c.query(
+    `select id from permupay_product_images where product_id=$1 and url=$2 limit 1`,
+    [productId, imageUrl],
+  );
+  if (existing.rows[0]) return false;
+  const thumbnail = await c.query(
+    `select 1 from permupay_product_images where product_id=$1 and is_thumbnail=true limit 1`,
+    [productId],
+  );
+  await c.query(
+    `insert into permupay_product_images(product_id,url,is_thumbnail,sort_order,alt_text,created_at)
+     values($1,$2,$3,0,$4,now())`,
+    [productId, imageUrl, thumbnail.rows.length === 0, `${row.nome ?? row.sku}${row.marca ? ` — ${row.marca}` : ""}`],
+  );
+  return true;
+}
+
 export async function applyImport(
   actorUserId: number,
   input: {
@@ -509,7 +534,7 @@ export async function applyImport(
       seen.add(sku);
       const multiple = Number(row.multiplo_venda ?? 1);
       if (!Number.isInteger(multiple) || multiple <= 0) throw new Error(`Linha ${index + 2}: múltiplo inválido`);
-      return { ...row, sku, multiplo_venda: multiple, priceCents: parseMoneyToCents(row.preco_venda) };
+      return { ...row, sku, multiplo_venda: multiple, priceCents: parseMoneyToCents(row.preco_venda, { optional: true }) };
     });
 
     const priceList = await c.query(`select id from permupay_price_lists where id=$1 and active=true`, [input.priceListId]);
@@ -531,6 +556,7 @@ export async function applyImport(
 
     let created = 0;
     let updated = 0;
+    let mediaCreated = 0;
 
     for (let index = 0; index < normalized.length; index++) {
       const row = normalized[index];
@@ -567,7 +593,9 @@ export async function applyImport(
              source_url=coalesce($17,source_url),
              search_term=coalesce($18,search_term),
              published=coalesce($19,published),
-             notes=coalesce($20,notes),
+             is_featured=coalesce($20,is_featured),
+             featured_order=coalesce($21,featured_order),
+             notes=coalesce($22,notes),
              updated_at=now()
            where id=$1 returning *`,
           [
@@ -590,6 +618,8 @@ export async function applyImport(
             row.fonte_url?.trim() || null,
             row.termo_busca?.trim() || null,
             row.publicado ?? null,
+            row.destaque ?? null,
+            row.ordem_destaque ?? null,
             row.observacoes?.trim() || null,
           ],
         );
@@ -608,9 +638,9 @@ export async function applyImport(
           `insert into permupay_products(
              sku,name,category,category_label,subcategory,brand,unit,sales_multiple,
              b2b_enabled,active,stock_quantity,minimum_stock,ncm,short_description,
-             description,image_url,source_url,search_term,published,notes
+             description,image_url,source_url,search_term,published,is_featured,featured_order,notes
            ) values(
-             $1,$2,'OUTRO',$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19
+             $1,$2,'OUTRO',$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21
            ) returning *`,
           [
             row.sku,
@@ -631,6 +661,8 @@ export async function applyImport(
             row.fonte_url?.trim() || null,
             row.termo_busca?.trim() || null,
             row.publicado ?? false,
+            row.destaque ?? false,
+            row.ordem_destaque ?? 0,
             row.observacoes?.trim() || null,
           ],
         );
@@ -642,7 +674,7 @@ export async function applyImport(
           [job.id, rowNumber, row.sku, JSON.stringify(inserted.rows[0])],
         );
       }
-
+      if (await ensureImportedProductMedia(c, productId, row)) mediaCreated++;
       await c.query(
         `insert into permupay_price_list_items(version_id,product_id,price_cents,active)
          values($1,$2,$3,true)`,
@@ -650,7 +682,7 @@ export async function applyImport(
       );
     }
 
-    const summary = { created, updated, total: normalized.length, version: Number(nextVersion) };
+    const summary = { created, updated, mediaCreated, total: normalized.length, version: Number(nextVersion) };
     await c.query(
       `update permupay_import_jobs set status='COMPLETED',summary=$2::jsonb,completed_at=now() where id=$1`,
       [job.id, JSON.stringify(summary)],

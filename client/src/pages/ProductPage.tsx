@@ -241,6 +241,11 @@ export default function ProductPage() {
             >
               {catLabel}
             </p>
+            {p.brand && (
+              <p className="text-[10px] font-semibold tracking-[0.24em] uppercase" style={{ color: "#068A5B" }}>
+                {p.brand}
+              </p>
+            )}
 
             {/* Nome — bold, uppercase como Sephora */}
             <h1

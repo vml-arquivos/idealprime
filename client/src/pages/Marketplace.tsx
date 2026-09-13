@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { captureReferralFromLocation } from "@/lib/referral";
 import {
@@ -21,9 +21,12 @@ import brandPattern from "@/assets/brand/ideal-prime-pattern.png";
 
 interface CatalogProduct {
   id: number;
+  sku?: string | null;
   name: string;
   category: string;
   categoryLabel: string | null;
+  brand?: string | null;
+  subcategory?: string | null;
   shortDescription: string | null;
   description: string | null;
   imageUrl: string | null;
@@ -38,6 +41,8 @@ interface CatalogProduct {
   boletoMonths?: number | null;
   salesChannel?: "SHOP" | "QUASE_ZERO" | "BOTH" | string | null;
   productCondition?: string | null;
+  isFeatured?: boolean;
+  featuredOrder?: number;
 }
 
 const CAT: Record<string, string> = {
@@ -173,9 +178,14 @@ function ProductCard({ product }: { product: CatalogProduct }) {
           <p className="text-[8px] font-semibold uppercase tracking-[0.26em] text-[#068A5B]">
             {getCategoryLabel(product)}
           </p>
+          {product.brand && (
+            <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[#81948B]">
+              {product.brand}
+            </p>
+          )}
           <h3
             className="line-clamp-2 text-[1.02rem] text-[#12352B]"
-            style={{ fontFamily: SERIF, fontWeight: 700, lineHeight: 1.22, minHeight: "2.45rem" }}
+            style={{ fontFamily: SANS, fontWeight: 700, lineHeight: 1.22, minHeight: "2.45rem" }}
           >
             {product.name}
           </h3>
@@ -223,17 +233,26 @@ function Benefit({ icon: Icon, title, description }: { icon: typeof ShieldCheck;
 
 export default function Marketplace() {
   const { data, isLoading } = trpc.marketplace.products.useQuery();
+  const { data: featuredData, isLoading: isFeaturedLoading } = trpc.marketplace.featuredProducts.useQuery();
+  const [location] = useLocation();
   const products = (data ?? []) as CatalogProduct[];
+  const featuredProducts = (featuredData ?? []) as CatalogProduct[];
+  const isFullCatalog = location === "/vitrine";
 
   const [category, setCategory] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const shopProducts = useMemo(() => products.filter(isShopProduct), [products]);
+  const homeProducts = useMemo(
+    () => (featuredProducts.length > 0 ? featuredProducts : shopProducts.slice(0, 8)),
+    [featuredProducts, shopProducts],
+  );
+  const pageProducts = isFullCatalog ? shopProducts : homeProducts;
   const inStockProducts = useMemo(() => shopProducts.filter(hasStock), [shopProducts]);
   const categories = useMemo(
-    () => Array.from(new Set(shopProducts.map(getCategoryLabel))).sort((a, b) => a.localeCompare(b, "pt-BR")),
-    [shopProducts],
+    () => Array.from(new Set(pageProducts.map(getCategoryLabel))).sort((a, b) => a.localeCompare(b, "pt-BR")),
+    [pageProducts],
   );
 
   useEffect(() => {
@@ -242,7 +261,7 @@ export default function Marketplace() {
 
   const filteredProducts = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
-    return shopProducts.filter((product) => {
+    return pageProducts.filter((product) => {
       const productCategory = getCategoryLabel(product);
       const byCategory = category ? productCategory === category : true;
       const bySearch = normalizedSearch
@@ -252,9 +271,9 @@ export default function Marketplace() {
         : true;
       return byCategory && bySearch;
     });
-  }, [shopProducts, category, search]);
+  }, [pageProducts, category, search]);
 
-  const hasCatalog = shopProducts.length > 0;
+  const hasCatalog = pageProducts.length > 0;
   const hasResults = filteredProducts.length > 0;
 
   return (
@@ -528,7 +547,27 @@ export default function Marketplace() {
           </div>
         )}
 
-        {isLoading ? (
+        {!isFullCatalog && (
+          <div className="mb-7 flex flex-col gap-3 rounded-[1.4rem] border border-[#D5E8E0] bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-[9px] font-semibold uppercase tracking-[0.28em] text-[#068A5B]">
+                {featuredProducts.length > 0 ? "Seleção editorial" : "Seleção inicial configurável"}
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-[#6C8278]">
+                {featuredProducts.length > 0
+                  ? "Os produtos escolhidos para a página principal aparecem aqui; o catálogo completo permanece disponível para pedidos e cotações."
+                  : "A equipe pode escolher os destaques no painel de Produtos. Enquanto isso, mostramos as primeiras opções publicadas sem esconder o catálogo completo."}
+              </p>
+            </div>
+            <Link href="/vitrine">
+              <span className="inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-full border border-[#C8DED5] px-4 py-2.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-[#12352B] transition hover:border-[#068A5B] hover:text-[#068A5B]">
+                Ver catálogo completo <ArrowRight className="h-3.5 w-3.5" />
+              </span>
+            </Link>
+          </div>
+        )}
+
+        {isLoading || isFeaturedLoading ? (
           <div className="grid grid-cols-2 gap-x-5 gap-y-12 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
             {Array.from({ length: 10 }).map((_, index) => (
               <ProductSkeleton key={index} />

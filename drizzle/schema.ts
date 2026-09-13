@@ -146,6 +146,8 @@ export const products = pgTable("permupay_products", {
   imageUrl: text("image_url"),
   promoTag: text("promo_tag"),
   published: boolean("published").notNull().default(false),
+  isFeatured: boolean("is_featured").notNull().default(false),
+  featuredOrder: integer("featured_order").notNull().default(0),
 
   // Canal de venda / Quase Zero
   salesChannel: text("sales_channel").notNull().default("SHOP"), // SHOP | QUASE_ZERO | BOTH
