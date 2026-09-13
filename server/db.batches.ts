@@ -472,22 +472,48 @@ export async function adjustStock(
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
-  await db.insert(stockEntries).values({
-    productId,
-    userId,
-    quantity,
-    unitCost,
-    notes: notes ?? "Ajuste manual de estoque",
+  if (!Number.isFinite(quantity) || quantity === 0) {
+    throw new Error("Informe uma quantidade de ajuste diferente de zero.");
+  }
+  if (!Number.isFinite(unitCost) || unitCost < 0) {
+    throw new Error("O custo unitário não pode ser negativo.");
+  }
+
+  let resultingStock = 0;
+  await db.transaction(async (tx) => {
+    const currentResult = await tx.execute(sql`
+      SELECT stock_quantity
+      FROM permupay_products
+      WHERE id = ${productId}
+      FOR UPDATE
+    `) as any;
+    const current = currentResult?.rows?.[0];
+    if (!current) throw new Error("Produto não encontrado.");
+
+    const nextStock = Number(current.stock_quantity ?? 0) + quantity;
+    if (nextStock < 0) {
+      throw new Error("O ajuste não pode deixar o estoque negativo.");
+    }
+    resultingStock = nextStock;
+
+    await tx.insert(stockEntries).values({
+      productId,
+      userId,
+      quantity,
+      unitCost,
+      notes: notes ?? "Ajuste manual de estoque",
+    });
+
+    await tx
+      .update(products)
+      .set({
+        stockQuantity: nextStock,
+        updatedAt: new Date(),
+      })
+      .where(eq(products.id, productId));
   });
 
-  // Atualizar estoque total
-  await db
-    .update(products)
-    .set({
-      stockQuantity: sql`${products.stockQuantity} + ${quantity}`,
-      updatedAt: new Date(),
-    })
-    .where(eq(products.id, productId));
+  return { productId, quantity, stockQuantity: resultingStock };
 }
 
 

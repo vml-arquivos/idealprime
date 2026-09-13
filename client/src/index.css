@@ -189,6 +189,27 @@
 }
 
 @layer components {
+  .admin-shell {
+    background: #f6f8f7;
+    color: #17231f;
+    font-family: "Poppins", "Prime Montserrat", Montserrat, system-ui, sans-serif;
+  }
+
+  .admin-shell .prime-display {
+    font-family: "Poppins", "Prime Montserrat", Montserrat, system-ui, sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.035em;
+    line-height: 1.08;
+  }
+
+  .admin-shell .prime-eyebrow {
+    letter-spacing: 0.12em;
+  }
+
+  .admin-shell main {
+    background: #f6f8f7;
+  }
+
   .container {
     width: 100%;
     margin-left: auto;
