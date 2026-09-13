@@ -31,6 +31,9 @@ jobs:
       - name: Verify migrations
         run: pnpm migrate:verify
 
+      - name: Validate master catalog XLSX
+        run: pnpm seed:catalog:validate
+
       - name: TypeScript check
         run: pnpm check
 
