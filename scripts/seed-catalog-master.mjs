@@ -343,14 +343,16 @@ export async function runSeed({ file = FILE, databaseUrl = DATABASE_URL } = {}) 
       let productId;
       if (found.rows[0]) {
         productId = Number(found.rows[0].id);
-        let stockSql = "stock_quantity";
-        if (STOCK_MODE === "SET_IF_EMPTY" && Number(found.rows[0].stock_quantity ?? 0) <= 0) stockSql = "$17";
+        // Keep $17 referenced in every branch. PostgreSQL cannot infer the type
+        // of an unused nullable parameter when later placeholders are present.
+        let stockSql = "case when $17::real is null then stock_quantity else stock_quantity end";
+        if (STOCK_MODE === "SET_IF_EMPTY" && Number(found.rows[0].stock_quantity ?? 0) <= 0) stockSql = "$17::real";
         if (STOCK_MODE === "FORCE") {
           const waiting = await client.query(`select 1 from permupay_stock_queue where product_id=$1 and status in ('ATIVO','EM_ESPERA') limit 1`, [productId]);
           if (waiting.rows.length && incomingStock !== Number(found.rows[0].stock_quantity ?? 0)) {
             throw new Error(`SKU ${row.sku}: estoque não pode ser forçado porque há fila FIFO ativa/aguardando.`);
           }
-          stockSql = "$17";
+          stockSql = "$17::real";
         } else if (STOCK_MODE === "SKIP") {
           summary.stockSkipped += 1;
         }

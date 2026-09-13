@@ -58,4 +58,10 @@ describe("Catálogo Mestre", () => {
     expect(catalog.rows.find((row) => row.nome.includes("BEPANTOL"))?.imagem_url).toBe("/catalog/ip-hig-0009.webp");
     expect(catalog.sourceRows.find((row) => row.produto.includes("BEPANTOL"))?.imagem_url).toMatch(/^https:\/\//);
   });
+
+  it("tipa explicitamente o bind nullable de estoque no SQL do seed", () => {
+    const source = fs.readFileSync(seedScript, "utf8");
+    expect(source).toContain("$17::real");
+    expect(source).toContain("case when $17::real is null then stock_quantity else stock_quantity end");
+  });
 });
