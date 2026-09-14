@@ -634,9 +634,8 @@ export default function Clientes() {
                   <UserRound className="h-4 w-4" /> Dados pessoais e de contato
                 </CardTitle>
                 <CardDescription>
-                  Cadastre o cliente pessoa física para poder registrar vendas, crediário e
-                  análise de crédito. Para empresas (pessoa jurídica), use "Nova empresa" em
-                  Gestão Comercial.
+                  Cadastre o cliente pessoa física para registrar vendas, crediário e análise de
+                  crédito. Para empresas, use "Nova empresa" na área Empresas.
                 </CardDescription>
               </CardHeader>
               <CardContent className="grid gap-4 sm:grid-cols-2">

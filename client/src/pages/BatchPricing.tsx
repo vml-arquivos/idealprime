@@ -550,7 +550,7 @@ export default function BatchPricing() {
       utils.products.list.invalidate();
       setFifoResult(data);
       toast.success(
-        `Entrada FIFO processada! ${data.activatedCount} ativado(s), ${data.queuedCount} na fila de espera.`,
+        `Entrada processada! ${data.activatedCount} ativado(s), ${data.queuedCount} aguardando.`,
       );
     },
     onError: (err) => toast.error(err.message),
@@ -939,7 +939,7 @@ export default function BatchPricing() {
           currentPreview.items.reduce((sum, item) => sum + item.quantity, 0),
         ],
         ["Quantidade de tipos de produto", currentPreview.items.length],
-        ["Modo FIFO ativo", fifoMode ? "Sim" : "Não"],
+        ["Fila automática ativa", fifoMode ? "Sim" : "Não"],
         ["Status", "Preview exportado"],
         ["Descrição", batchDescription.trim()],
       ];
@@ -1288,7 +1288,7 @@ export default function BatchPricing() {
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="h-5 w-5 text-emerald-600" />
                 <span className="font-semibold text-emerald-800 dark:text-emerald-300">
-                  Entrada FIFO processada com sucesso
+                  Entrada processada com sucesso
                 </span>
               </div>
               <div className="flex gap-4 text-sm">
@@ -2223,7 +2223,7 @@ export default function BatchPricing() {
                 ) : fifoMode ? (
                   <>
                     <p>
-                      A entrada será processada com <strong>Fila FIFO</strong>.
+                      A entrada será processada seguindo a ordem de recebimento.
                       Produto com estoque atual entra na fila; produto sem
                       estoque entra ativo.
                     </p>

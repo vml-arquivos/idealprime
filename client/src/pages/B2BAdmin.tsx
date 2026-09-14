@@ -1,5 +1,5 @@
 /**
- * B2BAdmin.tsx — Gestão Comercial (/b2b-admin)
+ * B2BAdmin.tsx — Empresas (/b2b-admin)
  *
  * "Empresas" ganhou aqui um cadastro direto pela equipe ("Nova empresa") —
  * antes só existia o autoatendimento público (/empresa/cadastro), que cria a
@@ -41,6 +41,38 @@ const STATUS_VARIANT: Record<string, "secondary" | "outline" | "destructive"> = 
   PENDING: "outline",
   APPROVED: "secondary",
   SUSPENDED: "destructive",
+};
+
+const DISPLAY_STATUS: Record<string, string> = {
+  PENDING: "Aguardando",
+  APPROVED: "Aprovado",
+  SUSPENDED: "Suspenso",
+  REJECTED: "Recusado",
+  CANCELLED: "Cancelado",
+  CANCELADO: "Cancelado",
+  ACCEPTED: "Aceito",
+  PROCESSING: "Em andamento",
+  PAYMENT_PENDING: "Pagamento pendente",
+  PAID: "Pago",
+  SHIPPED: "Enviado",
+  DELIVERED: "Entregue",
+  ENTREGUE: "Entregue",
+  COMPLETED: "Concluído",
+  FAILED: "Falhou",
+};
+
+const IMPORT_MODE_LABEL: Record<string, string> = {
+  INVENTORY: "Produtos, preços e estoque",
+  PRICES: "Produtos e preços",
+};
+
+const displayStatus = (value: unknown) => {
+  const normalized = String(value ?? "").trim();
+  if (DISPLAY_STATUS[normalized]) return DISPLAY_STATUS[normalized];
+  return normalized
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .replace(/(^|\s)\S/g, (letter) => letter.toUpperCase());
 };
 
 type BusinessForm = {
@@ -99,7 +131,7 @@ export default function B2BAdmin() {
 
   const inviteMember = trpc.b2b.admin.inviteMember.useMutation({
     onSuccess: async () => {
-      toast.success("Responsável cadastrado — já pode acessar o portal da empresa.");
+      toast.success("Responsável cadastrado — já pode acessar a área da empresa.");
       setInviteFor(null);
       setInviteForm(initialInviteForm);
       await utils.b2b.admin.businesses.invalidate();
@@ -118,7 +150,7 @@ export default function B2BAdmin() {
     const fallbackPriceList = lists.data?.find((item: any) => item.is_default)?.id ?? lists.data?.[0]?.id;
     const priceListId = Number(importPriceListId || fallbackPriceList);
     if (!priceListId) {
-      toast.error("Crie ou selecione uma tabela comercial antes da importação.");
+      toast.error("Crie ou selecione uma tabela de preços antes de atualizar os produtos.");
       return;
     }
 
@@ -136,7 +168,7 @@ export default function B2BAdmin() {
         body: importFile,
       });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error || "Falha na importação do catálogo.");
+      if (!response.ok) throw new Error(payload.error || "Não foi possível atualizar os produtos.");
 
       if (payload.repeated) {
         toast.info("Este mesmo arquivo já havia sido processado para esta tabela e modo.");
@@ -144,14 +176,14 @@ export default function B2BAdmin() {
         const summary = payload.job?.summary;
         toast.success(
           summary
-            ? `Importação concluída: ${summary.created} novo(s), ${summary.updated} atualizado(s).`
-            : "Importação concluída com sucesso.",
+            ? `Atualização concluída: ${summary.created} novo(s), ${summary.updated} atualizado(s).`
+            : "Produtos atualizados com sucesso.",
         );
       }
       setImportFile(null);
       await Promise.all([utils.b2b.admin.imports.invalidate(), utils.b2b.admin.priceLists.invalidate()]);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Falha na importação.");
+      toast.error(error instanceof Error ? error.message : "Não foi possível atualizar os produtos.");
     } finally {
       setIsImporting(false);
     }
@@ -184,20 +216,20 @@ export default function B2BAdmin() {
         <div className="absolute -right-20 -top-24 h-72 w-72 rounded-full border border-white/10" />
         <div className="relative grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[#B9F1D4]">Relacionamento empresarial</p>
-            <h1 className="prime-display mt-2 text-4xl leading-none sm:text-5xl">Gestão Comercial B2B</h1>
-            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/70">Empresas, tabelas comerciais, catálogo, cotações, pedidos e importações em uma única central de operação Ideal Prime.</p>
+            <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-[#B9F1D4]">Empresas</p>
+            <h1 className="prime-display mt-2 text-3xl leading-tight sm:text-4xl">Empresas e pedidos</h1>
+            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/70">Cadastre empresas, organize produtos e acompanhe pedidos em um só lugar.</p>
           </div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-2">
             {[
               ["Empresas ativas", approvedCompanies],
-              ["Cadastros pendentes", pendingCompanies],
-              ["Cotações abertas", openQuotes],
-              ["Pedidos em operação", openOrders],
+              ["Aguardando aprovação", pendingCompanies],
+              ["Orçamentos abertos", openQuotes],
+              ["Pedidos em andamento", openOrders],
             ].map(([label, value]) => (
               <div key={String(label)} className="rounded-2xl border border-white/15 bg-white/[0.07] px-4 py-3 backdrop-blur-sm">
-                <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-white/55">{label}</p>
-                <p className="mt-1 text-2xl font-bold">{value}</p>
+                <p className="text-[9px] font-medium uppercase tracking-[0.12em] text-white/55">{label}</p>
+                <p className="mt-1 text-2xl font-medium">{value}</p>
               </div>
             ))}
           </div>
@@ -215,9 +247,7 @@ export default function B2BAdmin() {
               <Plus className="h-4 w-4" /> Nova empresa
             </CardTitle>
             <CardDescription>
-              Cadastro direto pela equipe — a empresa entra pronta para operar (aprovada), sem
-              depender do link público de autoatendimento. O acesso do responsável (login) é
-              opcional agora e pode ser cadastrado depois, na própria lista abaixo.
+              Cadastre uma empresa para ela poder comprar. O acesso do responsável pode ser criado agora ou depois.
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
@@ -251,7 +281,7 @@ export default function B2BAdmin() {
               <Input value={businessForm.phone} onChange={(e) => setBusinessField("phone", e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label>Tabela comercial</Label>
+              <Label>Tabela de preços</Label>
               <select
                 className="h-10 w-full rounded-md border bg-background px-3 text-sm"
                 value={businessForm.priceListId}
@@ -267,14 +297,14 @@ export default function B2BAdmin() {
               </select>
             </div>
             <div className="space-y-2">
-              <Label>Situação inicial</Label>
+              <Label>Como começar</Label>
               <select
                 className="h-10 w-full rounded-md border bg-background px-3 text-sm"
                 value={businessForm.status}
                 onChange={(e) => setBusinessField("status", e.target.value as "PENDING" | "APPROVED")}
               >
-                <option value="APPROVED">Aprovada (pode comprar já)</option>
-                <option value="PENDING">Pendente (aguardar aprovação depois)</option>
+                <option value="APPROVED">Aprovada — pode comprar</option>
+                <option value="PENDING">Aguardando aprovação</option>
               </select>
             </div>
           </CardContent>
@@ -327,10 +357,10 @@ export default function B2BAdmin() {
       </section>
 
       <section>
-        <h2 className="mb-3 font-semibold">Tabelas Comerciais</h2>
+        <h2 className="mb-3 font-medium">Tabelas de preços</h2>
         <div className="flex max-w-lg gap-2">
           <Input value={name} onChange={(event) => setName(event.target.value)} />
-          <Button onClick={() => createList.mutate({ name, isDefault: !(lists.data?.length) })}>Criar tabela</Button>
+          <Button onClick={() => createList.mutate({ name, isDefault: !(lists.data?.length) })}>Criar tabela de preços</Button>
         </div>
         <div className="mt-3 space-y-1 text-sm">
           {lists.data?.map((priceList: any) => (
@@ -340,13 +370,11 @@ export default function B2BAdmin() {
         <Card className="mt-5 border-[#b9d6ee]">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <FileSpreadsheet className="h-4 w-4 text-[#215b94]" /> Atualizar catálogo por planilha
+              <FileSpreadsheet className="h-4 w-4 text-[#215b94]" /> Atualizar produtos por planilha
             </CardTitle>
             <CardDescription>
-              Use o modelo oficial Ideal Prime. O sistema cria produtos por SKU, atualiza descrições,
-              categorias, imagens rastreáveis e preços; deixe o preço em branco para manter “sob consulta”.
-              A coluna destaque controla quais itens podem aparecer na página principal e, no modo estoque,
-              a conciliação não atropela a Fila FIFO.
+              Envie a planilha oficial para criar ou atualizar produtos, preços e estoque. Deixe o preço em branco
+              para mostrar “sob consulta”.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -361,18 +389,18 @@ export default function B2BAdmin() {
                 <p className="text-xs text-muted-foreground">A aba XLSX deve se chamar PRODUTOS. Limite: 5.000 itens / 10 MB.</p>
               </div>
               <div className="space-y-2">
-                <Label>Modo</Label>
+                <Label>Atualizar</Label>
                 <select
                   className="h-10 w-full rounded-md border bg-background px-3 text-sm"
                   value={importMode}
                   onChange={(event) => setImportMode(event.target.value as "PRICES" | "INVENTORY")}
                 >
-                  <option value="INVENTORY">Catálogo + preços + estoque</option>
-                  <option value="PRICES">Catálogo + preços (sem alterar estoque)</option>
+                  <option value="INVENTORY">Produtos, preços e estoque</option>
+                  <option value="PRICES">Produtos e preços — manter estoque</option>
                 </select>
               </div>
               <div className="space-y-2 lg:col-span-2">
-                <Label>Tabela comercial</Label>
+                <Label>Tabela de preços</Label>
                 <select
                   className="h-10 w-full rounded-md border bg-background px-3 text-sm"
                   value={importPriceListId}
@@ -388,7 +416,7 @@ export default function B2BAdmin() {
               </div>
               <div className="flex items-end gap-2">
                 <Button onClick={handleImportCatalog} disabled={isImporting || !importFile} className="flex-1 gap-2">
-                  <Upload className="h-4 w-4" /> {isImporting ? "Importando…" : "Importar e atualizar"}
+                  <Upload className="h-4 w-4" /> {isImporting ? "Atualizando…" : "Atualizar produtos"}
                 </Button>
               </div>
             </div>
@@ -397,13 +425,12 @@ export default function B2BAdmin() {
               <div className="flex gap-2">
                 <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#067c52]" />
                 <span>
-                  Se um produto tiver lote em espera, a atualização direta de estoque será bloqueada.
-                  Registre a nova mercadoria em <strong>Entrada/FIFO</strong> para preservar custo e ordem dos lotes.
+                  Para adicionar mercadoria nova, use <strong>Entrada</strong>. Assim o estoque e os custos ficam corretos.
                 </span>
               </div>
               <Button asChild variant="outline" size="sm" className="shrink-0 gap-2">
                 <a href="/templates/ideal-prime-catalogo-master.xlsx" download>
-                  <Download className="h-3.5 w-3.5" /> Baixar modelo oficial
+                  <Download className="h-3.5 w-3.5" /> Baixar modelo
                 </a>
               </Button>
             </div>
@@ -412,7 +439,7 @@ export default function B2BAdmin() {
       </section>
 
       <section>
-        <h2 className="mb-3 flex items-center gap-2 font-semibold"><FileText className="h-5 w-5 text-[#215b94]" /> Cotações Comerciais</h2>
+        <h2 className="mb-3 flex items-center gap-2 font-medium"><FileText className="h-5 w-5 text-[#215b94]" /> Orçamentos</h2>
         <div className="space-y-2">
           {quotes.data?.map((quote: any) => (
             <div className="rounded-xl border border-border bg-card p-4" key={quote.id}>
@@ -424,7 +451,7 @@ export default function B2BAdmin() {
                 <strong className="text-[#067c52]">{money(Number(quote.total_cents || 0))}</strong>
               </div>
               <div className="mt-3 flex flex-wrap items-center gap-2">
-                <span className="rounded-full bg-[#e8f1fb] px-2.5 py-1 text-xs font-semibold text-[#215b94]">{quote.status}</span>
+                <span className="rounded-full bg-[#e8f1fb] px-2.5 py-1 text-xs font-medium text-[#215b94]">{displayStatus(quote.status)}</span>
                 {quote.status === "PENDING" && (
                   <>
                     <Button size="sm" onClick={() => transitionQuote.mutate({ id: quote.id, action: "APPROVE" })}>Aprovar</Button>
@@ -437,12 +464,12 @@ export default function B2BAdmin() {
               </div>
             </div>
           ))}
-          {!quotes.data?.length && <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">Nenhuma cotação comercial recebida.</div>}
+          {!quotes.data?.length && <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">Nenhum orçamento recebido.</div>}
         </div>
       </section>
 
       <section>
-        <h2 className="mb-3 flex items-center gap-2 font-semibold"><ShoppingBag className="h-5 w-5 text-[#067c52]" /> Pedidos B2B</h2>
+        <h2 className="mb-3 flex items-center gap-2 font-medium"><ShoppingBag className="h-5 w-5 text-[#067c52]" /> Pedidos</h2>
         <div className="space-y-2">
           {orders.data?.map((order: any) => (
             <div className="rounded-xl border border-border p-4" key={order.id}>
@@ -450,7 +477,7 @@ export default function B2BAdmin() {
                 <strong>{order.order_number} · {order.trade_name || order.legal_name}</strong>
                 <span>{money(Number(order.total_cents || 0))}</span>
               </div>
-              <div className="mt-1 text-xs text-muted-foreground">{order.commercial_status} · {order.payment_status} · {order.fulfillment_status}</div>
+              <div className="mt-1 text-xs text-muted-foreground">{displayStatus(order.commercial_status)} · {displayStatus(order.payment_status)} · {displayStatus(order.fulfillment_status)}</div>
               <div className="mt-3 flex flex-wrap gap-2">
                 {[["ACCEPT", "Aceitar"], ["PAY", "Confirmar pagamento"], ["SHIP", "Expedir"], ["CANCEL", "Cancelar"]].map(([action, label]) => (
                   <Button key={action} size="sm" variant="outline" onClick={() => transition.mutate({ id: order.id, action: action as "ACCEPT" | "PAY" | "SHIP" | "CANCEL" })}>{label}</Button>
@@ -462,9 +489,9 @@ export default function B2BAdmin() {
       </section>
 
       <section>
-        <h2 className="mb-2 font-semibold">Importações de Catálogo</h2>
+        <h2 className="mb-2 font-medium">Atualizações por planilha</h2>
         {imports.data?.map((job: any) => (
-          <div key={job.id} className="text-sm">#{job.id} · {job.mode} · {job.status} · {job.price_list_name}</div>
+          <div key={job.id} className="text-sm">Atualização #{job.id} · {IMPORT_MODE_LABEL[job.mode] ?? "Produtos"} · {displayStatus(job.status)} · {job.price_list_name}</div>
         ))}
       </section>
 
@@ -472,8 +499,7 @@ export default function B2BAdmin() {
         <DialogContent>
           <DialogTitle>Cadastrar responsável — {inviteFor?.name}</DialogTitle>
           <DialogDescription>
-            Cria (ou reaproveita, se já existir) o login que a empresa vai usar para acessar o
-            portal B2B, cotar e comprar.
+            Cria o acesso que a empresa usará para entrar, pedir orçamento e comprar.
           </DialogDescription>
           <div className="space-y-3 pt-2">
             <div className="space-y-2">

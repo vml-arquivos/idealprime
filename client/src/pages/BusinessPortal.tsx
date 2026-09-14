@@ -151,7 +151,7 @@ export default function BusinessPortal() {
 
       <div className="mx-auto max-w-7xl px-4 py-6 md:px-8 md:py-10">
         {me.isLoading ? (
-          <p className="text-sm text-[#5e776d]">Carregando ambiente empresarial...</p>
+          <p className="text-sm text-[#5e776d]">Carregando sua área...</p>
         ) : !me.data ? (
           <section className="rounded-2xl border border-[#dcebe5] bg-white p-8">
             <h1 className="text-2xl font-semibold">Empresa não vinculada</h1>
@@ -163,16 +163,16 @@ export default function BusinessPortal() {
               <Clock3 className="h-5 w-5" />
             </div>
             <h1 className="text-2xl font-semibold">Acesso empresarial em análise</h1>
-            <p className="mt-2 max-w-xl text-[#5e776d]">A Ideal Prime precisa aprovar sua empresa e liberar a tabela comercial antes do primeiro pedido ou cotação.</p>
+            <p className="mt-2 max-w-xl text-[#5e776d]">A Ideal Prime precisa aprovar sua empresa e liberar os preços antes do primeiro pedido ou orçamento.</p>
           </section>
         ) : (
           <>
             <section className="relative overflow-hidden rounded-3xl bg-[#073b2c] px-6 py-8 text-white shadow-lg md:px-10">
               <div className="absolute -right-12 -top-16 h-52 w-52 rounded-full border-[26px] border-[#098EC7]/30" />
               <div className="relative max-w-2xl">
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#b8e6d2]">Relacionamento Prime</p>
+                <p className="text-xs font-medium uppercase tracking-[0.14em] text-[#b8e6d2]">Área da empresa</p>
                 <h1 className="mt-2 text-3xl font-semibold tracking-tight md:text-4xl">Compre, cote e acompanhe tudo em um só lugar.</h1>
-                <p className="mt-3 max-w-xl text-sm leading-6 text-[#d5eee3]">Você acessa somente os recursos liberados para sua empresa, com preços autorizados, estoque atualizado e histórico comercial.</p>
+                <p className="mt-3 max-w-xl text-sm leading-6 text-[#d5eee3]">Aqui você encontra seus preços, produtos disponíveis e histórico de pedidos.</p>
               </div>
             </section>
 
@@ -193,11 +193,11 @@ export default function BusinessPortal() {
               <section className="mt-8">
                 <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#098EC7]">Tabela autorizada</p>
-                    <h2 className="mt-1 text-2xl font-semibold">Catálogo empresarial</h2>
-                    <p className="mt-1 text-sm text-[#5e776d]">Selecione quantidades e escolha entre pedido imediato ou cotação comercial.</p>
+                    <p className="text-xs font-medium uppercase tracking-[0.14em] text-[#098EC7]">Seus preços</p>
+                    <h2 className="mt-1 text-2xl font-medium">Produtos</h2>
+                    <p className="mt-1 text-sm text-[#5e776d]">Escolha as quantidades e faça um pedido ou peça um orçamento.</p>
                   </div>
-                  <Input placeholder="Buscar por SKU, produto ou categoria" className="bg-white md:max-w-md" value={query} onChange={(event) => setQuery(event.target.value)} />
+                  <Input placeholder="Buscar por código, produto ou categoria" className="bg-white md:max-w-md" value={query} onChange={(event) => setQuery(event.target.value)} />
                 </div>
 
                 {catalogCategories.length > 0 && (
@@ -222,7 +222,7 @@ export default function BusinessPortal() {
                           <ProductVisual src={product.image_url} alt={product.name} category={product.category_label} className="h-full w-full" imageClassName="p-4" />
                         </div>
                         <div className="p-4">
-                          <div className="text-xs text-[#5e776d]">{product.sku} · {product.unit}</div>
+                          <div className="text-xs text-[#5e776d]">Código {product.sku} · {product.unit}</div>
                           {product.category_label && <div className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-[#098EC7]">{product.category_label}</div>}
                           <h3 className="mt-1 font-semibold">{product.name}</h3>
                           {product.short_description && <p className="mt-1 line-clamp-2 text-xs text-[#5e776d]">{product.short_description}</p>}
@@ -230,7 +230,7 @@ export default function BusinessPortal() {
                           <div className="mt-1 text-xs text-[#5e776d]">Disponível: {product.available_quantity} · múltiplo {product.sales_multiple}</div>
                           {noPrice && (
                             <div className="mt-3 rounded-xl border border-[#D6E8E1] bg-[#F7FBF9] px-3 py-2 text-[11px] text-[#5e776d]">
-                              Item sem preço fixado. Este produto segue por cotação comercial.
+                              Este produto precisa de orçamento.
                             </div>
                           )}
                           <Input aria-label={`Quantidade de ${product.name}`} type="number" min={product.sales_multiple} step={product.sales_multiple} className="mt-3" value={cart[product.id] || ""} onChange={(event) => setCart((current) => ({ ...current, [product.id]: Number(event.target.value) }))} />
@@ -240,7 +240,7 @@ export default function BusinessPortal() {
                   })}
                 </div>
 
-                {!items.length && <div className="mt-6 rounded-2xl border border-dashed border-[#b8d9ca] bg-white p-10 text-center text-sm text-[#5e776d]">Nenhum produto encontrado na tabela empresarial.</div>}
+                {!items.length && <div className="mt-6 rounded-2xl border border-dashed border-[#b8d9ca] bg-white p-10 text-center text-sm text-[#5e776d]">Nenhum produto encontrado.</div>}
 
                 <div className="mt-8 grid gap-4 lg:grid-cols-[1fr_360px]">
                   <div className="rounded-2xl border border-[#dcebe5] bg-white p-5">

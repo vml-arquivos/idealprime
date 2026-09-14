@@ -69,7 +69,7 @@ export default function Login() {
               Entrada organizada para empresa e equipe.
             </h1>
             <p className="mt-4 max-w-md text-sm leading-6 text-white/75">
-              Utilize esta área para entrar com seu usuário. Empresas acessam o portal comercial e a equipe interna acessa o painel operacional.
+              Entre com seu usuário. Empresas acessam sua área de compras e a equipe interna acessa o painel.
             </p>
 
             <div className="mt-8 space-y-3">
@@ -79,14 +79,14 @@ export default function Login() {
                     <Building2 className="h-5 w-5" />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold">Portal da empresa</p>
-                    <p className="text-xs text-white/70">Catálogo B2B, cotações e pedidos</p>
+                    <p className="text-sm font-medium">Área da empresa</p>
+                    <p className="text-xs text-white/70">Produtos, orçamentos e pedidos</p>
                   </div>
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2">
                   <Link href="/portal">
                     <span className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-white px-4 py-2 text-xs font-semibold text-[#0C4536] transition hover:bg-[#E8F7F1]">
-                      Entrar no portal <ArrowRight className="h-4 w-4" />
+                      Acessar área <ArrowRight className="h-4 w-4" />
                     </span>
                   </Link>
                   <Link href="/empresa/cadastro">

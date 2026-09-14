@@ -183,14 +183,14 @@ export default function NotasFiscais() {
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#215b94]">Fiscal</p>
           <h1 className="mt-1 text-2xl font-semibold">Notas Fiscais</h1>
-          <p className="text-sm text-muted-foreground">Emissão de NF-e (pedidos B2B) e NFC-e (pedidos Ideal Prime).</p>
+          <p className="text-sm text-muted-foreground">Notas das vendas da loja e das empresas.</p>
         </div>
 
         {!providerConfigured && !settings.isLoading && (
           <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
             <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0" />
             <div>
-              <strong>Nenhum provedor de emissão configurado.</strong> Solicitações de emissão ficam registradas como "Aguardando provedor" até um provedor real (Focus NFe, PlugNotas, eNotas, NFe.io ou outro) ser escolhido e configurado em Configurações → Nota Fiscal.
+              <strong>Nenhum serviço de emissão configurado.</strong> Os pedidos ficam registrados até um serviço real ser escolhido e configurado em Configurações → Nota Fiscal.
             </div>
           </div>
         )}
@@ -198,10 +198,10 @@ export default function NotasFiscais() {
         <div className="border-b border-stone-200">
           <nav className="flex gap-1">
             <button onClick={() => setTab("retail")} className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${tab === "retail" ? "border-stone-900 text-stone-900" : "border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300"}`}>
-              <ShoppingBag className="h-4 w-4" /> Pedidos Ideal Prime
+              <ShoppingBag className="h-4 w-4" /> Pedidos da loja
             </button>
             <button onClick={() => setTab("b2b")} className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${tab === "b2b" ? "border-stone-900 text-stone-900" : "border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300"}`}>
-              <Building2 className="h-4 w-4" /> Pedidos B2B
+              <Building2 className="h-4 w-4" /> Pedidos de empresas
             </button>
           </nav>
         </div>

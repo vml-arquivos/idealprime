@@ -1038,7 +1038,7 @@ export default function ProductForm() {
                   </Select>
                 </Field>
 
-                <Field label="Categoria personalizada" tooltip="Nome exibido na vitrine e no catálogo B2B.">
+                <Field label="Categoria personalizada" tooltip="Nome exibido na vitrine e na área da empresa.">
                   <div className="flex gap-2">
                     <Input
                       value={form.categoryLabel}

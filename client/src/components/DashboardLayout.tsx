@@ -57,22 +57,22 @@ type MenuModule = { label: string; adminOnly?: boolean; items: MenuItem[] };
 const menuModules: MenuModule[] = [
   {
     label: "Início",
-    items: [{ icon: LayoutDashboard, label: "Dashboard", path: "/dashboard", permission: PERMISSIONS.DASHBOARD }],
+    items: [{ icon: LayoutDashboard, label: "Resumo", path: "/dashboard", permission: PERMISSIONS.DASHBOARD }],
   },
   {
-    label: "Catálogo & Estoque",
+    label: "Produtos e estoque",
     items: [
       { icon: Package, label: "Produtos", path: "/produtos", permission: PERMISSIONS.PRODUCTS },
       // Item "Quase Zero" removido: apontava para a mesma /produtos (duplicado) e
       // referenciava uma marca/aplicação separada que não deve aparecer no Ideal Prime.
       { icon: Warehouse, label: "Estoque", path: "/estoque", permission: PERMISSIONS.INVENTORY },
       { icon: Layers, label: "Entrada", path: "/lotes", permission: PERMISSIONS.INVENTORY },
-      { icon: ListOrdered, label: "Fila FIFO", path: "/fila-estoque", permission: PERMISSIONS.INVENTORY },
+      { icon: ListOrdered, label: "Fila de entrada", path: "/fila-estoque", permission: PERMISSIONS.INVENTORY },
     ],
   },
   {
-    label: "Comercial B2B",
-    items: [{ icon: Building2, label: "Relacionamento Comercial", path: "/b2b-admin", permission: PERMISSIONS.B2B_OPERATIONS }],
+    label: "Empresas",
+    items: [{ icon: Building2, label: "Empresas e pedidos", path: "/b2b-admin", permission: PERMISSIONS.B2B_OPERATIONS }],
   },
   {
     label: "Vendas & Clientes",
@@ -83,13 +83,13 @@ const menuModules: MenuModule[] = [
     ],
   },
   {
-    label: "Financeiro & Fiscal",
+    label: "Financeiro",
     items: [
       { icon: Calculator, label: "Simulações", path: "/simulacoes", permission: PERMISSIONS.PRICING },
       { icon: ShoppingCart, label: "Cotações", path: "/cotacoes", permission: PERMISSIONS.PRICING },
       {
         icon: BarChart3,
-        label: "Gestão de Cotações",
+        label: "Acompanhar cotações",
         path: "/cotacoes-gestao",
         permission: PERMISSIONS.PRICING,
       },
@@ -246,8 +246,8 @@ function DashboardLayoutContent({
                     <BrandSymbol className="h-full w-full" />
                   </div>
                   <div className="min-w-0">
-                    <span className="block truncate text-sm font-semibold tracking-tight">Ideal Prime</span>
-                    <span className="block truncate text-[9px] font-semibold uppercase tracking-[0.14em] text-sidebar-foreground/55">Gestão empresarial</span>
+                    <span className="block truncate text-sm font-medium tracking-tight">Ideal Prime</span>
+                    <span className="block truncate text-[9px] font-medium uppercase tracking-[0.1em] text-sidebar-foreground/55">Área de trabalho</span>
                   </div>
                 </div>
               )}
@@ -265,7 +265,7 @@ function DashboardLayoutContent({
                 <div key={module.label} className="space-y-1">
                   {!isCollapsed ? (
                     <div className="px-4 pb-1 pt-3">
-                      <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
                         {module.label}
                       </span>
                     </div>
@@ -309,12 +309,12 @@ function DashboardLayoutContent({
               target="_blank"
               rel="noopener noreferrer"
               className={`flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-accent/60 transition-colors w-full text-sm font-medium mb-1 ${isCollapsed ? "justify-center" : ""}`}
-              title="Ver Vitrine Pública"
+              title="Abrir vitrine"
             >
               <Store className="h-4 w-4 text-primary shrink-0" />
               {!isCollapsed && (
                 <span className="flex-1 truncate text-primary">
-                  Ver Vitrine
+                  Abrir vitrine
                 </span>
               )}
               {!isCollapsed && (
@@ -394,25 +394,25 @@ function DashboardLayoutContent({
               /
             </span>
             <div className="min-w-0">
-              <span className="block truncate text-sm font-semibold text-[#12352B]">{activeLabel}</span>
-              <span className="hidden text-[9px] font-bold uppercase tracking-[0.16em] text-[#7B9188] md:block">Operação Ideal Prime</span>
+              <span className="block truncate text-sm font-medium text-[#12352B]">{activeLabel}</span>
+              <span className="hidden text-[9px] font-medium uppercase tracking-[0.1em] text-[#7B9188] md:block">Área de trabalho</span>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setLocation("/b2b-admin")}
-              className="hidden lg:inline-flex items-center gap-1.5 rounded-lg border border-[#D5E8E0] bg-white px-3 py-1.5 text-xs font-semibold text-[#41675A] transition-colors hover:border-[#9ED2BC] hover:text-[#068A5B]"
-            >
-              <Building2 className="h-3.5 w-3.5" /> Gestão B2B
+                className="hidden lg:inline-flex items-center gap-1.5 rounded-lg border border-[#D5E8E0] bg-white px-3 py-1.5 text-xs font-medium text-[#41675A] transition-colors hover:border-[#9ED2BC] hover:text-[#068A5B]"
+              >
+              <Building2 className="h-3.5 w-3.5" /> Empresas
             </button>
             <a
               href="/portal"
               target="_blank"
               rel="noopener noreferrer"
-              className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-white px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/5"
+              className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-white px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/5"
             >
               <Building2 className="h-3.5 w-3.5" />
-              Portal da empresa
+              Área da empresa
               <ExternalLink className="h-3 w-3 opacity-60" />
             </a>
           </div>

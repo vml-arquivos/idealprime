@@ -50,11 +50,11 @@ export default function FilaEstoque() {
       <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#215b94]">Controle de estoque</p>
-          <h1 className="mt-1 flex items-center gap-2 text-2xl font-semibold">
-            <Layers3 className="h-6 w-6 text-[#067c52]" /> Fila FIFO
+          <h1 className="mt-1 flex items-center gap-2 text-2xl font-medium">
+            <Layers3 className="h-6 w-6 text-[#067c52]" /> Ordem das entradas
           </h1>
           <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-            Acompanhe qual lote está vendendo agora e quais entradas aguardam sua vez. Um lote novo só assume o estoque quando o lote ativo zera.
+            Veja qual entrada está sendo usada e quais aguardam a vez. Uma nova entrada começa quando a anterior termina.
           </p>
         </div>
         <div className="min-w-52 space-y-2">
@@ -83,7 +83,7 @@ export default function FilaEstoque() {
         <CardHeader>
           <CardTitle className="text-base">Ordem dos lotes</CardTitle>
           <CardDescription>
-            A importação por planilha não sobrescreve produtos que tenham lote em espera; novas compras devem entrar por Entrada/FIFO.
+            A atualização por planilha não altera produtos que já têm uma entrada aguardando. Para novas compras, use a opção Entrada.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -107,7 +107,7 @@ export default function FilaEstoque() {
                     </Badge>
                   </div>
                   <div className="mt-1 text-xs text-muted-foreground">
-                    {product?.sku ? `SKU ${product.sku} · ` : ""}posição {entry.position} · fila #{entry.id}
+                    {product?.sku ? `Código ${product.sku} · ` : ""}posição {entry.position} · entrada #{entry.id}
                     {entry.batchId ? ` · entrada #${entry.batchId}` : ""}
                   </div>
                 </div>
@@ -135,7 +135,7 @@ export default function FilaEstoque() {
 
       <div className="flex gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-        <span>Não use ajuste agregado de estoque para simular compra de um novo lote. Use <strong>Entrada</strong>, pois é ali que o custo e a posição FIFO ficam registrados.</span>
+        <span>Para registrar uma compra nova, use <strong>Entrada</strong>. Assim o custo e a ordem de uso ficam corretos.</span>
       </div>
     </div>
   );

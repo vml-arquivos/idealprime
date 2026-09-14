@@ -298,7 +298,7 @@ export default function Marketplace() {
             </Link>
             <Link href="/portal">
               <span className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-[#12352B] px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-white transition-colors hover:bg-[#068A5B]">
-                <Store className="h-3.5 w-3.5" /> Portal da empresa
+                <Store className="h-3.5 w-3.5" /> Área da empresa
               </span>
             </Link>
           </div>
@@ -325,7 +325,7 @@ export default function Marketplace() {
                 </Link>
                 <Link href="/portal">
                   <span onClick={() => setMobileMenuOpen(false)} className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#12352B] px-4 py-3 text-xs font-semibold text-white">
-                    <Store className="h-4 w-4" /> Portal da empresa
+                    <Store className="h-4 w-4" /> Área da empresa
                   </span>
                 </Link>
               </div>
@@ -360,7 +360,7 @@ export default function Marketplace() {
             </h1>
 
             <p className="mt-6 max-w-md text-[0.98rem] leading-relaxed text-[#6C8278]">
-              Catálogo empresarial para higiene, limpeza, descartáveis, utilidades e novas categorias, com relacionamento comercial, pedido, cotação e recompra organizada.
+              Produtos para higiene, limpeza, descartáveis e utilidades, com pedidos, orçamentos e recompra organizada.
             </p>
 
             <div className="mt-8 flex flex-wrap gap-3">
@@ -413,12 +413,12 @@ export default function Marketplace() {
               </div>
 
               <div className="max-w-lg">
-                <p className="mb-3 text-[9px] font-semibold uppercase tracking-[0.32em] text-[#B9F1D4]">Curadoria comercial</p>
+                <p className="mb-3 text-[9px] font-medium uppercase tracking-[0.2em] text-[#B9F1D4]">Escolhas da Ideal Prime</p>
                 <h2 className="prime-display text-[2.2rem] leading-[0.98] text-white sm:text-[3.5rem] lg:text-[4.1rem]">
                   A sua próxima escolha começa aqui.
                 </h2>
                 <p className="mt-5 max-w-sm text-sm leading-relaxed text-white/75">
-                  Um canal B2B para consultar produtos, solicitar itens, receber cotações e acompanhar pedidos com clareza operacional.
+                  Um espaço para empresas consultarem produtos, pedirem itens, receberem orçamentos e acompanharem pedidos.
                 </p>
               </div>
 
@@ -439,8 +439,8 @@ export default function Marketplace() {
       <section id="experiencia-prime" className="bg-[#0C4536] py-9 text-white">
         <div className="mx-auto grid max-w-7xl gap-8 px-6 sm:grid-cols-3 lg:px-16">
           <Benefit icon={ShieldCheck} title="Compra segura" description="Informações claras, preços comerciais e histórico organizado para sua operação." />
-          <Benefit icon={Truck} title="Disponibilidade real" description="Catálogo, estoque e fila FIFO acompanhados para decisões mais consistentes." />
-          <Benefit icon={Sparkles} title="Atendimento Prime" description="Relacionamento comercial próximo, com experiência empresarial mais elegante e eficiente." />
+          <Benefit icon={Truck} title="Disponibilidade real" description="Produtos e estoque acompanhados para decisões mais seguras." />
+          <Benefit icon={Sparkles} title="Atendimento Prime" description="Atendimento próximo, com uma experiência simples e eficiente." />
         </div>
       </section>
 
@@ -453,7 +453,7 @@ export default function Marketplace() {
               </div>
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#068A5B]">Área da empresa</p>
-                <h3 className="mt-1 text-xl font-bold text-[#12352B]">Portal empresarial</h3>
+                <h3 className="mt-1 text-xl font-medium text-[#12352B]">Área da empresa</h3>
               </div>
             </div>
             <p className="mt-4 text-sm leading-relaxed text-[#6C8278]">
@@ -462,7 +462,7 @@ export default function Marketplace() {
             <div className="mt-6 flex flex-wrap gap-3">
               <Link href="/portal">
                 <span className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-[#068A5B] px-5 py-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-white transition hover:bg-[#0C4536]">
-                  Entrar no portal <ArrowRight className="h-4 w-4" />
+                  Acessar área <ArrowRight className="h-4 w-4" />
                 </span>
               </Link>
               <Link href="/empresa/cadastro">
@@ -650,7 +650,7 @@ export default function Marketplace() {
               A experiência Prime
             </button>
             <Link href="/portal">
-              <span className="cursor-pointer transition-colors hover:text-white">Portal da empresa</span>
+              <span className="cursor-pointer transition-colors hover:text-white">Área da empresa</span>
             </Link>
             <Link href="/login">
               <span className="cursor-pointer transition-colors hover:text-white">Acesso da equipe</span>

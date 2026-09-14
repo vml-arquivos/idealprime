@@ -432,7 +432,7 @@ function TabFiscal() {
     <div className="space-y-6 max-w-2xl">
       <div>
         <h2 className="text-lg font-semibold text-stone-900">Nota Fiscal Eletrônica</h2>
-        <p className="text-sm text-stone-500">Emissão de NF-e (pedidos B2B) e NFC-e (pedidos Ideal Prime).</p>
+        <p className="text-sm text-stone-500">Emissão de notas para vendas da loja e para empresas.</p>
       </div>
 
       <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">

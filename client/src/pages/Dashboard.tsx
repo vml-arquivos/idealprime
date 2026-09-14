@@ -171,66 +171,66 @@ export default function Dashboard() {
           <div>
             <div className="mb-4 flex items-center gap-3">
               <span className="h-px w-10 bg-[#9ADCF2]" />
-              <span className="text-[10px] font-bold uppercase tracking-[0.28em] text-[#B9F1D4]">Central de operação empresarial</span>
+              <span className="text-[10px] font-medium uppercase tracking-[0.16em] text-[#B9F1D4]">Resumo da operação</span>
             </div>
             <h1 className="prime-display max-w-3xl text-4xl leading-[0.98] sm:text-5xl">Ideal Prime em uma única visão.</h1>
             <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/70">
-              Catálogo, empresas, estoque FIFO, cotações, pedidos, fiscal e relacionamento comercial reunidos para conduzir a operação B2B sem perder o controle do detalhe.
+              Produtos, empresas, estoque, orçamentos, pedidos e notas reunidos em uma visão simples para o dia a dia.
             </p>
             <div className="mt-6 flex flex-wrap gap-2">
-              <Link href="/b2b-admin"><span className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-xs font-bold text-[#0C4536] transition hover:bg-[#E9F7F1]"><Building2 className="h-4 w-4" /> Gestão B2B</span></Link>
+              <Link href="/b2b-admin"><span className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-xs font-medium text-[#0C4536] transition hover:bg-[#E9F7F1]"><Building2 className="h-4 w-4" /> Empresas</span></Link>
               <Link href="/produtos"><span className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-white/20 bg-white/5 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-white/10"><Package className="h-4 w-4" /> Catálogo</span></Link>
-              <Link href="/fila-estoque"><span className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-white/20 bg-white/5 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-white/10"><Boxes className="h-4 w-4" /> Fila FIFO</span></Link>
+              <Link href="/fila-estoque"><span className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-white/20 bg-white/5 px-4 py-2.5 text-xs font-medium text-white transition hover:bg-white/10"><Boxes className="h-4 w-4" /> Entradas</span></Link>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-2">
             <div className="rounded-2xl border border-white/15 bg-white/[0.08] p-4 backdrop-blur-sm">
-              <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-white/55">Empresas aprovadas</p>
-              <p className="mt-2 text-2xl font-bold">{fmtInt(e.businessApproved)}</p>
+              <p className="text-[9px] font-medium uppercase tracking-[0.12em] text-white/55">Empresas aprovadas</p>
+              <p className="mt-2 text-2xl font-medium">{fmtInt(e.businessApproved)}</p>
             </div>
             <div className="rounded-2xl border border-white/15 bg-white/[0.08] p-4 backdrop-blur-sm">
-              <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-white/55">Pedidos B2B abertos</p>
-              <p className="mt-2 text-2xl font-bold">{fmtInt(e.b2bOrdersOpen)}</p>
+              <p className="text-[9px] font-medium uppercase tracking-[0.12em] text-white/55">Pedidos de empresas</p>
+              <p className="mt-2 text-2xl font-medium">{fmtInt(e.b2bOrdersOpen)}</p>
             </div>
             <div className="rounded-2xl border border-white/15 bg-white/[0.08] p-4 backdrop-blur-sm">
-              <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-white/55">Cotações aguardando</p>
-              <p className="mt-2 text-2xl font-bold">{fmtInt(e.quotesPending)}</p>
+              <p className="text-[9px] font-medium uppercase tracking-[0.12em] text-white/55">Orçamentos aguardando</p>
+              <p className="mt-2 text-2xl font-medium">{fmtInt(e.quotesPending)}</p>
             </div>
             <div className="rounded-2xl border border-white/15 bg-white/[0.08] p-4 backdrop-blur-sm">
-              <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-white/55">Fila FIFO</p>
-              <p className="mt-2 text-2xl font-bold">{fmtInt(e.fifoWaiting)}</p>
+              <p className="text-[9px] font-medium uppercase tracking-[0.12em] text-white/55">Entradas aguardando</p>
+              <p className="mt-2 text-2xl font-medium">{fmtInt(e.fifoWaiting)}</p>
             </div>
           </div>
         </div>
       </section>
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
-        <KpiCard title="Faturamento confirmado" value={fmtBrl(consolidatedRevenue)} subtitle={`B2B ${fmtBrl(b2bRevenue)} · varejo ${fmtBrl(retailRevenue)}`} icon={DollarSign} tone="green" href="/pedidos" />
+        <KpiCard title="Faturamento confirmado" value={fmtBrl(consolidatedRevenue)} subtitle={`Empresas ${fmtBrl(b2bRevenue)} · loja ${fmtBrl(retailRevenue)}`} icon={DollarSign} tone="green" href="/pedidos" />
         <KpiCard title="Valor em estoque" value={fmtBrl(e.inventoryValue)} subtitle={`${fmtInt(activeProducts)} produtos ativos`} icon={Warehouse} tone="blue" href="/estoque" />
-        <KpiCard title="Empresas B2B" value={fmtInt(e.businessTotal)} subtitle={`${fmtInt(e.businessPending)} aguardando análise`} icon={Building2} tone="green" href="/b2b-admin" />
-        <KpiCard title="Pedidos B2B" value={fmtInt(e.b2bOrdersTotal)} subtitle={`${fmtInt(e.b2bOrdersPaid)} com pagamento confirmado`} icon={ShoppingCart} tone="blue" href="/b2b-admin" />
+        <KpiCard title="Empresas" value={fmtInt(e.businessTotal)} subtitle={`${fmtInt(e.businessPending)} aguardando aprovação`} icon={Building2} tone="green" href="/b2b-admin" />
+        <KpiCard title="Pedidos de empresas" value={fmtInt(e.b2bOrdersTotal)} subtitle={`${fmtInt(e.b2bOrdersPaid)} com pagamento confirmado`} icon={ShoppingCart} tone="blue" href="/b2b-admin" />
         <KpiCard title="Estoque em atenção" value={fmtInt(lowStock + outOfStock)} subtitle={`${fmtInt(lowStock)} baixo · ${fmtInt(outOfStock)} zerado`} icon={AlertTriangle} tone={lowStock + outOfStock > 0 ? "amber" : "slate"} href="/estoque" />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-3">
-        <Section title="Operação comercial B2B" subtitle="Empresas, cotações, reservas e pedidos" icon={Building2} action={<Link href="/b2b-admin"><span className="cursor-pointer text-xs font-bold text-[#068A5B] hover:underline">Abrir gestão →</span></Link>}>
+        <Section title="Empresas e pedidos" subtitle="Empresas, orçamentos e pedidos" icon={Building2} action={<Link href="/b2b-admin"><span className="cursor-pointer text-xs font-medium text-[#068A5B] hover:underline">Abrir empresas →</span></Link>}>
           <div className="space-y-3">
             <StatusLine label="Empresas aprovadas" value={fmtInt(e.businessApproved)} tone="green" />
             <StatusLine label="Cadastros pendentes" value={fmtInt(e.businessPending)} tone={e.businessPending > 0 ? "amber" : "slate"} />
-            <StatusLine label="Cotações pendentes" value={fmtInt(e.quotesPending)} tone={e.quotesPending > 0 ? "blue" : "slate"} />
+            <StatusLine label="Orçamentos pendentes" value={fmtInt(e.quotesPending)} tone={e.quotesPending > 0 ? "blue" : "slate"} />
             <StatusLine label="Unidades reservadas" value={fmtInt(e.activeReservationQty)} tone="blue" />
-            <StatusLine label="Pedidos ainda em operação" value={fmtInt(e.b2bOrdersOpen)} tone="green" />
+            <StatusLine label="Pedidos em andamento" value={fmtInt(e.b2bOrdersOpen)} tone="green" />
           </div>
         </Section>
 
         <Section title="Catálogo e estoque" subtitle="Disponibilidade, publicação e canal empresarial" icon={Boxes} action={<Link href="/produtos"><span className="cursor-pointer text-xs font-bold text-[#068A5B] hover:underline">Gerenciar →</span></Link>}>
           {totalProducts === 0 ? (
-            <div className="py-8 text-center text-sm text-[#71877E]">Importe o Catálogo Mestre Ideal Prime para iniciar os indicadores.</div>
+              <div className="py-8 text-center text-sm text-[#71877E]">Adicione produtos para começar a acompanhar os números.</div>
           ) : (
             <div className="space-y-5">
               <MiniBar label="Produtos ativos" value={activeProducts} max={Math.max(totalProducts, 1)} tone="green" />
               <MiniBar label="Publicados na vitrine" value={publishedProducts} max={Math.max(totalProducts, 1)} tone="blue" />
-              <MiniBar label="Habilitados para B2B" value={b2bProducts} max={Math.max(totalProducts, 1)} tone="green" />
+              <MiniBar label="Disponíveis para empresas" value={b2bProducts} max={Math.max(totalProducts, 1)} tone="green" />
               <div className="grid grid-cols-2 gap-3 pt-1">
                 <div className="rounded-xl bg-[#FFF7E6] p-4"><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#91600A]">Baixo estoque</p><p className="mt-1 text-2xl font-bold text-[#6B4C13]">{fmtInt(lowStock)}</p></div>
                 <div className="rounded-xl bg-[#FFF0EE] p-4"><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#A3382E]">Sem estoque</p><p className="mt-1 text-2xl font-bold text-[#7E281F]">{fmtInt(outOfStock)}</p></div>
@@ -245,7 +245,7 @@ export default function Dashboard() {
             <StatusLine label="Aguardando emissão/provedor" value={fmtInt(e.invoicesPending)} tone={e.invoicesPending > 0 ? "blue" : "slate"} />
             <StatusLine label="Rejeitadas ou com erro" value={fmtInt(e.invoiceErrors)} tone={e.invoiceErrors > 0 ? "red" : "slate"} />
             <div className="mt-4 rounded-xl border border-[#D9E8E2] bg-[#F7FBF9] p-4">
-              <div className="flex items-start gap-3"><ShieldCheck className="mt-0.5 h-5 w-5 text-[#068A5B]" /><div><p className="text-sm font-bold text-[#12352B]">Operação rastreável</p><p className="mt-1 text-xs leading-relaxed text-[#71877E]">Pedidos B2B preservam snapshots comerciais e reservas; a emissão fiscal mantém histórico de eventos por nota.</p></div></div>
+              <div className="flex items-start gap-3"><ShieldCheck className="mt-0.5 h-5 w-5 text-[#068A5B]" /><div><p className="text-sm font-medium text-[#12352B]">Histórico organizado</p><p className="mt-1 text-xs leading-relaxed text-[#71877E]">Pedidos de empresas mantêm seus dados e reservas; cada nota fica registrada.</p></div></div>
             </div>
           </div>
         </Section>
@@ -282,10 +282,10 @@ export default function Dashboard() {
             {[
               { label: "Nova empresa", desc: "Cadastro e tabela", icon: Building2, href: "/b2b-admin" },
               { label: "Novo produto", desc: "Catálogo mestre", icon: Package, href: "/produtos/novo" },
-              { label: "Entrada / FIFO", desc: "Receber estoque", icon: Truck, href: "/entrada-produtos" },
+              { label: "Nova entrada", desc: "Receber estoque", icon: Truck, href: "/entrada-produtos" },
               { label: "Pedidos", desc: "Acompanhar vendas", icon: ClipboardCheck, href: "/pedidos" },
               { label: "Notas fiscais", desc: "Emissão e eventos", icon: FileText, href: "/notas-fiscais" },
-              { label: "Portal B2B", desc: "Visão do cliente", icon: Store, href: "/portal" },
+              { label: "Área da empresa", desc: "Visão do cliente", icon: Store, href: "/portal" },
             ].map(({ label, desc, icon: Icon, href }) => (
               <Link key={label} href={href}><div className="group cursor-pointer rounded-xl border border-[#E1ECE7] bg-[#FBFDFC] p-4 transition hover:border-[#9ED2BC] hover:bg-[#F1FAF6]"><Icon className="h-5 w-5 text-[#068A5B]" /><p className="mt-3 text-sm font-bold text-[#12352B]">{label}</p><p className="mt-0.5 text-[11px] text-[#71877E]">{desc}</p></div></Link>
             ))}

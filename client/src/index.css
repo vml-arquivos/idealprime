@@ -197,13 +197,14 @@
 
   .admin-shell .prime-display {
     font-family: "Poppins", "Prime Montserrat", Montserrat, system-ui, sans-serif;
-    font-weight: 700;
-    letter-spacing: -0.035em;
-    line-height: 1.08;
+    font-weight: 500;
+    letter-spacing: -0.025em;
+    line-height: 1.12;
   }
 
   .admin-shell .prime-eyebrow {
-    letter-spacing: 0.12em;
+    font-weight: 500;
+    letter-spacing: 0.1em;
   }
 
   .admin-shell main {
