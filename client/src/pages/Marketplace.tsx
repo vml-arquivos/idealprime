@@ -484,7 +484,7 @@ export default function Marketplace() {
               </div>
             </div>
             <p className="mt-4 text-sm leading-relaxed text-[#6C8278]">
-              Administradores, vendedores e equipe operacional entram por aqui para acessar dashboard, catálogo, estoque, pedidos, clientes e financeiro.
+              Administradores, vendedores e equipe operacional entram por aqui para acessar resumo, produtos, estoque, pedidos, clientes e financeiro.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <Link href="/login">
