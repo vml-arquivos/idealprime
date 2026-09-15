@@ -8,21 +8,19 @@ import {
   Boxes,
   Building2,
   Check,
-  ClipboardList,
   FileText,
   Headphones,
   Menu,
   PackageCheck,
   Search,
   ShieldCheck,
-  ShoppingBag,
   Sparkles,
   Truck,
   X,
 } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { ProductVisual } from "@/components/ProductVisual";
-import brandPattern from "@/assets/brand/ideal-prime-pattern.png";
+import heroProducts from "@/assets/brand/ideal-prime-hero-products.webp";
 
 interface CatalogProduct {
   id: number;
@@ -246,28 +244,6 @@ function Benefit({
   );
 }
 
-function FeatureChip({
-  icon: Icon,
-  title,
-  description,
-}: {
-  icon: typeof ShoppingBag;
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="flex items-center gap-3 rounded-[1.1rem] border border-white/65 bg-white/80 px-4 py-3 shadow-[0_12px_32px_rgba(12,69,54,0.08)] backdrop-blur-md">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#E4F4ED] text-[#0C6F4D]">
-        <Icon className="h-4 w-4" />
-      </div>
-      <div>
-        <p className="text-[11px] font-semibold text-[#12352B]">{title}</p>
-        <p className="mt-0.5 text-[9px] leading-relaxed text-[#6F837A]">{description}</p>
-      </div>
-    </div>
-  );
-}
-
 function StepCard({
   number,
   icon: Icon,
@@ -313,7 +289,6 @@ export default function Marketplace() {
     [featuredProducts, shopProducts],
   );
   const pageProducts = isFullCatalog ? shopProducts : homeProducts;
-  const showcaseProducts = useMemo(() => homeProducts.slice(0, 4), [homeProducts]);
   const categories = useMemo(
     () => Array.from(new Set(pageProducts.map(getCategoryLabel))).sort((a, b) => a.localeCompare(b, "pt-BR")),
     [pageProducts],
@@ -444,9 +419,9 @@ export default function Marketplace() {
       </header>
 
       <section className="relative overflow-hidden border-b border-[#E1ECE7] bg-white">
-        <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[52%] bg-[radial-gradient(circle_at_65%_25%,rgba(6,138,91,0.14),transparent_42%),linear-gradient(135deg,rgba(244,250,247,0.2),rgba(230,242,236,0.9))] lg:block" />
-        <div className="mx-auto grid max-w-[92rem] items-center gap-10 px-5 py-12 sm:px-7 lg:grid-cols-[0.9fr_1.1fr] lg:px-10 lg:py-16 xl:px-14 xl:py-20">
-          <div className="relative z-10 max-w-2xl">
+        <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[53%] bg-[radial-gradient(circle_at_60%_20%,rgba(6,138,91,0.12),transparent_46%),linear-gradient(135deg,rgba(250,253,251,0),rgba(232,244,238,0.82))] lg:block" />
+        <div className="mx-auto grid max-w-[92rem] items-center gap-8 px-5 py-10 sm:px-7 lg:grid-cols-[0.9fr_1.1fr] lg:px-10 lg:py-12 xl:px-14 xl:py-14">
+          <div className="relative z-10 max-w-[39rem]">
             <p className="text-[9px] font-semibold uppercase tracking-[0.34em] text-[#068A5B] sm:text-[10px]">
               Ideal Prime · Comércio e Distribuição
             </p>
@@ -454,9 +429,9 @@ export default function Marketplace() {
               className="mt-5 text-[#12352B]"
               style={{
                 fontFamily: SERIF,
-                fontSize: "clamp(3rem, 6vw, 6.35rem)",
+                fontSize: "clamp(3.2rem, 4.55vw, 5rem)",
                 fontWeight: 400,
-                lineHeight: 0.9,
+                lineHeight: 0.94,
                 letterSpacing: "-0.035em",
               }}
             >
@@ -464,9 +439,9 @@ export default function Marketplace() {
               <br />
               movimentam o
               <br />
-              <span className="text-[#068A5B]">seu negócio.</span>
+              seu negócio.
             </h1>
-            <p className="mt-7 max-w-xl text-[0.98rem] leading-7 text-[#667D73] sm:text-[1.03rem]">
+            <p className="mt-6 max-w-[34rem] text-[0.98rem] leading-7 text-[#667D73] sm:text-[1.03rem]">
               Higiene, limpeza, descartáveis, utilidades e outras soluções para empresas que querem comprar melhor, repor com agilidade e manter a operação em movimento.
             </p>
 
@@ -498,65 +473,16 @@ export default function Marketplace() {
             </div>
           </div>
 
-          <div className="relative min-h-[33rem] overflow-hidden rounded-[2.2rem] border border-[#D8E8E1] bg-[#EEF7F2] p-5 shadow-[0_28px_90px_rgba(12,69,54,0.12)] sm:p-7 lg:min-h-[38rem]">
-            <div
-              className="absolute inset-0 opacity-30"
-              style={{
-                backgroundImage: `url(${brandPattern})`,
-                backgroundPosition: "center",
-                backgroundSize: "520px auto",
-              }}
-            />
-            <div className="absolute -left-28 bottom-[-8rem] h-[28rem] w-[28rem] rounded-full bg-white/70 blur-sm" />
-            <div className="absolute -right-20 -top-20 h-72 w-72 rounded-full border border-[#0C6F4D]/15" />
-
-            <div className="relative grid h-full gap-5 lg:grid-cols-[1.1fr_0.9fr]">
-              <div className="relative flex min-h-[26rem] items-end justify-center pt-12 lg:min-h-[32rem]">
-                {showcaseProducts.length > 0 ? (
-                  <div className="relative h-[25rem] w-full max-w-[28rem] sm:h-[29rem] lg:h-[32rem]">
-                    {showcaseProducts.map((product, index) => {
-                      const placements = [
-                        "left-[4%] top-[28%] z-20 w-[46%] rotate-[-2deg]",
-                        "right-[0%] top-[12%] z-10 w-[43%] rotate-[2deg]",
-                        "left-[26%] bottom-[0%] z-30 w-[48%]",
-                        "right-[4%] bottom-[14%] z-20 w-[36%] rotate-[3deg]",
-                      ];
-                      return (
-                        <div
-                          key={product.id}
-                          className={`absolute overflow-hidden rounded-[1.5rem] border border-white/80 bg-white shadow-[0_20px_55px_rgba(12,69,54,0.16)] ${placements[index] ?? placements[0]}`}
-                          style={{ aspectRatio: "4/5" }}
-                        >
-                          <ProductVisual
-                            src={product.imageUrl}
-                            alt={product.name}
-                            category={getCategoryLabel(product)}
-                            className="absolute inset-0"
-                            imageClassName="p-4 sm:p-5"
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="flex h-64 w-64 items-center justify-center rounded-full bg-white text-[#0C6F4D] shadow-[0_24px_65px_rgba(12,69,54,0.12)]">
-                    <Boxes className="h-20 w-20" />
-                  </div>
-                )}
-              </div>
-
-              <div className="relative flex flex-col justify-center gap-3 pb-3 lg:pb-0">
-                <div className="mb-2">
-                  <p className="text-[9px] font-semibold uppercase tracking-[0.26em] text-[#068A5B]">Soluções para empresas</p>
-                  <h2 className="mt-2 text-2xl text-[#12352B] sm:text-3xl" style={{ fontFamily: SERIF, lineHeight: 1.05 }}>
-                    Menos retrabalho. Mais controle para comprar melhor.
-                  </h2>
-                </div>
-                <FeatureChip icon={ShoppingBag} title="Catálogo empresarial" description="Produtos e condições organizados para sua operação." />
-                <FeatureChip icon={ClipboardList} title="Cotações sem complicação" description="Centralize necessidades e acompanhe cada solicitação." />
-                <FeatureChip icon={BarChart3} title="Comparativo de valores" description="Visualize preços e condições de forma clara para decidir melhor." />
-                <FeatureChip icon={PackageCheck} title="Pedidos em poucos passos" description="Da seleção à confirmação, com histórico em um só lugar." />
-              </div>
+          <div className="relative lg:pl-2">
+            <div className="absolute -left-12 bottom-[-2rem] hidden h-56 w-56 rounded-full bg-[#DDEFE6]/70 blur-3xl lg:block" />
+            <div className="relative overflow-hidden rounded-[2.1rem] shadow-[0_28px_90px_rgba(12,69,54,0.12)]">
+              <img
+                src={heroProducts}
+                alt="Soluções empresariais Ideal Prime com produtos de higiene, limpeza e utilidades"
+                className="block h-auto w-full"
+                loading="eager"
+                fetchPriority="high"
+              />
             </div>
           </div>
         </div>
