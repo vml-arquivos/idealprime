@@ -290,6 +290,50 @@ describe.skipIf(!DATABASE_URL)("B2B — integração contra PostgreSQL real", ()
     await expect(b2b.transitionOrder(order.id, "CANCEL")).rejects.toThrow(/já expedido/);
   });
 
+  it("cotação permite negociar preço/prazo e o pedido preserva exatamente a proposta aprovada", async () => {
+    const { buyerId, productId } = await seedApprovedBusiness({ priceCents: 1000, stock: 1 });
+    const quote = await b2b.createQuote(buyerId, {
+      items: [{ productId, quantity: 3 }],
+      customerReference: "OC-TESTE-123",
+      requestedDeliveryDate: "2026-12-20",
+      deliveryAddress: "Unidade teste — doca 2",
+      contactName: "Comprador Teste",
+      contactEmail: "compras@b2btest.local",
+      notes: "Necessidade recorrente",
+      idempotencyKey: randomUUID(),
+    });
+
+    // A cotação não bloqueia pela indisponibilidade momentânea de estoque.
+    const detail = await b2b.getQuote(buyerId, quote.id, false);
+    expect(detail.customer_reference).toBe("OC-TESTE-123");
+    expect(detail.items).toHaveLength(1);
+
+    await b2b.saveQuoteProposal({
+      quoteId: quote.id,
+      items: [{ itemId: detail.items[0].id, quotedUnitPriceCents: 850 }],
+      freightCents: 100,
+      discountCents: 50,
+      validUntil: "2099-12-31",
+      paymentTermsText: "Boleto 28 dias",
+      deliveryTermsText: "Até 5 dias úteis após confirmação",
+      commercialNotes: "Preço negociado para esta oportunidade",
+    });
+    await b2b.transitionQuote(quote.id, "APPROVE");
+
+    // Pedido ainda protege o estoque real no momento da conversão.
+    await expect(b2b.createOrderFromQuote(buyerId, quote.id, randomUUID())).rejects.toThrow(/estoque disponível/i);
+    await pool.query(`update permupay_products set stock_quantity=10 where id=$1`, [productId]);
+
+    const order = await b2b.createOrderFromQuote(buyerId, quote.id, randomUUID());
+    expect(Number(order.total_cents)).toBe(2600); // 3×850 - 50 + 100
+    const orderItem = await pool.query(`select unit_price_cents,total_cents from permupay_b2b_order_items where order_id=$1`, [order.id]);
+    expect(Number(orderItem.rows[0].unit_price_cents)).toBe(850);
+    expect(Number(orderItem.rows[0].total_cents)).toBe(2550);
+    const savedOrder = await b2b.getOrder(buyerId, order.id, false);
+    expect(savedOrder.delivery_snapshot.customerReference).toBe("OC-TESTE-123");
+    expect(savedOrder.terms_snapshot.paymentTermsText).toBe("Boleto 28 dias");
+  });
+
   it("cotação aprovada convertida em pedido não pode ser convertida duas vezes (concorrência)", async () => {
     const { buyerId, productId } = await seedApprovedBusiness({ priceCents: 1000, stock: 10 });
     const quote = await b2b.createQuote(buyerId, { items: [{ productId, quantity: 2 }], idempotencyKey: randomUUID() });

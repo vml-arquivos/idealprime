@@ -729,6 +729,38 @@ export type B2BQuoteAction = 'APPROVE' | 'REJECT' | 'CANCEL';
 
 type BasketItem = { productId: number; quantity: number };
 
+type CreateQuoteInput = {
+  items: BasketItem[];
+  notes?: string;
+  customerReference?: string;
+  requestedDeliveryDate?: string;
+  deliveryAddress?: string;
+  contactName?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  idempotencyKey: string;
+};
+
+type QuoteProposalItem = { itemId: number; quotedUnitPriceCents: number };
+
+type QuoteProposalInput = {
+  quoteId: number;
+  items: QuoteProposalItem[];
+  freightCents?: number;
+  discountCents?: number;
+  validUntil?: string;
+  paymentTermsText?: string;
+  deliveryTermsText?: string;
+  commercialNotes?: string;
+};
+
+/**
+ * A cotação é deliberadamente menos restritiva que o pedido: ela pode ser
+ * solicitada mesmo quando o estoque atual não cobre a quantidade desejada ou o
+ * preço de catálogo é zero. Isso permite à equipe comercial negociar reposição,
+ * prazo e preço sem transformar uma indisponibilidade momentânea em bloqueio.
+ * O pedido (direto ou convertido) continua validando estoque/reservas no servidor.
+ */
 async function loadQuoteBasket(c: PoolClient, business: any, items: BasketItem[]) {
   const v = await resolvePriceListVersion(c, business);
   const merged = new Map<number, number>();
@@ -760,21 +792,15 @@ async function loadQuoteBasket(c: PoolClient, business: any, items: BasketItem[]
     if (quantity % multiple !== 0) {
       throw new Error(`${product.name}: quantidade deve ser múltipla de ${multiple}`);
     }
-    const available = Math.floor(Number(product.stock_quantity || 0));
-    if (quantity > available) {
-      throw new Error(`${product.name}: estoque disponível ${available}`);
-    }
-    const lineTotal = quantity * Number(product.price_cents);
+    const unitPrice = Math.max(0, Number(product.price_cents || 0));
+    const lineTotal = quantity * unitPrice;
     total += lineTotal;
-    normalized.push({ ...product, quantity, total: lineTotal });
+    normalized.push({ ...product, quantity, price_cents: unitPrice, total: lineTotal });
   }
   return { version: v, normalized, total };
 }
 
-export async function createQuote(
-  userId: number,
-  input: { items: BasketItem[]; notes?: string; idempotencyKey: string },
-) {
+export async function createQuote(userId: number, input: CreateQuoteInput) {
   const c = await getPool().connect();
   try {
     await c.query('BEGIN');
@@ -791,16 +817,44 @@ export async function createQuote(
     const basket = await loadQuoteBasket(c, business, input.items);
     const quoteNumber = `QC-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
     const quote = await c.query(
-      `insert into permupay_b2b_quotes(quote_number,business_account_id,buyer_user_id,price_list_version_id,status,notes,total_cents,idempotency_key)
-       values($1,$2,$3,$4,'PENDING',$5,$6,$7) returning *`,
-      [quoteNumber, business.id, userId, basket.version.versionId, input.notes?.trim() || null, basket.total, input.idempotencyKey],
+      `insert into permupay_b2b_quotes(
+         quote_number,business_account_id,buyer_user_id,price_list_version_id,status,notes,
+         customer_reference,requested_delivery_date,delivery_address,contact_name,contact_email,contact_phone,
+         subtotal_cents,discount_cents,freight_cents,total_cents,idempotency_key
+       ) values($1,$2,$3,$4,'PENDING',$5,$6,$7,$8,$9,$10,$11,$12,0,0,$12,$13) returning *`,
+      [
+        quoteNumber,
+        business.id,
+        userId,
+        basket.version.versionId,
+        input.notes?.trim() || null,
+        input.customerReference?.trim() || null,
+        input.requestedDeliveryDate || null,
+        input.deliveryAddress?.trim() || null,
+        input.contactName?.trim() || null,
+        input.contactEmail?.trim().toLowerCase() || null,
+        input.contactPhone?.trim() || null,
+        basket.total,
+        input.idempotencyKey,
+      ],
     );
 
     for (const product of basket.normalized) {
       await c.query(
-        `insert into permupay_b2b_quote_items(quote_id,product_id,sku_snapshot,name_snapshot,unit_snapshot,quantity,unit_price_cents,total_cents)
-         values($1,$2,$3,$4,$5,$6,$7,$8)`,
-        [quote.rows[0].id, product.id, product.sku, product.name, product.unit, product.quantity, product.price_cents, product.total],
+        `insert into permupay_b2b_quote_items(
+           quote_id,product_id,sku_snapshot,name_snapshot,unit_snapshot,quantity,
+           unit_price_cents,total_cents,catalog_unit_price_cents,quoted_unit_price_cents,quoted_total_cents
+         ) values($1,$2,$3,$4,$5,$6,$7,$8,$7,$7,$8)`,
+        [
+          quote.rows[0].id,
+          product.id,
+          product.sku,
+          product.name,
+          product.unit,
+          product.quantity,
+          product.price_cents,
+          product.total,
+        ],
       );
     }
     if (business.account_manager_user_id) {
@@ -819,10 +873,24 @@ export async function createQuote(
   }
 }
 
+const QUOTE_ITEM_JSON = `json_build_object(
+  'id',qi.id,
+  'productId',qi.product_id,
+  'sku',qi.sku_snapshot,
+  'name',qi.name_snapshot,
+  'unit',qi.unit_snapshot,
+  'quantity',qi.quantity,
+  'unitPriceCents',qi.unit_price_cents,
+  'totalCents',qi.total_cents,
+  'catalogUnitPriceCents',qi.catalog_unit_price_cents,
+  'quotedUnitPriceCents',qi.quoted_unit_price_cents,
+  'quotedTotalCents',qi.quoted_total_cents
+)`;
+
 export async function myQuotes(userId: number) {
   const { rows } = await getPool().query(
-    `select q.*,b.legal_name,b.trade_name,
-      coalesce(json_agg(json_build_object('id',qi.id,'productId',qi.product_id,'sku',qi.sku_snapshot,'name',qi.name_snapshot,'unit',qi.unit_snapshot,'quantity',qi.quantity,'unitPriceCents',qi.unit_price_cents,'totalCents',qi.total_cents) order by qi.id) filter (where qi.id is not null),'[]'::json) as items
+    `select q.*,b.legal_name,b.trade_name,b.cnpj,b.email as business_email,b.phone as business_phone,
+      coalesce(json_agg(${QUOTE_ITEM_JSON} order by qi.id) filter (where qi.id is not null),'[]'::json) as items
      from permupay_b2b_quotes q
      join permupay_business_accounts b on b.id=q.business_account_id
      join permupay_business_memberships m on m.business_account_id=q.business_account_id and m.user_id=$1 and m.active=true
@@ -833,15 +901,103 @@ export async function myQuotes(userId: number) {
   return rows;
 }
 
+export async function getQuote(userId: number, quoteId: number, isStaff: boolean) {
+  const p = getPool();
+  const quote = await p.query(
+    isStaff
+      ? `select q.*,b.legal_name,b.trade_name,b.cnpj,b.email as business_email,b.phone as business_phone,u.name as buyer_name,u.email as buyer_email
+         from permupay_b2b_quotes q
+         join permupay_business_accounts b on b.id=q.business_account_id
+         join permupay_users u on u.id=q.buyer_user_id
+         where q.id=$1`
+      : `select q.*,b.legal_name,b.trade_name,b.cnpj,b.email as business_email,b.phone as business_phone,u.name as buyer_name,u.email as buyer_email
+         from permupay_b2b_quotes q
+         join permupay_business_accounts b on b.id=q.business_account_id
+         join permupay_users u on u.id=q.buyer_user_id
+         join permupay_business_memberships m on m.business_account_id=q.business_account_id
+         where q.id=$1 and m.user_id=$2 and m.active=true`,
+    isStaff ? [quoteId] : [quoteId, userId],
+  );
+  if (!quote.rows[0]) throw new Error('Cotação não encontrada');
+  const items = await p.query(
+    `select id,product_id as "productId",sku_snapshot as sku,name_snapshot as name,unit_snapshot as unit,quantity,
+            unit_price_cents as "unitPriceCents",total_cents as "totalCents",
+            catalog_unit_price_cents as "catalogUnitPriceCents",quoted_unit_price_cents as "quotedUnitPriceCents",
+            quoted_total_cents as "quotedTotalCents"
+     from permupay_b2b_quote_items where quote_id=$1 order by id`,
+    [quoteId],
+  );
+  return { ...quote.rows[0], items: items.rows };
+}
+
 export async function listQuotes() {
   const { rows } = await getPool().query(
-    `select q.*,b.legal_name,b.trade_name,u.name as buyer_name
+    `select q.*,b.legal_name,b.trade_name,b.cnpj,u.name as buyer_name,
+            (select count(*)::int from permupay_b2b_quote_items qi where qi.quote_id=q.id) as item_count
      from permupay_b2b_quotes q
      join permupay_business_accounts b on b.id=q.business_account_id
      join permupay_users u on u.id=q.buyer_user_id
      order by q.created_at desc`,
   );
   return rows;
+}
+
+export async function saveQuoteProposal(input: QuoteProposalInput) {
+  const c = await getPool().connect();
+  try {
+    await c.query('BEGIN');
+    const quote = (await c.query(`select * from permupay_b2b_quotes where id=$1 for update`, [input.quoteId])).rows[0];
+    if (!quote) throw new Error('Cotação não encontrada');
+    if (quote.status !== 'PENDING') throw new Error('Somente cotações em análise podem ser editadas');
+
+    const currentItems = (await c.query(`select * from permupay_b2b_quote_items where quote_id=$1 order by id for update`, [input.quoteId])).rows;
+    if (!currentItems.length) throw new Error('Cotação sem itens');
+    const proposalById = new Map(input.items.map((item) => [item.itemId, item.quotedUnitPriceCents]));
+    let subtotal = 0;
+
+    for (const item of currentItems) {
+      const nextPrice = proposalById.has(Number(item.id))
+        ? Number(proposalById.get(Number(item.id)))
+        : Number(item.quoted_unit_price_cents ?? item.unit_price_cents ?? 0);
+      if (!Number.isInteger(nextPrice) || nextPrice < 0) throw new Error(`Preço inválido para ${item.name_snapshot}`);
+      const lineTotal = Number(item.quantity) * nextPrice;
+      subtotal += lineTotal;
+      await c.query(
+        `update permupay_b2b_quote_items set quoted_unit_price_cents=$2,quoted_total_cents=$3 where id=$1`,
+        [item.id, nextPrice, lineTotal],
+      );
+    }
+
+    const freight = Math.max(0, Math.trunc(Number(input.freightCents || 0)));
+    const discount = Math.max(0, Math.trunc(Number(input.discountCents || 0)));
+    if (discount > subtotal) throw new Error('O desconto não pode ser maior que o subtotal dos produtos');
+    const total = subtotal - discount + freight;
+
+    const { rows } = await c.query(
+      `update permupay_b2b_quotes set
+         subtotal_cents=$2,discount_cents=$3,freight_cents=$4,total_cents=$5,
+         valid_until=$6,payment_terms_text=$7,delivery_terms_text=$8,commercial_notes=$9,updated_at=now()
+       where id=$1 returning *`,
+      [
+        input.quoteId,
+        subtotal,
+        discount,
+        freight,
+        total,
+        input.validUntil || null,
+        input.paymentTermsText?.trim() || null,
+        input.deliveryTermsText?.trim() || null,
+        input.commercialNotes?.trim() || null,
+      ],
+    );
+    await c.query('COMMIT');
+    return rows[0];
+  } catch (error) {
+    await c.query('ROLLBACK').catch(() => {});
+    throw error;
+  } finally {
+    c.release();
+  }
 }
 
 // Máquina de estados: de qual status atual cada ação é permitida.
@@ -853,27 +1009,53 @@ const QUOTE_TRANSITIONS: Record<B2BQuoteAction, { from: string[]; to: string }> 
 
 export async function transitionQuote(id: number, action: B2BQuoteAction) {
   const transition = QUOTE_TRANSITIONS[action];
-  const { rows } = await getPool().query(
-    `update permupay_b2b_quotes set status=$3,updated_at=now() where id=$1 and status = any($2::text[]) returning *`,
-    [id, transition.from, transition.to],
-  );
-  if (!rows[0]) throw new Error('Cotação não encontrada ou transição inválida para o status atual');
-  return rows[0];
+  const c = await getPool().connect();
+  try {
+    await c.query('BEGIN');
+    const quote = (await c.query(`select * from permupay_b2b_quotes where id=$1 for update`, [id])).rows[0];
+    if (!quote || !transition.from.includes(quote.status)) {
+      throw new Error('Cotação não encontrada ou transição inválida para o status atual');
+    }
+    if (action === 'APPROVE') {
+      const invalid = await c.query(
+        `select name_snapshot from permupay_b2b_quote_items where quote_id=$1 and quoted_unit_price_cents <= 0 limit 1`,
+        [id],
+      );
+      if (invalid.rows[0]) throw new Error(`Informe o preço final de ${invalid.rows[0].name_snapshot} antes de aprovar`);
+    }
+    const { rows } = await c.query(
+      `update permupay_b2b_quotes
+       set status=$2,
+           approved_at=case when $3='APPROVE' then now() else approved_at end,
+           valid_until=case when $3='APPROVE' then coalesce(valid_until,current_date+7) else valid_until end,
+           updated_at=now()
+       where id=$1 returning *`,
+      [id, transition.to, action],
+    );
+    await c.query('COMMIT');
+    return rows[0];
+  } catch (error) {
+    await c.query('ROLLBACK').catch(() => {});
+    throw error;
+  } finally {
+    c.release();
+  }
 }
 
 /**
- * Converte uma cotação aprovada em pedido de forma atômica: a leitura/trava da
- * cotação, a criação do pedido e a marcação CONVERTED acontecem na MESMA transação
- * SERIALIZABLE com `SELECT ... FOR UPDATE`. Isso impede que duas conversões
- * concorrentes da mesma cotação (duplo clique, retry) gerem dois pedidos — bug
- * reproduzido e corrigido (ver AUDITORIA_PERMUPAY_IDEAL_PRIME.md, achado B3).
+ * Converte uma cotação aprovada em pedido preservando exatamente os preços e
+ * condições negociados na proposta. O preço corrente da tabela NÃO é relido para
+ * substituir o valor cotado; apenas estoque, múltiplo e disponibilidade são
+ * revalidados no momento do pedido.
  */
 async function createOrderFromQuoteAttempt(userId: number, quoteId: number, idempotencyKey: string) {
   const c = await getPool().connect();
   try {
     await c.query('BEGIN ISOLATION LEVEL SERIALIZABLE');
     const { rows } = await c.query(
-      `select q.* from permupay_b2b_quotes q
+      `select q.*,b.payment_terms,b.account_manager_user_id,b.min_order_cents
+       from permupay_b2b_quotes q
+       join permupay_business_accounts b on b.id=q.business_account_id
        join permupay_business_memberships m on m.business_account_id=q.business_account_id and m.user_id=$1 and m.active=true
        where q.id=$2
        for update of q`,
@@ -883,8 +1065,6 @@ async function createOrderFromQuoteAttempt(userId: number, quoteId: number, idem
     if (!quote) throw new Error('Cotação não encontrada');
 
     if (quote.status === 'CONVERTED') {
-      // Idempotência da própria conversão: se já foi convertida (por esta ou outra
-      // requisição concorrente), devolve o pedido já existente em vez de duplicar.
       const existingOrder = await c.query(
         `select * from permupay_b2b_orders where business_account_id=$1 and delivery_snapshot->>'quoteId' = $2 order by id limit 1`,
         [quote.business_account_id, String(quoteId)],
@@ -894,19 +1074,122 @@ async function createOrderFromQuoteAttempt(userId: number, quoteId: number, idem
       throw new Error('Cotação já foi convertida em pedido');
     }
     if (quote.status !== 'APPROVED') throw new Error('A cotação precisa ser aprovada antes de virar pedido');
+    if (quote.valid_until && new Date(`${quote.valid_until}T23:59:59`).getTime() < Date.now()) {
+      throw new Error('Esta cotação venceu. Solicite uma atualização comercial.');
+    }
 
-    const itemRows = await c.query(
-      `select product_id as "productId",quantity from permupay_b2b_quote_items where quote_id=$1 order by id`,
-      [quoteId],
+    const previous = await c.query(
+      `select * from permupay_b2b_orders where business_account_id=$1 and idempotency_key=$2`,
+      [quote.business_account_id, idempotencyKey],
     );
-    const order = await createOrder(
-      userId,
-      { items: itemRows.rows, paymentMethod: 'QUOTE', delivery: { quoteId }, idempotencyKey },
-      c,
+    if (previous.rows[0]) {
+      await c.query('COMMIT');
+      return previous.rows[0];
+    }
+
+    const itemRows = (await c.query(`select * from permupay_b2b_quote_items where quote_id=$1 order by id`, [quoteId])).rows;
+    if (!itemRows.length) throw new Error('Cotação sem itens');
+    const ids = itemRows.map((item) => Number(item.product_id));
+    const products = await c.query(
+      `select id,sku,name,unit,sales_multiple,stock_quantity
+       from permupay_products
+       where id=any($1::int[]) and active=true and b2b_enabled=true
+       for update`,
+      [ids],
+    );
+    if (products.rows.length !== ids.length) throw new Error('Um ou mais produtos da cotação não estão mais disponíveis');
+    const productById = new Map(products.rows.map((product) => [Number(product.id), product]));
+
+    for (const item of itemRows) {
+      const product = productById.get(Number(item.product_id));
+      if (!product) throw new Error(`${item.name_snapshot}: produto indisponível`);
+      const quantity = Number(item.quantity);
+      const multiple = Math.max(1, Number(product.sales_multiple || 1));
+      if (quantity % multiple !== 0) throw new Error(`${item.name_snapshot}: quantidade deve ser múltipla de ${multiple}`);
+      if (Number(item.quoted_unit_price_cents || 0) <= 0) throw new Error(`${item.name_snapshot}: preço final da cotação não definido`);
+      const reserved = await c.query(
+        `select coalesce(sum(quantity),0)::int as reserved from permupay_b2b_stock_reservations where product_id=$1 and status='ACTIVE'`,
+        [product.id],
+      );
+      const available = Math.floor(Number(product.stock_quantity || 0)) - Number(reserved.rows[0].reserved || 0);
+      if (quantity > available) throw new Error(`${item.name_snapshot}: estoque disponível ${available}`);
+    }
+
+    const total = Number(quote.total_cents || 0);
+    if (total < Number(quote.min_order_cents || 0)) {
+      throw new Error(`Pedido mínimo: R$ ${(Number(quote.min_order_cents) / 100).toFixed(2)}`);
+    }
+
+    const orderNumber = `IP-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
+    const deliverySnapshot = {
+      quoteId,
+      customerReference: quote.customer_reference || null,
+      requestedDeliveryDate: quote.requested_delivery_date || null,
+      deliveryAddress: quote.delivery_address || null,
+      freightCents: Number(quote.freight_cents || 0),
+      discountCents: Number(quote.discount_cents || 0),
+      subtotalCents: Number(quote.subtotal_cents || 0),
+      quoteTotalCents: total,
+      deliveryTermsText: quote.delivery_terms_text || null,
+    };
+    const termsSnapshot = {
+      ...(quote.payment_terms && typeof quote.payment_terms === 'object' ? quote.payment_terms : {}),
+      quoteId,
+      quoteNumber: quote.quote_number,
+      paymentTermsText: quote.payment_terms_text || null,
+      commercialNotes: quote.commercial_notes || null,
+      validUntil: quote.valid_until || null,
+    };
+    const order = await c.query(
+      `insert into permupay_b2b_orders(
+        order_number,business_account_id,buyer_user_id,price_list_version_id,idempotency_key,payment_method,
+        total_cents,delivery_snapshot,terms_snapshot,assigned_to_user_id
+       ) values($1,$2,$3,$4,$5,'QUOTE',$6,$7::jsonb,$8::jsonb,$9) returning *`,
+      [
+        orderNumber,
+        quote.business_account_id,
+        userId,
+        quote.price_list_version_id,
+        idempotencyKey,
+        total,
+        JSON.stringify(deliverySnapshot),
+        JSON.stringify(termsSnapshot),
+        quote.account_manager_user_id || null,
+      ],
+    );
+
+    for (const item of itemRows) {
+      const product = productById.get(Number(item.product_id));
+      const unitPrice = Number(item.quoted_unit_price_cents);
+      const itemTotal = Number(item.quoted_total_cents ?? (Number(item.quantity) * unitPrice));
+      const inserted = await c.query(
+        `insert into permupay_b2b_order_items(order_id,product_id,sku_snapshot,name_snapshot,unit_snapshot,quantity,unit_price_cents,total_cents)
+         values($1,$2,$3,$4,$5,$6,$7,$8) returning id`,
+        [
+          order.rows[0].id,
+          item.product_id,
+          item.sku_snapshot || product?.sku,
+          item.name_snapshot || product?.name,
+          item.unit_snapshot || product?.unit,
+          item.quantity,
+          unitPrice,
+          itemTotal,
+        ],
+      );
+      await c.query(
+        `insert into permupay_b2b_stock_reservations(order_id,order_item_id,product_id,quantity,status,expires_at)
+         values($1,$2,$3,$4,'ACTIVE',now()+interval '24 hours')`,
+        [order.rows[0].id, inserted.rows[0].id, item.product_id, item.quantity],
+      );
+    }
+
+    await c.query(
+      `insert into permupay_b2b_notifications(user_id,order_id,title,body) values($1,$2,$3,$4)`,
+      [quote.account_manager_user_id || null, order.rows[0].id, 'Novo pedido de cotação aprovada', `Pedido ${orderNumber} gerado da cotação ${quote.quote_number}`],
     );
     await c.query(`update permupay_b2b_quotes set status='CONVERTED',updated_at=now() where id=$1 and status='APPROVED'`, [quoteId]);
     await c.query('COMMIT');
-    return order;
+    return order.rows[0];
   } catch (e: any) {
     await c.query('ROLLBACK').catch(() => {});
     throw e;
@@ -915,20 +1198,6 @@ async function createOrderFromQuoteAttempt(userId: number, quoteId: number, idem
   }
 }
 
-/**
- * Converte uma cotação aprovada em pedido de forma atômica: a leitura/trava da
- * cotação, a criação do pedido e a marcação CONVERTED acontecem na MESMA transação
- * SERIALIZABLE com `SELECT ... FOR UPDATE`. Isso impede que duas conversões
- * concorrentes da mesma cotação (duplo clique, retry) gerem dois pedidos — bug
- * reproduzido e corrigido (ver AUDITORIA_PERMUPAY_IDEAL_PRIME.md, achado B3).
- *
- * Sob SERIALIZABLE, quando duas transações disputam o `FOR UPDATE` da mesma
- * cotação, a que fica bloqueada recebe erro `40001` (serialization_failure) assim
- * que a primeira commita — é o comportamento padrão do Postgres, não um bug. Como a
- * operação é idempotente (a segunda tentativa vai enxergar `status='CONVERTED'` e
- * devolver o pedido já criado), a resposta correta é reexecutar a transação, não
- * propagar o erro ao usuário — por isso o retry automático abaixo.
- */
 export async function createOrderFromQuote(userId: number, quoteId: number, idempotencyKey: string) {
   const MAX_ATTEMPTS = 5;
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
@@ -942,3 +1211,4 @@ export async function createOrderFromQuote(userId: number, quoteId: number, idem
   }
   throw new Error('Não foi possível converter a cotação após múltiplas tentativas concorrentes');
 }
+

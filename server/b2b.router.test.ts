@@ -63,6 +63,16 @@ describe("b2bRouter — autorização no servidor (achado B1)", () => {
     await expect(caller.order({ id: 1 })).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
+  it("rejeita staff sem B2B_OPERATIONS ao consultar cotação detalhada", async () => {
+    const caller = b2bRouter.createCaller(fakeCtx(staffWithout(PERMISSIONS.B2B_OPERATIONS)));
+    await expect(caller.quote({ id: 1 })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("rejeita comprador sem B2B_QUOTES ao consultar cotação detalhada", async () => {
+    const caller = b2bRouter.createCaller(fakeCtx(buyerWithout(PERMISSIONS.B2B_QUOTES)));
+    await expect(caller.quote({ id: 1 })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
   it("rejeita usuário não autenticado em qualquer procedure autenticada", async () => {
     const caller = b2bRouter.createCaller(fakeCtx(null));
     await expect(caller.order({ id: 1 })).rejects.toMatchObject({ code: "UNAUTHORIZED" });
@@ -80,6 +90,7 @@ describe("b2bRouter — autorização no servidor (achado B1)", () => {
     await expect(caller.admin.businesses()).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(caller.admin.orders()).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(caller.admin.quotes()).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(caller.admin.saveQuoteProposal({ quoteId: 1, items: [] })).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(caller.admin.imports()).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 

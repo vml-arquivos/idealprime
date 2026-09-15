@@ -5,10 +5,33 @@ import { router, publicProcedure, authenticatedProcedure, permissionProcedure, a
 import * as b2b from "./db.b2b";
 
 const orderItems = z.array(z.object({ productId: z.number().int().positive(), quantity: z.number().int().positive() })).min(1).max(200);
+const optionalText = (max: number) => z.string().max(max).optional();
+const optionalDate = z.union([z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida"), z.literal("")]).optional();
+
 const quoteInput = z.object({
   items: orderItems,
-  notes: z.string().max(1000).optional(),
+  notes: optionalText(2000),
+  customerReference: optionalText(120),
+  requestedDeliveryDate: optionalDate,
+  deliveryAddress: optionalText(800),
+  contactName: optionalText(160),
+  contactEmail: z.union([z.string().email(), z.literal("")]).optional(),
+  contactPhone: optionalText(40),
   idempotencyKey: z.string().min(8).max(120),
+});
+
+const quoteProposalInput = z.object({
+  quoteId: z.number().int().positive(),
+  items: z.array(z.object({
+    itemId: z.number().int().positive(),
+    quotedUnitPriceCents: z.number().int().min(0),
+  })).max(200),
+  freightCents: z.number().int().min(0).optional(),
+  discountCents: z.number().int().min(0).optional(),
+  validUntil: optionalDate,
+  paymentTermsText: optionalText(1000),
+  deliveryTermsText: optionalText(1000),
+  commercialNotes: optionalText(2000),
 });
 
 const buyerPermissionProcedure = (permission: PermissionKey) =>
@@ -29,6 +52,16 @@ export const b2bRouter = router({
     .input(quoteInput)
     .mutation(({ ctx, input }) => b2b.createQuote(ctx.user.id, input)),
   myQuotes: buyerPermissionProcedure(PERMISSIONS.B2B_QUOTES).query(({ ctx }) => b2b.myQuotes(ctx.user.id)),
+  quote: authenticatedProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .query(({ ctx, input }) => {
+      const isStaff = (ctx.user as any).accountType !== "BUYER";
+      const requiredPermission = isStaff ? PERMISSIONS.B2B_OPERATIONS : PERMISSIONS.B2B_QUOTES;
+      if (!hasPermission(ctx.user.permissions, requiredPermission, ctx.user.role)) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Este recurso não está liberado para seu usuário." });
+      }
+      return b2b.getQuote(ctx.user.id, input.id, isStaff);
+    }),
   createOrder: buyerPermissionProcedure(PERMISSIONS.B2B_ORDERS)
     .input(z.object({ items: orderItems, paymentMethod: z.string().max(30).optional(), delivery: z.record(z.string(), z.unknown()).optional(), idempotencyKey: z.string().min(8).max(120) }))
     .mutation(({ ctx, input }) => b2b.createOrder(ctx.user.id, input)),
@@ -78,6 +111,9 @@ export const b2bRouter = router({
     orders: permissionProcedure(PERMISSIONS.B2B_OPERATIONS).query(() => b2b.listOrders()),
     transition: adminProcedure.input(z.object({ id: z.number().int().positive(), action: z.enum(["ACCEPT", "PAY", "SHIP", "CANCEL"]) })).mutation(({ input }) => b2b.transitionOrder(input.id, input.action)),
     quotes: permissionProcedure(PERMISSIONS.B2B_OPERATIONS).query(() => b2b.listQuotes()),
+    saveQuoteProposal: permissionProcedure(PERMISSIONS.B2B_OPERATIONS)
+      .input(quoteProposalInput)
+      .mutation(({ input }) => b2b.saveQuoteProposal(input)),
     transitionQuote: adminProcedure.input(z.object({ id: z.number().int().positive(), action: z.enum(["APPROVE", "REJECT", "CANCEL"]) })).mutation(({ input }) => b2b.transitionQuote(input.id, input.action)),
     imports: permissionProcedure(PERMISSIONS.B2B_OPERATIONS).query(() => b2b.listImportJobs()),
     inviteMember: permissionProcedure(PERMISSIONS.B2B_OPERATIONS)

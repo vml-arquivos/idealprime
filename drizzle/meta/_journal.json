@@ -253,6 +253,13 @@
       "when": 1789300000000,
       "tag": "0036_catalog_featured_media",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1789400000000,
+      "tag": "0037_b2b_quote_workspace",
+      "breakpoints": true
     }
   ]
 }
