@@ -14,6 +14,8 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronUp,
+  Minus,
+  Plus,
   CircleDollarSign,
   ClipboardList,
   Download,
@@ -162,7 +164,8 @@ export default function BusinessPortal() {
 
   const [activeTab, setActiveTab] = useState<Tab>(canCatalog ? "catalog" : canQuotes ? "quotes" : "orders");
   const [query, setQuery] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
+  const [categoryLimits, setCategoryLimits] = useState<Record<string, number>>({});
   const [cart, setCart] = useState<Record<number, number>>({});
   const [quoteForm, setQuoteForm] = useState<QuoteForm>(initialQuoteForm);
   const [expandedQuoteId, setExpandedQuoteId] = useState<number | null>(null);
@@ -185,19 +188,26 @@ export default function BusinessPortal() {
   }, [me.data, user?.name, user?.email]);
 
   const catalogItems = (catalog.data?.items || []) as CatalogItem[];
-  const catalogCategories = useMemo(
-    () => Array.from(new Set(catalogItems.map((item) => item.category_label?.trim()).filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b, "pt-BR")),
-    [catalogItems],
-  );
-
-  const items = useMemo(() => {
+  const filteredCatalogItems = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    return catalogItems.filter((item) => {
-      const matchesSearch = needle ? `${item.sku} ${item.name} ${item.category_label || ""}`.toLowerCase().includes(needle) : true;
-      const matchesCategory = categoryFilter ? item.category_label === categoryFilter : true;
-      return matchesSearch && matchesCategory;
-    });
-  }, [catalogItems, query, categoryFilter]);
+    if (!needle) return catalogItems;
+    return catalogItems.filter((item) =>
+      `${item.sku} ${item.name} ${item.category_label || ""}`.toLowerCase().includes(needle),
+    );
+  }, [catalogItems, query]);
+
+  const catalogGroups = useMemo(() => {
+    const groups = new Map<string, CatalogItem[]>();
+    for (const item of filteredCatalogItems) {
+      const category = item.category_label?.trim() || "Outros";
+      const current = groups.get(category) || [];
+      current.push(item);
+      groups.set(category, current);
+    }
+    return Array.from(groups.entries())
+      .map(([category, products]) => [category, [...products].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))] as const)
+      .sort(([a], [b]) => a.localeCompare(b, "pt-BR"));
+  }, [filteredCatalogItems]);
 
   const selectedItems = useMemo(
     () => Object.entries(cart)
@@ -220,6 +230,30 @@ export default function BusinessPortal() {
 
   const setQuoteField = <K extends keyof QuoteForm>(field: K, value: QuoteForm[K]) =>
     setQuoteForm((current) => ({ ...current, [field]: value }));
+
+  const toggleCategory = (category: string) => {
+    setExpandedCategories((current) =>
+      current.includes(category) ? current.filter((item) => item !== category) : [...current, category],
+    );
+  };
+
+  const setProductQuantity = (product: CatalogItem, quantity: number) => {
+    const safeQuantity = Math.max(0, Math.floor(Number.isFinite(quantity) ? quantity : 0));
+    setCart((current) => ({ ...current, [product.id]: safeQuantity }));
+  };
+
+  const adjustProductQuantity = (product: CatalogItem, direction: -1 | 1) => {
+    const multiple = Math.max(1, Number(product.sales_multiple || 1));
+    const current = Math.max(0, Number(cart[product.id] || 0));
+    setProductQuantity(product, current + direction * multiple);
+  };
+
+  const normalizeProductQuantity = (product: CatalogItem) => {
+    const multiple = Math.max(1, Number(product.sales_multiple || 1));
+    const current = Math.max(0, Number(cart[product.id] || 0));
+    if (!current || current % multiple === 0) return;
+    setProductQuantity(product, Math.ceil(current / multiple) * multiple);
+  };
 
   const quoteSelection = (quote: QuoteRow) =>
     quoteOrderSelections[quote.id] ?? (quote.items || []).map((item) => Number(item.id));
@@ -380,6 +414,18 @@ export default function BusinessPortal() {
               ))}
             </nav>
 
+            {activeTab === "catalog" && selectedItems.length > 0 && (
+              <div className="fixed bottom-3 left-3 right-3 z-30 flex items-center justify-between gap-3 rounded-2xl border border-[#a9cebe] bg-white/95 p-3 shadow-[0_14px_45px_rgba(8,61,47,.22)] backdrop-blur xl:hidden">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-[#17352c]">{selectedItems.length} item(ns) selecionado(s)</p>
+                  <p className="truncate text-[10px] text-[#74877f]">Estimativa {money(selectedTotal)}{hasSelectionWithoutPrice ? " + itens sob consulta" : ""}</p>
+                </div>
+                <Button size="sm" className="shrink-0 gap-1.5 bg-[#087A55] hover:bg-[#066542]" onClick={() => setActiveTab("quotes")}>
+                  <FileText className="h-4 w-4" /> Cotação
+                </Button>
+              </div>
+            )}
+
             {activeTab === "catalog" && canCatalog && (
               <section className="mt-7 grid gap-6 xl:grid-cols-[minmax(0,1fr)_390px]">
                 <div>
@@ -395,44 +441,146 @@ export default function BusinessPortal() {
                     </div>
                   </div>
 
-                  {catalogCategories.length > 0 && (
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      <button onClick={() => setCategoryFilter(null)} className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold ${categoryFilter === null ? "border-[#087A55] bg-[#087A55] text-white" : "border-[#d5e5de] bg-white text-[#647b72]"}`}>Todos</button>
-                      {catalogCategories.map((categoryName) => (
-                        <button key={categoryName} onClick={() => setCategoryFilter(categoryName)} className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold ${categoryFilter === categoryName ? "border-[#087A55] bg-[#087A55] text-white" : "border-[#d5e5de] bg-white text-[#647b72]"}`}>{categoryName}</button>
-                      ))}
+                  <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-[#dcebe5] bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-xs font-semibold text-[#17352c]">{filteredCatalogItems.length} produto(s) em {catalogGroups.length} categoria(s)</p>
+                      <p className="mt-0.5 text-[11px] text-[#74877f]">Abra somente a categoria que precisa. A lista compacta reduz a rolagem e agiliza a cotação.</p>
                     </div>
-                  )}
+                    <div className="flex flex-wrap gap-2">
+                      {query.trim() ? (
+                        <button onClick={() => setQuery("")} className="rounded-lg border border-[#d7e6df] px-3 py-1.5 text-[11px] font-semibold text-[#087A55] hover:bg-[#f2f8f5]">Limpar busca</button>
+                      ) : (
+                        <>
+                          <button onClick={() => setExpandedCategories(catalogGroups.map(([category]) => category))} className="rounded-lg border border-[#d7e6df] px-3 py-1.5 text-[11px] font-semibold text-[#087A55] hover:bg-[#f2f8f5]">Expandir categorias</button>
+                          <button onClick={() => setExpandedCategories([])} className="rounded-lg border border-[#d7e6df] px-3 py-1.5 text-[11px] font-semibold text-[#647b72] hover:bg-[#f7faf8]">Recolher</button>
+                        </>
+                      )}
+                    </div>
+                  </div>
 
-                  <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {items.map((product) => {
-                      const noPrice = !hasCommercialPrice(product.price_cents);
-                      const selected = Number(cart[product.id] || 0);
+                  <div className="mt-4 space-y-3">
+                    {catalogGroups.map(([categoryName, categoryProducts]) => {
+                      const searchActive = Boolean(query.trim());
+                      const expanded = searchActive || expandedCategories.includes(categoryName);
+                      const selectedInCategory = categoryProducts.filter((product) => Number(cart[product.id] || 0) > 0).length;
+                      const visibleLimit = categoryLimits[categoryName] || 24;
+                      const visibleProducts = categoryProducts.slice(0, visibleLimit);
+                      const remaining = Math.max(0, categoryProducts.length - visibleProducts.length);
+
                       return (
-                        <article key={product.id} className={`overflow-hidden rounded-2xl border bg-white transition-all ${selected > 0 ? "border-[#65b899] shadow-[0_10px_30px_rgba(8,122,85,.10)]" : "border-[#dcebe5] shadow-sm hover:-translate-y-0.5"}`}>
-                          <div className="aspect-[4/3] bg-[#f4f9f6]"><ProductVisual src={product.image_url} alt={product.name} category={product.category_label} className="h-full w-full" imageClassName="p-5" /></div>
-                          <div className="p-4">
-                            <div className="flex items-start justify-between gap-3">
-                              <div>
-                                <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[#15946C]">{product.category_label || "Produto"}</p>
-                                <h3 className="mt-1 line-clamp-2 min-h-[40px] text-sm font-semibold leading-5">{product.name}</h3>
+                        <section key={categoryName} className={`overflow-hidden rounded-2xl border bg-white transition-colors ${selectedInCategory > 0 ? "border-[#94cbb5]" : "border-[#dcebe5]"}`}>
+                          <button
+                            type="button"
+                            onClick={() => !searchActive && toggleCategory(categoryName)}
+                            className={`flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors ${expanded ? "bg-[#f2f8f5]" : "bg-white hover:bg-[#f7faf8]"}`}
+                            aria-expanded={expanded}
+                          >
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h3 className="text-sm font-semibold text-[#17352c]">{categoryName}</h3>
+                                <span className="rounded-full bg-[#edf5f1] px-2 py-0.5 text-[10px] font-semibold text-[#567269]">{categoryProducts.length} produto(s)</span>
+                                {selectedInCategory > 0 && <span className="rounded-full bg-[#daf1e7] px-2 py-0.5 text-[10px] font-semibold text-[#087A55]">{selectedInCategory} selecionado(s)</span>}
                               </div>
-                              {selected > 0 && <BadgeCheck className="h-5 w-5 shrink-0 text-[#087A55]" />}
+                              <p className="mt-0.5 truncate text-[11px] text-[#7a8e86]">Clique para {expanded ? "recolher" : "abrir"} os produtos desta categoria.</p>
                             </div>
-                            <p className="mt-2 text-[11px] text-[#74877f]">SKU {product.sku} · {product.unit} · múltiplo {product.sales_multiple}</p>
-                            <div className="mt-3 flex items-end justify-between gap-3">
-                              <div>
-                                <p className="text-base font-bold text-[#087A55]">{noPrice ? "Sob consulta" : money(product.price_cents)}</p>
-                                <p className="text-[10px] text-[#74877f]">{product.available_quantity > 0 ? `${product.available_quantity} disponível(is)` : "Consulte reposição"}</p>
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#d8e6e0] bg-white text-[#087A55]">
+                              {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                            </span>
+                          </button>
+
+                          {expanded && (
+                            <div className="border-t border-[#e5eeea]">
+                              <div className="hidden grid-cols-[56px_minmax(0,1fr)_140px_180px] items-center gap-3 bg-[#fbfdfc] px-4 py-2 text-[9px] font-semibold uppercase tracking-[0.1em] text-[#789087] md:grid">
+                                <span>Foto</span>
+                                <span>Produto</span>
+                                <span>Preço / estoque</span>
+                                <span className="text-center">Quantidade</span>
                               </div>
-                              <Input aria-label={`Quantidade de ${product.name}`} type="number" min={product.sales_multiple} step={product.sales_multiple} className="h-9 w-24 text-right" value={cart[product.id] || ""} onChange={(event) => setCart((current) => ({ ...current, [product.id]: Math.max(0, Number(event.target.value)) }))} />
+
+                              <div className="divide-y divide-[#edf3f0]">
+                                {visibleProducts.map((product) => {
+                                  const noPrice = !hasCommercialPrice(product.price_cents);
+                                  const selected = Math.max(0, Number(cart[product.id] || 0));
+                                  const multiple = Math.max(1, Number(product.sales_multiple || 1));
+                                  return (
+                                    <article key={product.id} className={`grid grid-cols-[48px_minmax(0,1fr)] items-center gap-x-3 gap-y-2 px-3 py-2.5 transition-colors md:grid-cols-[56px_minmax(0,1fr)_140px_180px] md:gap-3 md:px-4 ${selected > 0 ? "bg-[#f3faf7]" : "bg-white hover:bg-[#fbfdfc]"}`}>
+                                      <div className="h-12 w-12 overflow-hidden rounded-xl border border-[#e2ece7] bg-[#f5f9f7] md:h-14 md:w-14">
+                                        <ProductVisual src={product.image_url} alt={product.name} category={product.category_label} className="h-full w-full" imageClassName="p-1.5" />
+                                      </div>
+
+                                      <div className="min-w-0">
+                                        <div className="flex items-start gap-2">
+                                          <div className="min-w-0 flex-1">
+                                            <h4 className="truncate text-[13px] font-semibold leading-5 text-[#17352c] md:text-sm" title={product.name}>{product.name}</h4>
+                                            <p className="mt-0.5 truncate text-[10px] text-[#7a8e86]">SKU {product.sku} · {product.unit} · múltiplo {multiple}</p>
+                                          </div>
+                                          {selected > 0 && <BadgeCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#087A55] md:hidden" />}
+                                        </div>
+                                      </div>
+
+                                      <div className="col-start-2 flex min-w-0 items-center justify-between gap-3 md:col-auto md:block">
+                                        <div>
+                                          <p className="text-sm font-bold text-[#087A55]">{noPrice ? "Sob consulta" : money(product.price_cents)}</p>
+                                          <p className="text-[9px] text-[#7a8e86]">{product.available_quantity > 0 ? `${product.available_quantity} disponível(is)` : "Consulte reposição"}</p>
+                                        </div>
+                                        {selected > 0 && <BadgeCheck className="hidden h-4 w-4 text-[#087A55] md:inline-block" />}
+                                      </div>
+
+                                      <div className="col-span-2 flex items-center justify-between gap-3 rounded-xl border border-[#dbe8e2] bg-white p-1 md:col-auto md:justify-center">
+                                        <button
+                                          type="button"
+                                          className="flex h-8 w-9 shrink-0 items-center justify-center rounded-lg text-[#587168] transition-colors hover:bg-[#edf6f2] hover:text-[#087A55] disabled:cursor-not-allowed disabled:opacity-35"
+                                          onClick={() => adjustProductQuantity(product, -1)}
+                                          disabled={selected <= 0}
+                                          aria-label={`Diminuir quantidade de ${product.name}`}
+                                        >
+                                          <Minus className="h-4 w-4" />
+                                        </button>
+                                        <Input
+                                          aria-label={`Quantidade de ${product.name}`}
+                                          inputMode="numeric"
+                                          type="number"
+                                          min={0}
+                                          step={multiple}
+                                          className="h-8 min-w-0 flex-1 border-0 bg-transparent px-1 text-center text-sm font-semibold shadow-none focus-visible:ring-0 md:w-20 md:flex-none"
+                                          value={selected || ""}
+                                          placeholder="0"
+                                          onChange={(event) => setProductQuantity(product, Number(event.target.value))}
+                                          onBlur={() => normalizeProductQuantity(product)}
+                                        />
+                                        <button
+                                          type="button"
+                                          className="flex h-8 w-9 shrink-0 items-center justify-center rounded-lg bg-[#e8f5ef] text-[#087A55] transition-colors hover:bg-[#d8eee4]"
+                                          onClick={() => adjustProductQuantity(product, 1)}
+                                          aria-label={`Aumentar quantidade de ${product.name}`}
+                                        >
+                                          <Plus className="h-4 w-4" />
+                                        </button>
+                                      </div>
+                                    </article>
+                                  );
+                                })}
+                              </div>
+
+                              {remaining > 0 && (
+                                <div className="border-t border-[#edf3f0] bg-[#fbfdfc] px-4 py-2.5 text-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => setCategoryLimits((current) => ({ ...current, [categoryName]: visibleLimit + 24 }))}
+                                    className="rounded-lg px-3 py-1.5 text-[11px] font-semibold text-[#087A55] hover:bg-[#eaf5f0]"
+                                  >
+                                    Mostrar mais 24 ({remaining} restante(s))
+                                  </button>
+                                </div>
+                              )}
                             </div>
-                          </div>
-                        </article>
+                          )}
+                        </section>
                       );
                     })}
                   </div>
-                  {!items.length && <div className="mt-5 rounded-2xl border border-dashed border-[#b8d9ca] bg-white p-10 text-center text-sm text-[#5e776d]">Nenhum produto encontrado.</div>}
+
+                  {!catalogGroups.length && <div className="mt-5 rounded-2xl border border-dashed border-[#b8d9ca] bg-white p-10 text-center text-sm text-[#5e776d]">Nenhum produto encontrado.</div>}
                 </div>
 
                 <aside className="h-fit xl:sticky xl:top-24">
