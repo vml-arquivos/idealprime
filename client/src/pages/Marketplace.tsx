@@ -4,15 +4,20 @@ import { trpc } from "@/lib/trpc";
 import { captureReferralFromLocation } from "@/lib/referral";
 import {
   ArrowRight,
-  ArrowUpRight,
-  Heart,
+  BarChart3,
+  Boxes,
+  Building2,
+  Check,
+  ClipboardList,
+  FileText,
+  Headphones,
   Menu,
+  PackageCheck,
   Search,
   ShieldCheck,
+  ShoppingBag,
   Sparkles,
-  Store,
   Truck,
-  UserCog,
   X,
 } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
@@ -80,9 +85,9 @@ const getCategoryLabel = (product: CatalogProduct) =>
 
 function ProductSkeleton() {
   return (
-    <div className="animate-pulse">
-      <div className="mb-4 rounded-3xl bg-[#E9F3EE]" style={{ aspectRatio: "4/5" }} />
-      <div className="space-y-2">
+    <div className="animate-pulse rounded-[1.6rem] border border-[#E0ECE7] bg-white p-3 shadow-[0_16px_45px_rgba(12,69,54,0.05)]">
+      <div className="mb-4 rounded-[1.2rem] bg-[#E9F3EE]" style={{ aspectRatio: "1/1" }} />
+      <div className="space-y-2 px-1 pb-2">
         <div className="h-2 w-16 rounded bg-[#E9F3EE]" />
         <div className="h-4 w-3/4 rounded bg-[#E9F3EE]" />
         <div className="h-4 w-1/2 rounded bg-[#E9F3EE]" />
@@ -91,15 +96,20 @@ function ProductSkeleton() {
   );
 }
 
+function scrollToSection(id: string) {
+  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 function HeaderNav({ onNavigate }: { onNavigate?: () => void }) {
   const navClass =
-    "text-[11px] font-semibold uppercase tracking-[0.22em] text-[#5B7369] transition-colors hover:text-[#068A5B]";
+    "text-[12px] font-medium text-[#415D52] transition-colors hover:text-[#068A5B]";
 
   return (
     <>
       <button
+        type="button"
         onClick={() => {
-          document.getElementById("catalogo-shop")?.scrollIntoView({ behavior: "smooth" });
+          scrollToSection("catalogo-shop");
           onNavigate?.();
         }}
         className={navClass}
@@ -107,22 +117,28 @@ function HeaderNav({ onNavigate }: { onNavigate?: () => void }) {
         Catálogo
       </button>
       <button
+        type="button"
         onClick={() => {
-          document.getElementById("experiencia-prime")?.scrollIntoView({ behavior: "smooth" });
+          scrollToSection("para-empresas");
           onNavigate?.();
         }}
         className={navClass}
       >
-        A experiência Prime
+        Para empresas
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          scrollToSection("sobre-ideal-prime");
+          onNavigate?.();
+        }}
+        className={navClass}
+      >
+        Sobre
       </button>
       <Link href="/desejos">
         <span onClick={onNavigate} className={`cursor-pointer ${navClass}`}>
           Solicitar produto
-        </span>
-      </Link>
-      <Link href="/empresa/cadastro">
-        <span onClick={onNavigate} className={`cursor-pointer ${navClass}`}>
-          Quero comprar como empresa
         </span>
       </Link>
     </>
@@ -138,15 +154,15 @@ function ProductCard({ product }: { product: CatalogProduct }) {
   return (
     <Link href={`/vitrine/${product.id}`}>
       <article
-        className={`group cursor-pointer ${!stock ? "opacity-80" : ""}`}
+        className="group h-full cursor-pointer overflow-hidden rounded-[1.55rem] border border-[#DCEAE4] bg-white p-3 shadow-[0_18px_55px_rgba(12,69,54,0.065)] transition-all duration-300 hover:-translate-y-1 hover:border-[#B8D9CA] hover:shadow-[0_24px_65px_rgba(12,69,54,0.11)]"
         style={{ fontFamily: SANS }}
       >
         <div
-          className="relative mb-4 overflow-hidden rounded-[1.6rem] border border-[#D5E8E0] bg-white shadow-[0_12px_40px_rgba(12,69,54,0.06)]"
-          style={{ aspectRatio: "4/5" }}
+          className="relative overflow-hidden rounded-[1.15rem] bg-[#F7FAF8]"
+          style={{ aspectRatio: "1/1" }}
         >
           {product.promoTag && stock && (
-            <span className="absolute left-3 top-3 z-10 rounded-full bg-[#068A5B] px-3 py-1.5 text-[8px] font-semibold uppercase tracking-[0.18em] text-white">
+            <span className="absolute left-3 top-3 z-10 rounded-full bg-[#068A5B] px-3 py-1.5 text-[8px] font-semibold uppercase tracking-[0.16em] text-white">
               {product.promoTag}
             </span>
           )}
@@ -156,77 +172,125 @@ function ProductCard({ product }: { product: CatalogProduct }) {
             alt={product.name}
             category={getCategoryLabel(product)}
             className="absolute inset-0"
-            imageClassName="p-5 transition-transform duration-500 group-hover:scale-[1.05]"
+            imageClassName="p-5 transition-transform duration-500 group-hover:scale-[1.045]"
           />
-
-          {stock ? (
-            <div className="absolute inset-x-0 bottom-0 translate-y-full transition-transform duration-300 group-hover:translate-y-0">
-              <div className="flex items-center justify-center gap-2 bg-[#0C4536] py-3 text-center text-[9px] font-semibold uppercase tracking-[0.22em] text-white">
-                Ver produto <ArrowUpRight className="h-3.5 w-3.5" />
-              </div>
-            </div>
-          ) : (
-            <div className="absolute inset-0 flex items-center justify-center bg-white/72 backdrop-blur-[1px]">
-              <span className="rounded-full border border-[#C8DED5] bg-white px-3 py-1.5 text-[9px] uppercase tracking-[0.22em] text-[#5E776D]">
-                Disponível sob consulta
-              </span>
-            </div>
-          )}
         </div>
 
-        <div className="space-y-2 px-1">
-          <p className="text-[8px] font-semibold uppercase tracking-[0.26em] text-[#068A5B]">
+        <div className="flex min-h-[14.5rem] flex-col px-1 pb-1 pt-4">
+          <p className="text-[8px] font-semibold uppercase tracking-[0.25em] text-[#068A5B]">
             {getCategoryLabel(product)}
           </p>
           {product.brand && (
-            <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[#81948B]">
+            <p className="mt-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-[#8A9D94]">
               {product.brand}
             </p>
           )}
-          <h3
-            className="line-clamp-2 text-[1.02rem] text-[#12352B]"
-            style={{ fontFamily: SANS, fontWeight: 700, lineHeight: 1.22, minHeight: "2.45rem" }}
-          >
+          <h3 className="mt-2 line-clamp-2 text-[0.98rem] font-bold leading-[1.26] text-[#12352B]">
             {product.name}
           </h3>
           {product.shortDescription && (
-            <p className="line-clamp-2 text-xs leading-relaxed text-[#6C8278]">
+            <p className="mt-2 line-clamp-2 text-[11px] leading-relaxed text-[#71867D]">
               {product.shortDescription}
             </p>
           )}
-          {pix ? (
-            <div className="pt-1">
-              <p className="text-lg font-bold tracking-[-0.04em] text-[#0C4536]">
-                {fmt(pix)}
-              </p>
-              {card && installments > 1 && (
-                <p className="text-[10px] font-semibold uppercase text-[#068A5B]">
-                  ou {installments}x de {fmt(card / installments)}
-                </p>
-              )}
+
+          <div className="mt-auto pt-4">
+            {pix ? (
+              <div>
+                <p className="text-lg font-bold tracking-[-0.04em] text-[#0C4536]">{fmt(pix)}</p>
+                {card && installments > 1 && (
+                  <p className="mt-0.5 text-[9px] font-medium text-[#5F7A6E]">
+                    ou {installments}x de {fmt(card / installments)}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm font-semibold text-[#0C4536]">Preço sob consulta</p>
+            )}
+
+            <div className="mt-3 flex items-center gap-2 text-[10px] text-[#6E8379]">
+              <span className={`h-2 w-2 rounded-full ${stock ? "bg-[#0B9A66]" : "bg-[#C5A247]"}`} />
+              {stock ? "Disponível" : "Consulte disponibilidade"}
             </div>
-          ) : (
-            <p className="pt-1 text-xs font-medium text-[#81948B]">Preço sob consulta</p>
-          )}
-          <p className="text-[10px] uppercase tracking-[0.18em] text-[#8CA096]">
-            {stock ? `${product.stockQuantity} disponível(is)` : "Sob consulta comercial"}
-          </p>
+
+            <div className="mt-4 flex items-center justify-between border-t border-[#E7F0EC] pt-3 text-[10px] font-semibold text-[#12352B]">
+              Ver produto
+              <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
+            </div>
+          </div>
         </div>
       </article>
     </Link>
   );
 }
 
-function Benefit({ icon: Icon, title, description }: { icon: typeof ShieldCheck; title: string; description: string }) {
+function Benefit({
+  icon: Icon,
+  title,
+  description,
+}: {
+  icon: typeof ShieldCheck;
+  title: string;
+  description: string;
+}) {
   return (
     <div className="flex gap-4">
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[#A8D8C3] bg-white/10 text-[#B9F1D4]">
+      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#E4F4ED] text-[#068A5B]">
+        <Icon className="h-5 w-5" />
+      </div>
+      <div>
+        <p className="text-sm font-semibold text-[#12352B]">{title}</p>
+        <p className="mt-1 max-w-[16rem] text-[11px] leading-relaxed text-[#70857B]">{description}</p>
+      </div>
+    </div>
+  );
+}
+
+function FeatureChip({
+  icon: Icon,
+  title,
+  description,
+}: {
+  icon: typeof ShoppingBag;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-[1.1rem] border border-white/65 bg-white/80 px-4 py-3 shadow-[0_12px_32px_rgba(12,69,54,0.08)] backdrop-blur-md">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#E4F4ED] text-[#0C6F4D]">
         <Icon className="h-4 w-4" />
       </div>
       <div>
-        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white">{title}</p>
-        <p className="mt-1 max-w-[17rem] text-xs leading-relaxed text-white/70">{description}</p>
+        <p className="text-[11px] font-semibold text-[#12352B]">{title}</p>
+        <p className="mt-0.5 text-[9px] leading-relaxed text-[#6F837A]">{description}</p>
       </div>
+    </div>
+  );
+}
+
+function StepCard({
+  number,
+  icon: Icon,
+  title,
+  description,
+}: {
+  number: number;
+  icon: typeof Building2;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="relative rounded-[1.5rem] border border-[#DCEAE4] bg-white p-6 shadow-[0_18px_45px_rgba(12,69,54,0.05)]">
+      <div className="flex items-center justify-between">
+        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#E8F5EF] text-xs font-bold text-[#0C6F4D]">
+          {number}
+        </span>
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#F2F8F5] text-[#0C6F4D]">
+          <Icon className="h-4.5 w-4.5" />
+        </div>
+      </div>
+      <h3 className="mt-5 text-base font-semibold text-[#12352B]">{title}</h3>
+      <p className="mt-2 text-[11px] leading-relaxed text-[#71867D]">{description}</p>
     </div>
   );
 }
@@ -245,11 +309,11 @@ export default function Marketplace() {
 
   const shopProducts = useMemo(() => products.filter(isShopProduct), [products]);
   const homeProducts = useMemo(
-    () => (featuredProducts.length > 0 ? featuredProducts : shopProducts.slice(0, 8)),
+    () => (featuredProducts.length > 0 ? featuredProducts : shopProducts.slice(0, 10)),
     [featuredProducts, shopProducts],
   );
   const pageProducts = isFullCatalog ? shopProducts : homeProducts;
-  const inStockProducts = useMemo(() => shopProducts.filter(hasStock), [shopProducts]);
+  const showcaseProducts = useMemo(() => homeProducts.slice(0, 4), [homeProducts]);
   const categories = useMemo(
     () => Array.from(new Set(pageProducts.map(getCategoryLabel))).sort((a, b) => a.localeCompare(b, "pt-BR")),
     [pageProducts],
@@ -259,13 +323,49 @@ export default function Marketplace() {
     captureReferralFromLocation();
   }, []);
 
+  useEffect(() => {
+    const title = isFullCatalog
+      ? "Catálogo de Produtos para Empresas | Ideal Prime"
+      : "Ideal Prime | Produtos, Cotações e Pedidos para Empresas";
+    const description = isFullCatalog
+      ? "Explore o catálogo Ideal Prime com produtos para higiene, limpeza, descartáveis, EPI, utilidades e outras soluções para empresas."
+      : "Ideal Prime: comércio e distribuição para empresas. Consulte produtos, organize cotações, compare valores e condições e faça pedidos em um só lugar.";
+    const canonical = isFullCatalog
+      ? "https://idealprimecomercio.com/vitrine"
+      : "https://idealprimecomercio.com/";
+
+    document.title = title;
+
+    const ensureMeta = (selector: string, attrs: Record<string, string>) => {
+      let element = document.head.querySelector<HTMLMetaElement>(selector);
+      if (!element) {
+        element = document.createElement("meta");
+        document.head.appendChild(element);
+      }
+      Object.entries(attrs).forEach(([key, value]) => element?.setAttribute(key, value));
+    };
+
+    ensureMeta('meta[name="description"]', { name: "description", content: description });
+    ensureMeta('meta[property="og:title"]', { property: "og:title", content: title });
+    ensureMeta('meta[property="og:description"]', { property: "og:description", content: description });
+    ensureMeta('meta[property="og:url"]', { property: "og:url", content: canonical });
+
+    let canonicalLink = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+    if (!canonicalLink) {
+      canonicalLink = document.createElement("link");
+      canonicalLink.rel = "canonical";
+      document.head.appendChild(canonicalLink);
+    }
+    canonicalLink.href = canonical;
+  }, [isFullCatalog]);
+
   const filteredProducts = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
     return pageProducts.filter((product) => {
       const productCategory = getCategoryLabel(product);
       const byCategory = category ? productCategory === category : true;
       const bySearch = normalizedSearch
-        ? `${product.name} ${product.shortDescription ?? ""} ${product.categoryLabel ?? ""} ${product.description ?? ""}`
+        ? `${product.name} ${product.brand ?? ""} ${product.shortDescription ?? ""} ${product.categoryLabel ?? ""} ${product.description ?? ""}`
             .toLowerCase()
             .includes(normalizedSearch)
         : true;
@@ -277,28 +377,36 @@ export default function Marketplace() {
   const hasResults = filteredProducts.length > 0;
 
   return (
-    <div className="min-h-screen bg-[#F7FBF9] text-[#12352B]" style={{ fontFamily: SANS }}>
-      <header className="sticky top-0 z-40 border-b border-[#D5E8E0]/90 bg-[#F7FBF9]/95 backdrop-blur-xl">
-        <div className="mx-auto flex min-h-[5.5rem] max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-16">
-          <Link href="/vitrine">
+    <div className="min-h-screen bg-[#FBFDFC] text-[#12352B]" style={{ fontFamily: SANS }}>
+      <header className="sticky top-0 z-40 border-b border-[#E1ECE7]/90 bg-white/95 backdrop-blur-xl">
+        <div className="mx-auto flex min-h-[5.2rem] max-w-[92rem] items-center justify-between gap-4 px-5 sm:px-7 lg:px-10 xl:px-14">
+          <Link href="/">
             <div className="cursor-pointer">
-              <BrandLogo className="w-[150px] sm:w-[190px]" />
+              <BrandLogo className="w-[152px] sm:w-[185px]" />
             </div>
           </Link>
 
-          <nav className="hidden items-center gap-6 xl:flex">
+          <nav className="hidden items-center gap-8 lg:flex">
             <HeaderNav />
           </nav>
 
-          <div className="hidden items-center gap-2 lg:flex">
+          <div className="hidden items-center gap-2 md:flex">
+            <button
+              type="button"
+              onClick={() => scrollToSection("catalogo-shop")}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#D9E7E1] bg-white text-[#466157] transition hover:border-[#A9CCBC] hover:text-[#068A5B]"
+              aria-label="Buscar produtos"
+            >
+              <Search className="h-4 w-4" />
+            </button>
             <Link href="/login">
-              <span className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-[#D5E8E0] bg-white px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-[#12352B] transition-colors hover:border-[#9ED2BC] hover:text-[#068A5B]">
-                <UserCog className="h-3.5 w-3.5" /> Acesso da equipe
+              <span className="inline-flex cursor-pointer items-center rounded-full border border-[#BBD4C9] bg-white px-5 py-2.5 text-[11px] font-semibold text-[#12352B] transition-colors hover:border-[#068A5B] hover:text-[#068A5B]">
+                Entrar
               </span>
             </Link>
             <Link href="/portal">
-              <span className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-[#12352B] px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-white transition-colors hover:bg-[#068A5B]">
-                <Store className="h-3.5 w-3.5" /> Área da empresa
+              <span className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-[#0C4536] px-5 py-2.5 text-[11px] font-semibold text-white transition-colors hover:bg-[#068A5B]">
+                Área da empresa <ArrowRight className="h-3.5 w-3.5" />
               </span>
             </Link>
           </div>
@@ -306,26 +414,27 @@ export default function Marketplace() {
           <button
             type="button"
             onClick={() => setMobileMenuOpen((value) => !value)}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[#D5E8E0] bg-white text-[#12352B] lg:hidden"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[#D5E8E0] bg-white text-[#12352B] md:hidden"
             aria-label={mobileMenuOpen ? "Fechar menu" : "Abrir menu"}
+            aria-expanded={mobileMenuOpen}
           >
             {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
         </div>
 
         {mobileMenuOpen && (
-          <div className="border-t border-[#E1ECE7] bg-white px-4 py-4 lg:hidden">
-            <div className="flex flex-col gap-3">
+          <div className="border-t border-[#E1ECE7] bg-white px-5 py-5 md:hidden">
+            <div className="flex flex-col gap-4">
               <HeaderNav onNavigate={() => setMobileMenuOpen(false)} />
-              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              <div className="mt-2 grid grid-cols-2 gap-2">
                 <Link href="/login">
-                  <span onClick={() => setMobileMenuOpen(false)} className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-[#D5E8E0] bg-[#F7FBF9] px-4 py-3 text-xs font-semibold text-[#12352B]">
-                    <UserCog className="h-4 w-4" /> Acesso da equipe
+                  <span onClick={() => setMobileMenuOpen(false)} className="inline-flex cursor-pointer items-center justify-center rounded-xl border border-[#D5E8E0] bg-[#F7FBF9] px-3 py-3 text-xs font-semibold text-[#12352B]">
+                    Entrar
                   </span>
                 </Link>
                 <Link href="/portal">
-                  <span onClick={() => setMobileMenuOpen(false)} className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#12352B] px-4 py-3 text-xs font-semibold text-white">
-                    <Store className="h-4 w-4" /> Área da empresa
+                  <span onClick={() => setMobileMenuOpen(false)} className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#12352B] px-3 py-3 text-xs font-semibold text-white">
+                    Área da empresa <ArrowRight className="h-3.5 w-3.5" />
                   </span>
                 </Link>
               </div>
@@ -334,329 +443,356 @@ export default function Marketplace() {
         )}
       </header>
 
-      <section className="overflow-hidden border-b border-[#D5E8E0] bg-white">
-        <div className="mx-auto grid max-w-7xl items-stretch gap-8 px-6 py-8 lg:grid-cols-[0.86fr_1.14fr] lg:px-16 lg:py-12">
-          <div className="flex flex-col justify-center py-4 lg:py-8">
-            <div className="mb-6 flex items-center gap-3">
-              <span className="h-px w-10 bg-[#068A5B]" />
-              <span className="text-[10px] font-semibold uppercase tracking-[0.34em] text-[#068A5B]">
-                Ideal Prime · catálogo oficial
-              </span>
-            </div>
-
+      <section className="relative overflow-hidden border-b border-[#E1ECE7] bg-white">
+        <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[52%] bg-[radial-gradient(circle_at_65%_25%,rgba(6,138,91,0.14),transparent_42%),linear-gradient(135deg,rgba(244,250,247,0.2),rgba(230,242,236,0.9))] lg:block" />
+        <div className="mx-auto grid max-w-[92rem] items-center gap-10 px-5 py-12 sm:px-7 lg:grid-cols-[0.9fr_1.1fr] lg:px-10 lg:py-16 xl:px-14 xl:py-20">
+          <div className="relative z-10 max-w-2xl">
+            <p className="text-[9px] font-semibold uppercase tracking-[0.34em] text-[#068A5B] sm:text-[10px]">
+              Ideal Prime · Comércio e Distribuição
+            </p>
             <h1
-              className="max-w-xl text-[#12352B]"
+              className="mt-5 text-[#12352B]"
               style={{
                 fontFamily: SERIF,
-                fontSize: "clamp(2.5rem, 5vw, 5rem)",
-                fontWeight: 800,
-                lineHeight: 0.98,
-                letterSpacing: "-0.055em",
+                fontSize: "clamp(3rem, 6vw, 6.35rem)",
+                fontWeight: 400,
+                lineHeight: 0.9,
+                letterSpacing: "-0.035em",
               }}
             >
-              Escolhas que elevam
+              Produtos que
               <br />
-              <span className="text-[#068A5B]">o seu negócio.</span>
+              movimentam o
+              <br />
+              <span className="text-[#068A5B]">seu negócio.</span>
             </h1>
-
-            <p className="mt-6 max-w-md text-[0.98rem] leading-relaxed text-[#6C8278]">
-              Produtos para higiene, limpeza, descartáveis e utilidades, com pedidos, orçamentos e recompra organizada.
+            <p className="mt-7 max-w-xl text-[0.98rem] leading-7 text-[#667D73] sm:text-[1.03rem]">
+              Higiene, limpeza, descartáveis, utilidades e outras soluções para empresas que querem comprar melhor, repor com agilidade e manter a operação em movimento.
             </p>
 
             <div className="mt-8 flex flex-wrap gap-3">
               <button
-                onClick={() => document.getElementById("catalogo-shop")?.scrollIntoView({ behavior: "smooth" })}
-                className="inline-flex items-center gap-2 rounded-full bg-[#068A5B] px-6 py-3.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-white transition-all hover:bg-[#0C4536] active:scale-[0.97]"
+                type="button"
+                onClick={() => scrollToSection("catalogo-shop")}
+                className="inline-flex items-center gap-2 rounded-full bg-[#0C6F4D] px-6 py-3.5 text-[11px] font-semibold text-white transition-all hover:bg-[#0C4536] active:scale-[0.98]"
               >
-                Explorar produtos <ArrowRight className="h-4 w-4" />
+                Explorar catálogo <ArrowRight className="h-4 w-4" />
               </button>
               <Link href="/empresa/cadastro">
-                <span className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-[#C8DED5] bg-white px-6 py-3.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-[#12352B] transition-colors hover:border-[#068A5B] hover:text-[#068A5B]">
+                <span className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-[#BBD4C9] bg-white px-6 py-3.5 text-[11px] font-semibold text-[#12352B] transition-colors hover:border-[#068A5B] hover:text-[#068A5B]">
                   Comprar como empresa
                 </span>
               </Link>
             </div>
 
-            <div className="mt-10 grid max-w-xl grid-cols-1 gap-4 border-t border-[#E3EFE9] pt-5 sm:grid-cols-3 sm:gap-5">
-              <div className="rounded-2xl bg-[#F7FBF9] p-4 sm:bg-transparent sm:p-0">
-                <p className="text-2xl font-bold tracking-[-0.04em] text-[#12352B]">{shopProducts.length}</p>
-                <p className="mt-1 text-[8px] font-semibold uppercase tracking-[0.2em] text-[#81948B]">Produtos publicados</p>
+            <div className="mt-9 grid gap-3 sm:grid-cols-3">
+              <div className="flex items-center gap-2.5 text-[10px] text-[#61796E]">
+                <Truck className="h-4 w-4 text-[#068A5B]" /> Entrega organizada
               </div>
-              <div className="rounded-2xl bg-[#F7FBF9] p-4 sm:bg-transparent sm:p-0">
-                <p className="text-2xl font-bold tracking-[-0.04em] text-[#12352B]">{inStockProducts.length}</p>
-                <p className="mt-1 text-[8px] font-semibold uppercase tracking-[0.2em] text-[#81948B]">Disponíveis agora</p>
+              <div className="flex items-center gap-2.5 text-[10px] text-[#61796E]">
+                <ShieldCheck className="h-4 w-4 text-[#068A5B]" /> Marcas selecionadas
               </div>
-              <div className="rounded-2xl bg-[#F7FBF9] p-4 sm:bg-transparent sm:p-0">
-                <p className="text-2xl font-bold tracking-[-0.04em] text-[#12352B]">{categories.length}</p>
-                <p className="mt-1 text-[8px] font-semibold uppercase tracking-[0.2em] text-[#81948B]">Categorias Prime</p>
+              <div className="flex items-center gap-2.5 text-[10px] text-[#61796E]">
+                <Headphones className="h-4 w-4 text-[#068A5B]" /> Suporte comercial
               </div>
             </div>
           </div>
 
-          <div className="relative overflow-hidden rounded-[2rem] bg-[#0C4536] shadow-[0_30px_80px_rgba(12,69,54,0.22)] min-h-[24rem] lg:min-h-[34rem]">
+          <div className="relative min-h-[33rem] overflow-hidden rounded-[2.2rem] border border-[#D8E8E1] bg-[#EEF7F2] p-5 shadow-[0_28px_90px_rgba(12,69,54,0.12)] sm:p-7 lg:min-h-[38rem]">
             <div
-              className="absolute inset-0 opacity-95"
+              className="absolute inset-0 opacity-30"
               style={{
-                backgroundImage: `linear-gradient(135deg, rgba(6,138,91,0.92), rgba(12,69,54,0.98)), url(${brandPattern})`,
+                backgroundImage: `url(${brandPattern})`,
                 backgroundPosition: "center",
-                backgroundSize: "cover, 520px auto",
+                backgroundSize: "520px auto",
               }}
             />
-            <div className="absolute -right-24 -top-20 h-80 w-80 rounded-full border border-white/15" />
-            <div className="absolute -bottom-40 -left-20 h-[28rem] w-[28rem] rounded-full border border-[#9ADCF2]/20" />
-            <div className="relative flex h-full min-h-[24rem] flex-col justify-between p-7 sm:p-10 lg:min-h-[34rem]">
-              <div className="flex items-start justify-between gap-6">
-                <BrandLogo variant="white" compact className="w-[170px] sm:w-[210px]" />
-                <span className="rounded-full border border-white/20 px-3 py-1.5 text-[8px] font-semibold uppercase tracking-[0.22em] text-white/75">
-                  Coleção Prime
-                </span>
+            <div className="absolute -left-28 bottom-[-8rem] h-[28rem] w-[28rem] rounded-full bg-white/70 blur-sm" />
+            <div className="absolute -right-20 -top-20 h-72 w-72 rounded-full border border-[#0C6F4D]/15" />
+
+            <div className="relative grid h-full gap-5 lg:grid-cols-[1.1fr_0.9fr]">
+              <div className="relative flex min-h-[26rem] items-end justify-center pt-12 lg:min-h-[32rem]">
+                {showcaseProducts.length > 0 ? (
+                  <div className="relative h-[25rem] w-full max-w-[28rem] sm:h-[29rem] lg:h-[32rem]">
+                    {showcaseProducts.map((product, index) => {
+                      const placements = [
+                        "left-[4%] top-[28%] z-20 w-[46%] rotate-[-2deg]",
+                        "right-[0%] top-[12%] z-10 w-[43%] rotate-[2deg]",
+                        "left-[26%] bottom-[0%] z-30 w-[48%]",
+                        "right-[4%] bottom-[14%] z-20 w-[36%] rotate-[3deg]",
+                      ];
+                      return (
+                        <div
+                          key={product.id}
+                          className={`absolute overflow-hidden rounded-[1.5rem] border border-white/80 bg-white shadow-[0_20px_55px_rgba(12,69,54,0.16)] ${placements[index] ?? placements[0]}`}
+                          style={{ aspectRatio: "4/5" }}
+                        >
+                          <ProductVisual
+                            src={product.imageUrl}
+                            alt={product.name}
+                            category={getCategoryLabel(product)}
+                            className="absolute inset-0"
+                            imageClassName="p-4 sm:p-5"
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="flex h-64 w-64 items-center justify-center rounded-full bg-white text-[#0C6F4D] shadow-[0_24px_65px_rgba(12,69,54,0.12)]">
+                    <Boxes className="h-20 w-20" />
+                  </div>
+                )}
               </div>
 
-              <div className="max-w-lg">
-                <p className="mb-3 text-[9px] font-medium uppercase tracking-[0.2em] text-[#B9F1D4]">Escolhas da Ideal Prime</p>
-                <h2 className="prime-display text-[2.2rem] leading-[0.98] text-white sm:text-[3.5rem] lg:text-[4.1rem]">
-                  A sua próxima escolha começa aqui.
-                </h2>
-                <p className="mt-5 max-w-sm text-sm leading-relaxed text-white/75">
-                  Um espaço para empresas consultarem produtos, pedirem itens, receberem orçamentos e acompanharem pedidos.
-                </p>
-              </div>
-
-              <div className="grid gap-3 border-t border-white/15 pt-5 text-[9px] font-semibold uppercase tracking-[0.2em] text-white/70 sm:grid-cols-[1fr_auto] sm:items-center">
-                <div>
-                  <p>Comércio e distribuição</p>
-                  <p className="mt-1 text-white/45">Acesso para empresa e equipe administrativa</p>
+              <div className="relative flex flex-col justify-center gap-3 pb-3 lg:pb-0">
+                <div className="mb-2">
+                  <p className="text-[9px] font-semibold uppercase tracking-[0.26em] text-[#068A5B]">Soluções para empresas</p>
+                  <h2 className="mt-2 text-2xl text-[#12352B] sm:text-3xl" style={{ fontFamily: SERIF, lineHeight: 1.05 }}>
+                    Menos retrabalho. Mais controle para comprar melhor.
+                  </h2>
                 </div>
-                <div className="flex items-center gap-2 text-[#B9F1D4]">
-                  Ver catálogo <ArrowUpRight className="h-3.5 w-3.5" />
-                </div>
+                <FeatureChip icon={ShoppingBag} title="Catálogo empresarial" description="Produtos e condições organizados para sua operação." />
+                <FeatureChip icon={ClipboardList} title="Cotações sem complicação" description="Centralize necessidades e acompanhe cada solicitação." />
+                <FeatureChip icon={BarChart3} title="Comparativo de valores" description="Visualize preços e condições de forma clara para decidir melhor." />
+                <FeatureChip icon={PackageCheck} title="Pedidos em poucos passos" description="Da seleção à confirmação, com histórico em um só lugar." />
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      <section id="experiencia-prime" className="bg-[#0C4536] py-9 text-white">
-        <div className="mx-auto grid max-w-7xl gap-8 px-6 sm:grid-cols-3 lg:px-16">
-          <Benefit icon={ShieldCheck} title="Compra segura" description="Informações claras, preços comerciais e histórico organizado para sua operação." />
-          <Benefit icon={Truck} title="Disponibilidade real" description="Produtos e estoque acompanhados para decisões mais seguras." />
-          <Benefit icon={Sparkles} title="Atendimento Prime" description="Atendimento próximo, com uma experiência simples e eficiente." />
+      <section id="sobre-ideal-prime" className="border-b border-[#DFECE6] bg-[#F2F8F5] py-8">
+        <div className="mx-auto grid max-w-[92rem] gap-7 px-5 sm:grid-cols-2 sm:px-7 lg:grid-cols-4 lg:px-10 xl:px-14">
+          <Benefit icon={Boxes} title="Mix para empresas" description="Variedade de produtos reunida em um único ambiente." />
+          <Benefit icon={PackageCheck} title="Reposição simplificada" description="Mais agilidade para manter a operação em movimento." />
+          <Benefit icon={Headphones} title="Atendimento comercial" description="Uma equipe próxima para necessidades específicas." />
+          <Benefit icon={BarChart3} title="Compra com previsibilidade" description="Valores, condições e histórico para decisões mais seguras." />
         </div>
       </section>
 
-      <section className="border-b border-[#D5E8E0] bg-[#F4FAF7] py-12">
-        <div className="mx-auto grid max-w-7xl gap-5 px-6 lg:grid-cols-2 lg:px-16">
-          <div className="rounded-[1.7rem] border border-[#D7E8E1] bg-white p-6 shadow-[0_18px_50px_rgba(12,69,54,0.06)]">
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#E8F7F1] text-[#068A5B]">
-                <Store className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#068A5B]">Área da empresa</p>
-                <h3 className="mt-1 text-xl font-medium text-[#12352B]">Área da empresa</h3>
-              </div>
-            </div>
-            <p className="mt-4 text-sm leading-relaxed text-[#6C8278]">
-              A empresa consulta catálogo autorizado, solicita cotações, acompanha pedidos e visualiza o histórico comercial em um único lugar.
-            </p>
-            <div className="mt-6 flex flex-wrap gap-3">
-              <Link href="/portal">
-                <span className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-[#068A5B] px-5 py-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-white transition hover:bg-[#0C4536]">
-                  Acessar área <ArrowRight className="h-4 w-4" />
-                </span>
-              </Link>
-              <Link href="/empresa/cadastro">
-                <span className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-[#D5E8E0] px-5 py-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-[#12352B] transition hover:border-[#068A5B] hover:text-[#068A5B]">
-                  Solicitar cadastro
-                </span>
-              </Link>
-            </div>
-          </div>
-
-          <div className="rounded-[1.7rem] border border-[#D7E8E1] bg-white p-6 shadow-[0_18px_50px_rgba(12,69,54,0.06)]">
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#E8F6FC] text-[#098EC7]">
-                <UserCog className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#098EC7]">Área interna</p>
-                <h3 className="mt-1 text-xl font-bold text-[#12352B]">Acesso da equipe</h3>
-              </div>
-            </div>
-            <p className="mt-4 text-sm leading-relaxed text-[#6C8278]">
-              Administradores, vendedores e equipe operacional entram por aqui para acessar resumo, produtos, estoque, pedidos, clientes e financeiro.
-            </p>
-            <div className="mt-6 flex flex-wrap gap-3">
-              <Link href="/login">
-                <span className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-[#12352B] px-5 py-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-white transition hover:bg-[#098EC7]">
-                  Fazer login <ArrowRight className="h-4 w-4" />
-                </span>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <main id="catalogo-shop" className="mx-auto max-w-7xl px-6 py-16 lg:px-16 lg:py-20">
-        <div className="mb-10 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-xl">
-            <div className="mb-4 flex items-center gap-3">
-              <span className="h-px w-8 bg-[#068A5B]" />
-              <p className="text-[9px] font-semibold uppercase tracking-[0.34em] text-[#068A5B]">Seleção Ideal Prime</p>
-            </div>
-            <h2 className="text-[#12352B]" style={{ fontFamily: SERIF, fontSize: "clamp(2rem, 3.5vw, 3.35rem)", fontWeight: 800, lineHeight: 1.02, letterSpacing: "-0.045em" }}>
-              Produtos para vender,
-              <br />
-              <span className="text-[#068A5B]">escolhas para permanecer.</span>
+      <main id="catalogo-shop" className="mx-auto max-w-[92rem] px-5 py-16 sm:px-7 lg:px-10 lg:py-20 xl:px-14">
+        <div className="grid gap-7 lg:grid-cols-[1fr_0.8fr] lg:items-end">
+          <div className="max-w-3xl">
+            <p className="text-[9px] font-semibold uppercase tracking-[0.34em] text-[#068A5B]">Nosso catálogo</p>
+            <h2
+              className="mt-4 max-w-3xl text-[#12352B]"
+              style={{
+                fontFamily: SERIF,
+                fontSize: "clamp(2.5rem, 4.7vw, 5rem)",
+                fontWeight: 400,
+                lineHeight: 0.96,
+                letterSpacing: "-0.035em",
+              }}
+            >
+              {isFullCatalog ? "Catálogo de produtos para empresas." : "Um catálogo pensado para o dia a dia das empresas."}
             </h2>
-            <p className="mt-4 max-w-lg text-sm leading-relaxed text-[#6C8278]">
-              Explore o catálogo público da Ideal Prime. Quando um item não tiver preço ou estoque imediato, ele continua disponível para consulta comercial.
-            </p>
           </div>
-
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9CB5A9]" />
-              <input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Buscar produto..."
-                aria-label="Buscar produto"
-                className="h-11 w-full rounded-full border border-[#C8DED5] bg-white pl-9 pr-3 text-sm text-[#12352B] outline-none transition-colors placeholder:text-[#9CB5A9] focus:border-[#068A5B] sm:w-72"
-              />
-            </div>
-            <p className="text-[9px] font-semibold uppercase tracking-[0.24em] text-[#81948B]">{filteredProducts.length} item(ns) visíveis</p>
-          </div>
+          <p className="max-w-xl text-sm leading-7 text-[#6B8177] lg:justify-self-end">
+            Encontre produtos de higiene, limpeza, descartáveis, EPI, utilidades e muito mais. Consulte disponibilidade, organize cotações e compre com mais clareza e agilidade.
+          </p>
         </div>
 
-        {categories.length > 1 && (
-          <div className="mb-10 flex flex-wrap gap-2 border-y border-[#E3EFE9] py-4">
-            {[{ key: null, label: "Todos" }, ...categories.map((categoryName) => ({ key: categoryName, label: categoryName }))].map(({ key, label }) => (
-              <button
-                key={String(key)}
-                onClick={() => setCategory(key)}
-                className={`rounded-full px-4 py-2 text-[9px] font-semibold uppercase tracking-[0.2em] transition-colors ${
-                  category === key
-                    ? "bg-[#12352B] text-white"
-                    : "border border-[#E0ECE7] bg-white text-[#6C8278] hover:border-[#C8DED5] hover:text-[#068A5B]"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
+        <div className="mt-9 grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+          <div className="relative max-w-xl">
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8DA39A]" />
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Buscar produtos, marcas ou categorias..."
+              aria-label="Buscar produtos no catálogo"
+              className="h-12 w-full rounded-xl border border-[#CFE1D9] bg-white pl-11 pr-4 text-sm text-[#12352B] shadow-[0_10px_30px_rgba(12,69,54,0.035)] outline-none transition placeholder:text-[#9CB0A7] focus:border-[#068A5B] focus:ring-4 focus:ring-[#068A5B]/5"
+            />
           </div>
-        )}
+
+          {categories.length > 0 && (
+            <div className="flex flex-wrap gap-2 lg:justify-end">
+              {[{ key: null, label: "Todos" }, ...categories.slice(0, 6).map((categoryName) => ({ key: categoryName, label: categoryName }))].map(({ key, label }) => (
+                <button
+                  type="button"
+                  key={String(key)}
+                  onClick={() => setCategory(key)}
+                  className={`rounded-full px-4 py-2.5 text-[9px] font-semibold transition-colors ${
+                    category === key
+                      ? "bg-[#12352B] text-white"
+                      : "border border-[#D8E7E0] bg-white text-[#647B70] hover:border-[#A9CCBC] hover:text-[#068A5B]"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
         {!isFullCatalog && (
-          <div className="mb-7 flex flex-col gap-3 rounded-[1.4rem] border border-[#D5E8E0] bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="mt-6 flex flex-col gap-3 rounded-[1.2rem] border border-[#DCE9E3] bg-[#F8FBF9] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-[9px] font-semibold uppercase tracking-[0.28em] text-[#068A5B]">
-                {featuredProducts.length > 0 ? "Seleção editorial" : "Seleção inicial configurável"}
-              </p>
-              <p className="mt-1 text-xs leading-relaxed text-[#6C8278]">
-                {featuredProducts.length > 0
-                  ? "Os produtos escolhidos para a página principal aparecem aqui; o catálogo completo permanece disponível para pedidos e cotações."
-                  : "A equipe pode escolher os destaques no painel de Produtos. Enquanto isso, mostramos as primeiras opções publicadas sem esconder o catálogo completo."}
+              <p className="text-[9px] font-semibold uppercase tracking-[0.24em] text-[#068A5B]">Seleção Ideal Prime</p>
+              <p className="mt-1 text-[11px] leading-relaxed text-[#71867D]">
+                Mostramos uma seleção inicial. O catálogo completo continua disponível com mais produtos, preços e opções para cotação.
               </p>
             </div>
             <Link href="/vitrine">
-              <span className="inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-full border border-[#C8DED5] px-4 py-2.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-[#12352B] transition hover:border-[#068A5B] hover:text-[#068A5B]">
+              <span className="inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-full border border-[#BFD7CC] bg-white px-4 py-2.5 text-[10px] font-semibold text-[#12352B] transition hover:border-[#068A5B] hover:text-[#068A5B]">
                 Ver catálogo completo <ArrowRight className="h-3.5 w-3.5" />
               </span>
             </Link>
           </div>
         )}
 
-        {isLoading || isFeaturedLoading ? (
-          <div className="grid grid-cols-2 gap-x-5 gap-y-12 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-            {Array.from({ length: 10 }).map((_, index) => (
-              <ProductSkeleton key={index} />
-            ))}
-          </div>
-        ) : !hasCatalog ? (
-          <div className="grid gap-6 rounded-[2rem] border border-[#D5E8E0] bg-white p-8 shadow-[0_20px_60px_rgba(12,69,54,0.06)] sm:grid-cols-[0.95fr_1.05fr] sm:p-12">
-            <div>
-              <p className="text-[9px] font-semibold uppercase tracking-[0.3em] text-[#068A5B]">Catálogo Prime</p>
-              <h3 className="mt-3 text-3xl text-[#12352B]" style={{ fontFamily: SERIF, fontWeight: 800, lineHeight: 1.05 }}>
-                Estamos prontos para popular o catálogo.
-              </h3>
+        <div className="mt-8">
+          {isLoading || isFeaturedLoading ? (
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
+              {Array.from({ length: 10 }).map((_, index) => (
+                <ProductSkeleton key={index} />
+              ))}
             </div>
-            <div className="flex flex-col justify-between gap-7 sm:border-l sm:border-[#E3EFE9] sm:pl-10">
-              <p className="max-w-md text-sm leading-relaxed text-[#6C8278]">
-                Ainda não há produtos públicos visíveis. Faça a carga do Catálogo Mestre ou publique os itens cadastrados no painel administrativo para exibir a seleção nesta página.
-              </p>
-              <div className="flex flex-wrap gap-3">
-                <Link href="/login">
-                  <span className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-full bg-[#12352B] px-5 py-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-white transition-colors hover:bg-[#068A5B]">
-                    Acesso da equipe <ArrowRight className="h-4 w-4" />
-                  </span>
-                </Link>
+          ) : !hasCatalog ? (
+            <div className="grid gap-6 rounded-[2rem] border border-[#D5E8E0] bg-white p-8 shadow-[0_20px_60px_rgba(12,69,54,0.06)] sm:grid-cols-[0.95fr_1.05fr] sm:p-12">
+              <div>
+                <p className="text-[9px] font-semibold uppercase tracking-[0.3em] text-[#068A5B]">Catálogo Prime</p>
+                <h3 className="mt-3 text-3xl text-[#12352B]" style={{ fontFamily: SERIF, lineHeight: 1.05 }}>
+                  O catálogo está sendo preparado.
+                </h3>
+              </div>
+              <div className="flex flex-col justify-between gap-7 sm:border-l sm:border-[#E3EFE9] sm:pl-10">
+                <p className="max-w-md text-sm leading-relaxed text-[#6C8278]">
+                  Ainda não há produtos públicos visíveis. A equipe pode publicar os itens cadastrados no painel administrativo para exibir a seleção nesta página.
+                </p>
                 <Link href="/desejos">
-                  <span className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-full border border-[#068A5B] px-5 py-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#068A5B] transition-colors hover:bg-[#068A5B] hover:text-white">
-                    Registrar interesse <ArrowRight className="h-4 w-4" />
+                  <span className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-full bg-[#12352B] px-5 py-3 text-[10px] font-semibold text-white transition-colors hover:bg-[#068A5B]">
+                    Solicitar um produto <ArrowRight className="h-4 w-4" />
                   </span>
                 </Link>
               </div>
             </div>
-          </div>
-        ) : !hasResults ? (
-          <div className="rounded-[2rem] border border-[#D5E8E0] bg-white p-8 text-center shadow-[0_20px_60px_rgba(12,69,54,0.05)] sm:p-12">
-            <p className="text-[9px] font-semibold uppercase tracking-[0.3em] text-[#068A5B]">Busca refinada</p>
-            <h3 className="mt-3 text-3xl text-[#12352B]" style={{ fontFamily: SERIF, fontWeight: 800, lineHeight: 1.05 }}>
-              Nenhum produto encontrado com esse filtro.
-            </h3>
-            <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-[#6C8278]">
-              Ajuste o termo de busca ou selecione outra categoria para visualizar os itens publicados no catálogo.
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-x-5 gap-y-14 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-            {filteredProducts.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
-        )}
+          ) : !hasResults ? (
+            <div className="rounded-[2rem] border border-[#D5E8E0] bg-white p-8 text-center shadow-[0_20px_60px_rgba(12,69,54,0.05)] sm:p-12">
+              <p className="text-[9px] font-semibold uppercase tracking-[0.3em] text-[#068A5B]">Busca refinada</p>
+              <h3 className="mt-3 text-3xl text-[#12352B]" style={{ fontFamily: SERIF, lineHeight: 1.05 }}>
+                Nenhum produto encontrado com esse filtro.
+              </h3>
+              <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-[#6C8278]">
+                Ajuste o termo de busca ou selecione outra categoria para visualizar os itens publicados no catálogo.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
+              {filteredProducts.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          )}
+        </div>
       </main>
 
-      <section className="border-t border-[#D5E8E0] bg-white py-16">
-        <div className="mx-auto grid max-w-7xl items-center gap-8 px-6 lg:grid-cols-[1.1fr_0.9fr] lg:px-16">
-          <div>
-            <p className="text-[9px] font-semibold uppercase tracking-[0.3em] text-[#068A5B]">Relacionamento Prime</p>
-            <h2 className="mt-3 max-w-2xl text-3xl text-[#12352B] sm:text-4xl" style={{ fontFamily: SERIF, fontWeight: 800, lineHeight: 1.05 }}>
-              Não encontrou o que procurava?
-            </h2>
-            <p className="mt-4 max-w-xl text-sm leading-relaxed text-[#6C8278]">
-              Deixe sua demanda registrada. A equipe Ideal Prime acompanha oportunidades e entra em contato quando encontrar uma opção alinhada ao que você busca.
-            </p>
+      <section id="para-empresas" className="border-y border-[#DDEAE4] bg-[#F6FAF8] py-16 lg:py-20">
+        <div className="mx-auto max-w-[92rem] px-5 sm:px-7 lg:px-10 xl:px-14">
+          <div className="grid gap-8 lg:grid-cols-[1fr_0.85fr] lg:items-end">
+            <div>
+              <p className="text-[9px] font-semibold uppercase tracking-[0.3em] text-[#068A5B]">Para empresas</p>
+              <h2
+                className="mt-4 max-w-3xl text-[#12352B]"
+                style={{ fontFamily: SERIF, fontSize: "clamp(2.45rem, 4.4vw, 4.8rem)", lineHeight: 0.96, letterSpacing: "-0.035em" }}
+              >
+                Comprar para sua empresa ficou mais simples.
+              </h2>
+            </div>
+            <div className="lg:justify-self-end">
+              <p className="max-w-xl text-sm leading-7 text-[#6B8177]">
+                Centralize necessidades, organize cotações, compare valores e condições e transforme uma cotação aprovada em pedido sem planilhas paralelas nem retrabalho.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-[10px] font-medium text-[#526B60]">
+                <span className="inline-flex items-center gap-2"><Check className="h-3.5 w-3.5 text-[#068A5B]" /> Histórico organizado</span>
+                <span className="inline-flex items-center gap-2"><Check className="h-3.5 w-3.5 text-[#068A5B]" /> Condições centralizadas</span>
+                <span className="inline-flex items-center gap-2"><Check className="h-3.5 w-3.5 text-[#068A5B]" /> Menos retrabalho</span>
+              </div>
+            </div>
           </div>
-          <div className="flex lg:justify-end">
-            <Link href="/desejos">
-              <span className="inline-flex cursor-pointer items-center gap-3 rounded-full bg-[#068A5B] px-6 py-4 text-[10px] font-semibold uppercase tracking-[0.22em] text-white transition-colors hover:bg-[#0C4536]">
-                Criar lista de desejos <Heart className="h-4 w-4" />
-              </span>
-            </Link>
+
+          <div className="mt-10 grid gap-4 lg:grid-cols-[1fr_1fr_1fr_0.85fr]">
+            <StepCard number={1} icon={Building2} title="Cadastre sua empresa" description="Informe os dados da empresa e crie o acesso empresarial de forma simples e segura." />
+            <StepCard number={2} icon={Search} title="Consulte o catálogo" description="Encontre produtos, veja disponibilidade e reúna os itens que sua operação precisa." />
+            <StepCard number={3} icon={FileText} title="Cote e faça pedidos" description="Envie sua seleção, acompanhe condições e avance para o pedido com tudo registrado." />
+
+            <div className="flex flex-col justify-between rounded-[1.5rem] bg-[#0C4536] p-6 text-white shadow-[0_24px_60px_rgba(12,69,54,0.18)]">
+              <div>
+                <Sparkles className="h-6 w-6 text-[#B9F1D4]" />
+                <p className="mt-5 text-[9px] font-semibold uppercase tracking-[0.26em] text-[#B9F1D4]">Experiência Prime</p>
+                <h3 className="mt-2 text-2xl" style={{ fontFamily: SERIF, lineHeight: 1.02 }}>
+                  Tudo em um único fluxo comercial.
+                </h3>
+                <p className="mt-3 text-[11px] leading-relaxed text-white/70">
+                  Produtos, cotações, comparativos, pedidos e histórico para sua empresa comprar com mais clareza.
+                </p>
+              </div>
+              <Link href="/empresa/cadastro">
+                <span className="mt-7 inline-flex w-full cursor-pointer items-center justify-between rounded-full bg-white px-5 py-3 text-[10px] font-semibold text-[#12352B] transition hover:bg-[#EAF6F0]">
+                  Criar acesso empresarial <ArrowRight className="h-4 w-4" />
+                </span>
+              </Link>
+            </div>
           </div>
         </div>
       </section>
 
-      <footer className="prime-pattern-surface border-t border-[#0C6D4E] py-10 text-white">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-6 px-6 lg:flex-row lg:px-16">
-          <BrandLogo variant="white" compact />
-          <nav className="flex flex-wrap items-center justify-center gap-5 text-[10px] uppercase tracking-[0.22em] text-white/70">
-            <button onClick={() => document.getElementById("catalogo-shop")?.scrollIntoView({ behavior: "smooth" })} className="transition-colors hover:text-white">
-              Catálogo
-            </button>
-            <button onClick={() => document.getElementById("experiencia-prime")?.scrollIntoView({ behavior: "smooth" })} className="transition-colors hover:text-white">
-              A experiência Prime
-            </button>
-            <Link href="/portal">
-              <span className="cursor-pointer transition-colors hover:text-white">Área da empresa</span>
-            </Link>
-            <Link href="/login">
-              <span className="cursor-pointer transition-colors hover:text-white">Acesso da equipe</span>
-            </Link>
-          </nav>
-          <p className="text-[10px] text-white/45">© {new Date().getFullYear()} Ideal Prime</p>
+      <section className="relative overflow-hidden border-b border-[#DCE9E3] bg-[#EFF7F3] py-14 lg:py-16">
+        <div className="absolute -right-20 -top-24 h-72 w-72 rounded-full border border-[#068A5B]/10" />
+        <div className="mx-auto grid max-w-[92rem] items-center gap-7 px-5 sm:px-7 lg:grid-cols-[1fr_0.9fr_auto] lg:px-10 xl:px-14">
+          <div>
+            <p className="text-[9px] font-semibold uppercase tracking-[0.3em] text-[#068A5B]">Não encontrou o produto?</p>
+            <h2 className="mt-3 max-w-xl text-4xl text-[#12352B] sm:text-5xl" style={{ fontFamily: SERIF, lineHeight: 0.98, letterSpacing: "-0.03em" }}>
+              Não encontrou o produto que precisa?
+            </h2>
+          </div>
+          <p className="max-w-xl text-sm leading-7 text-[#6B8177]">
+            Conte para a Ideal Prime o que sua empresa procura. Nossa equipe comercial analisa a necessidade e retorna com opções alinhadas à sua operação.
+          </p>
+          <Link href="/desejos">
+            <span className="inline-flex cursor-pointer items-center gap-3 rounded-full border border-[#8EBDA9] bg-white px-6 py-3.5 text-[11px] font-semibold text-[#12352B] transition hover:border-[#068A5B] hover:text-[#068A5B]">
+              Solicitar um produto <ArrowRight className="h-4 w-4" />
+            </span>
+          </Link>
+        </div>
+      </section>
+
+      <footer className="prime-pattern-surface py-12 text-white">
+        <div className="mx-auto max-w-[92rem] px-5 sm:px-7 lg:px-10 xl:px-14">
+          <div className="grid gap-10 border-b border-white/15 pb-10 md:grid-cols-[1.35fr_0.8fr_0.8fr_1fr]">
+            <div>
+              <BrandLogo variant="white" compact className="w-[190px]" />
+              <p className="mt-5 max-w-sm text-xs leading-6 text-white/65">
+                Produtos e soluções para empresas comprarem com mais clareza, agilidade e organização.
+              </p>
+            </div>
+            <div>
+              <p className="text-[9px] font-semibold uppercase tracking-[0.24em] text-white/50">Navegação</p>
+              <div className="mt-4 flex flex-col gap-3 text-xs text-white/75">
+                <button type="button" onClick={() => scrollToSection("catalogo-shop")} className="w-fit hover:text-white">Catálogo</button>
+                <button type="button" onClick={() => scrollToSection("para-empresas")} className="w-fit hover:text-white">Para empresas</button>
+                <Link href="/desejos"><span className="cursor-pointer hover:text-white">Solicitar produto</span></Link>
+              </div>
+            </div>
+            <div>
+              <p className="text-[9px] font-semibold uppercase tracking-[0.24em] text-white/50">Acessos</p>
+              <div className="mt-4 flex flex-col gap-3 text-xs text-white/75">
+                <Link href="/portal"><span className="cursor-pointer hover:text-white">Área da empresa</span></Link>
+                <Link href="/empresa/cadastro"><span className="cursor-pointer hover:text-white">Cadastro empresarial</span></Link>
+                <Link href="/login"><span className="cursor-pointer hover:text-white">Acesso da equipe</span></Link>
+              </div>
+            </div>
+            <div>
+              <p className="text-[9px] font-semibold uppercase tracking-[0.24em] text-white/50">Ideal Prime</p>
+              <p className="mt-4 text-xl leading-tight text-white" style={{ fontFamily: SERIF }}>
+                Mais que distribuição, parceria para o seu negócio.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-col gap-3 pt-6 text-[10px] text-white/45 sm:flex-row sm:items-center sm:justify-between">
+            <p>© {new Date().getFullYear()} Ideal Prime. Todos os direitos reservados.</p>
+            <p>Comércio e distribuição para empresas.</p>
+          </div>
         </div>
       </footer>
     </div>

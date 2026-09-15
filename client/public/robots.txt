@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /login
+Disallow: /portal
+Disallow: /b2b-admin
+Disallow: /configuracoes
+
+Sitemap: https://idealprimecomercio.com/sitemap.xml
