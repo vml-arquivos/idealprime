@@ -31,6 +31,12 @@ export function parseMoneyToCents(value: unknown, options: { optional?: boolean 
   const n = Number(text); if (!Number.isFinite(n) || n < 0) throw new Error("preço inválido"); return Math.round(n * 100);
 }
 
+/** Converte o preço importado em centavos para os campos monetários públicos. */
+export function publicPriceFromCents(priceCents: number): number {
+  if (!Number.isInteger(priceCents) || priceCents < 0) throw new Error("preço em centavos inválido");
+  return priceCents / 100;
+}
+
 export async function signupBusiness(input:{legalName:string;tradeName?:string;cnpj:string;email:string;phone?:string;name:string;password:string}) {
   const cnpj = normalizeCnpj(input.cnpj); if (cnpj.length !== 14) throw new Error("CNPJ deve ter 14 dígitos");
   const c = await getPool().connect();
@@ -557,6 +563,7 @@ export async function applyImport(
     let created = 0;
     let updated = 0;
     let mediaCreated = 0;
+    let publicPricesUpdated = 0;
 
     for (let index = 0; index < normalized.length; index++) {
       const row = normalized[index];
@@ -674,6 +681,15 @@ export async function applyImport(
           [job.id, rowNumber, row.sku, JSON.stringify(inserted.rows[0])],
         );
       }
+      if (input.mode === 'PRICES') {
+        await c.query(
+          `update permupay_products
+           set suggested_price=$2, suggested_price_pix=$2, updated_at=now()
+           where id=$1`,
+          [productId, publicPriceFromCents(row.priceCents)],
+        );
+        publicPricesUpdated++;
+      }
       if (await ensureImportedProductMedia(c, productId, row)) mediaCreated++;
       await c.query(
         `insert into permupay_price_list_items(version_id,product_id,price_cents,active)
@@ -682,7 +698,7 @@ export async function applyImport(
       );
     }
 
-    const summary = { created, updated, mediaCreated, total: normalized.length, version: Number(nextVersion) };
+    const summary = { created, updated, mediaCreated, publicPricesUpdated, total: normalized.length, version: Number(nextVersion) };
     await c.query(
       `update permupay_import_jobs set status='COMPLETED',summary=$2::jsonb,completed_at=now() where id=$1`,
       [job.id, JSON.stringify(summary)],

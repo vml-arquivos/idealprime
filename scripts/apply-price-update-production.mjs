@@ -29,7 +29,18 @@ const client = await pool.connect();
 try {
   const existing = await client.query("select id,status,summary from permupay_import_jobs where content_hash=$1 and profile_key=$2", [contentHash, profileKey]);
   if (existing.rows[0]?.status === "COMPLETED") {
-    console.log(JSON.stringify({ repeated: true, job: existing.rows[0], fileHash: actualHash }));
+    await client.query("begin");
+    const matched = await client.query("select id,sku from permupay_products where sku=any($1::text[]) and active=true", [prices.map((item) => item.sku)]);
+    if (matched.rows.length !== expectedCount) throw new Error(`Produtos ativos correspondentes: ${matched.rows.length}/${expectedCount}`);
+    const productBySku = new Map(matched.rows.map((row) => [row.sku, row.id]));
+    for (const item of prices) {
+      await client.query(
+        "update permupay_products set suggested_price=$2, suggested_price_pix=$2, updated_at=now() where id=$1",
+        [productBySku.get(item.sku), item.priceCents / 100],
+      );
+    }
+    await client.query("commit");
+    console.log(JSON.stringify({ repeated: true, job: existing.rows[0], publicPricesUpdated: expectedCount, fileHash: actualHash }));
     process.exit(0);
   }
   await client.query("begin");
@@ -53,14 +64,19 @@ try {
   const version = (await client.query("insert into permupay_price_list_versions(price_list_id,version,effective_from,created_by) values($1,$2,now(),null) returning id,version", [priceList.id, nextVersion])).rows[0];
   for (const item of prices) {
     await client.query("insert into permupay_price_list_items(version_id,product_id,price_cents,active) values($1,$2,$3,true)", [version.id, productBySku.get(item.sku), item.priceCents]);
+    const publicPrice = item.priceCents / 100;
+    await client.query(
+      "update permupay_products set suggested_price=$2, suggested_price_pix=$2, updated_at=now() where id=$1",
+      [productBySku.get(item.sku), publicPrice],
+    );
   }
   for (const item of prices) {
     await client.query("insert into permupay_import_rows(job_id,row_number,sku,status,before_data,after_data) values($1,$2,$3,'UPDATED',null,$4::jsonb)", [job.id, item.rowNumber, item.sku, JSON.stringify({ price_cents: item.priceCents })]);
   }
-  const summary = { source: "PRODUTOSPRIME(1).xlsx", expected: expectedCount, matched: products.rows.length, updated: expectedCount, changed, created: 0, stockChanged: false, version: Number(version.version), priceListId: priceList.id, fileHash: actualHash };
+  const summary = { source: "PRODUTOSPRIME(1).xlsx", expected: expectedCount, matched: products.rows.length, updated: expectedCount, publicPricesUpdated: expectedCount, changed, created: 0, stockChanged: false, version: Number(version.version), priceListId: priceList.id, fileHash: actualHash };
   await client.query("update permupay_import_jobs set status='COMPLETED',summary=$2::jsonb,completed_at=now() where id=$1", [job.id, JSON.stringify(summary)]);
   await client.query("commit");
-  console.log(JSON.stringify({ repeated: false, jobId: job.id, priceListId: priceList.id, version: Number(version.version), matched: products.rows.length, updated: expectedCount, changed, stockChanged: false, fileHash: actualHash }));
+  console.log(JSON.stringify({ repeated: false, jobId: job.id, priceListId: priceList.id, version: Number(version.version), matched: products.rows.length, updated: expectedCount, publicPricesUpdated: expectedCount, changed, stockChanged: false, fileHash: actualHash }));
 } catch (error) {
   try { await client.query("rollback"); } catch {}
   console.error(error?.stack || error?.message || error);

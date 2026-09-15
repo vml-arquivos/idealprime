@@ -65,4 +65,10 @@ describe("adaptador de preços legados", () => {
     expect(() => execFileSync(process.execPath, [adapter, legacy, master, output], { encoding: "utf8", stdio: "pipe" })).toThrow(/Reconciliação incompleta/);
     fs.rmSync(directory, { recursive: true, force: true });
   });
+
+  it("mantém a sincronização dos campos de preço público no executor", () => {
+    const source = fs.readFileSync(path.resolve("scripts/apply-price-update-production.mjs"), "utf8");
+    expect(source).toContain("suggested_price=$2, suggested_price_pix=$2");
+    expect(source).toContain("publicPricesUpdated");
+  });
 });
