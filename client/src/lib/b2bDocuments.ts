@@ -92,52 +92,76 @@ function quoteRows(quote: QuoteDocument) {
 export async function exportQuoteSpreadsheet(quote: QuoteDocument) {
   const XLSX = await import("xlsx");
   const workbook = XLSX.utils.book_new();
-  const summary = XLSX.utils.aoa_to_sheet([
+  const rows = quoteRows(quote);
+  const sheetRows: Array<Array<string | number>> = [
     ["IDEAL PRIME — COTAÇÃO EMPRESARIAL"],
-    ["Número", quote.quote_number || ""],
-    ["Empresa", quote.trade_name || quote.legal_name || ""],
-    ["Razão social", quote.legal_name || ""],
-    ["CNPJ", quote.cnpj || ""],
-    ["Referência do cliente", quote.customer_reference || ""],
-    ["Solicitada em", dateTime(quote.created_at)],
-    ["Validade", dateOnly(quote.valid_until)],
-    ["Entrega desejada", dateOnly(quote.requested_delivery_date)],
-    ["Contato", quote.contact_name || ""],
-    ["E-mail", quote.contact_email || quote.business_email || ""],
-    ["Telefone", quote.contact_phone || quote.business_phone || ""],
-    ["Endereço/observação de entrega", quote.delivery_address || ""],
-    ["Subtotal", cents(quote.subtotal_cents ?? quote.total_cents)],
-    ["Desconto", cents(quote.discount_cents)],
-    ["Frete", cents(quote.freight_cents)],
-    ["TOTAL", cents(quote.total_cents)],
-    ["Condição de pagamento", quote.payment_terms_text || ""],
-    ["Condição de entrega", quote.delivery_terms_text || ""],
-    ["Observações comerciais", quote.commercial_notes || ""],
-    ["Observações do cliente", quote.notes || ""],
-  ]);
-  summary["!cols"] = [{ wch: 31 }, { wch: 70 }];
-  summary["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 1 } }];
-  ["B14", "B15", "B16", "B17"].forEach((cell) => {
-    if (summary[cell]) summary[cell].z = 'R$ #,##0.00';
-  });
-
-  const items = XLSX.utils.json_to_sheet(quoteRows(quote));
-  items["!cols"] = [
-    { wch: 16 }, { wch: 46 }, { wch: 11 }, { wch: 12 },
-    { wch: 18 }, { wch: 16 }, { wch: 18 }, { wch: 18 }, { wch: 16 },
+    ["Proposta comercial detalhada · valores, condições e comparativo por item"],
+    [],
+    ["COTAÇÃO", quote.quote_number || "", "STATUS", quote.status || "", "SOLICITADA EM", dateTime(quote.created_at), "VALIDADE", dateOnly(quote.valid_until)],
+    [],
+    ["EMPRESA E CONTATO"],
+    ["Empresa", quote.trade_name || quote.legal_name || "", "CNPJ", quote.cnpj || "", "Contato", quote.contact_name || quote.buyer_name || "", "E-mail", quote.contact_email || quote.business_email || ""],
+    ["Referência / OC", quote.customer_reference || "", "Entrega desejada", dateOnly(quote.requested_delivery_date), "Telefone", quote.contact_phone || quote.business_phone || "", "", ""],
+    ["Entrega / local", quote.delivery_address || "", "", "", "", "", "", ""],
+    [],
+    ["ITENS COTADOS"],
+    ["SKU", "Produto", "Un.", "Qtd.", "Referência unit.", "Cotado unit.", "Economia unit.", "Total cotado"],
+    ...rows.map((row) => [row.SKU, row.Produto, row.Unidade, row.Quantidade, row["Preço referência"], row["Preço cotado"], row["Economia unitária"], row["Total cotado"]]),
   ];
-  const range = XLSX.utils.decode_range(items["!ref"] || "A1:I1");
-  items["!autofilter"] = { ref: items["!ref"] || "A1:I1" };
-  for (let row = 1; row <= range.e.r; row++) {
-    [4, 5, 6, 7, 8].forEach((col) => {
+
+  const firstItemRow = 12; // 0-based
+  const lastItemRow = firstItemRow + Math.max(rows.length - 1, 0);
+  const totalsStart = sheetRows.length + 1;
+  sheetRows.push(
+    [],
+    ["", "", "", "", "", "", "Subtotal cotado", cents(quote.subtotal_cents ?? quote.total_cents)],
+    ["", "", "", "", "", "", "Desconto", cents(quote.discount_cents)],
+    ["", "", "", "", "", "", "Frete", cents(quote.freight_cents)],
+    ["", "", "", "", "", "", "TOTAL DA PROPOSTA", cents(quote.total_cents)],
+    [],
+    ["CONDIÇÕES COMERCIAIS"],
+    ["Pagamento", quote.payment_terms_text || "A confirmar", "", "", "Entrega", quote.delivery_terms_text || "A confirmar"],
+    ["Observações comerciais", quote.commercial_notes || "", "", "", "", "", "", ""],
+    ["Observações do cliente", quote.notes || "", "", "", "", "", "", ""],
+    [],
+    ["Documento gerado pela Área da Empresa Ideal Prime. Confira validade, itens e condições antes de confirmar o pedido."],
+  );
+
+  const sheet = XLSX.utils.aoa_to_sheet(sheetRows);
+  sheet["!cols"] = [
+    { wch: 16 }, { wch: 48 }, { wch: 10 }, { wch: 12 },
+    { wch: 18 }, { wch: 18 }, { wch: 19 }, { wch: 20 },
+  ];
+  sheet["!rows"] = [{ hpt: 28 }, { hpt: 20 }];
+  sheet["!merges"] = [
+    { s: { r: 0, c: 0 }, e: { r: 0, c: 7 } },
+    { s: { r: 1, c: 0 }, e: { r: 1, c: 7 } },
+    { s: { r: 5, c: 0 }, e: { r: 5, c: 7 } },
+    { s: { r: 8, c: 1 }, e: { r: 8, c: 7 } },
+    { s: { r: 10, c: 0 }, e: { r: 10, c: 7 } },
+    { s: { r: totalsStart + 5, c: 0 }, e: { r: totalsStart + 5, c: 7 } },
+    { s: { r: totalsStart + 6, c: 1 }, e: { r: totalsStart + 6, c: 3 } },
+    { s: { r: totalsStart + 6, c: 5 }, e: { r: totalsStart + 6, c: 7 } },
+    { s: { r: totalsStart + 7, c: 1 }, e: { r: totalsStart + 7, c: 7 } },
+    { s: { r: totalsStart + 8, c: 1 }, e: { r: totalsStart + 8, c: 7 } },
+    { s: { r: totalsStart + 10, c: 0 }, e: { r: totalsStart + 10, c: 7 } },
+  ];
+  if (rows.length) sheet["!autofilter"] = { ref: `A12:H${lastItemRow + 1}` };
+  sheet["!margins"] = { left: 0.35, right: 0.35, top: 0.5, bottom: 0.5, header: 0.2, footer: 0.2 };
+
+  for (let row = firstItemRow; row <= lastItemRow; row++) {
+    [4, 5, 6, 7].forEach((col) => {
       const ref = XLSX.utils.encode_cell({ r: row, c: col });
-      if (items[ref]) items[ref].z = 'R$ #,##0.00';
+      if (sheet[ref]) sheet[ref].z = 'R$ #,##0.00';
     });
   }
+  for (let row = totalsStart; row <= totalsStart + 3; row++) {
+    const ref = XLSX.utils.encode_cell({ r: row, c: 7 });
+    if (sheet[ref]) sheet[ref].z = 'R$ #,##0.00';
+  }
 
-  XLSX.utils.book_append_sheet(workbook, summary, "Resumo");
-  XLSX.utils.book_append_sheet(workbook, items, "Itens e comparativo");
-  XLSX.writeFile(workbook, `${fileName(quote.quote_number || "cotacao-ideal-prime")}.xlsx`);
+  XLSX.utils.book_append_sheet(workbook, sheet, "Cotação");
+  XLSX.writeFile(workbook, `${fileName(quote.quote_number || "cotacao-ideal-prime")}.xlsx`, { compression: true });
 }
 
 export async function exportOrderSpreadsheet(order: OrderDocument) {
@@ -145,53 +169,75 @@ export async function exportOrderSpreadsheet(order: OrderDocument) {
   const workbook = XLSX.utils.book_new();
   const delivery = order.delivery_snapshot || {};
   const terms = order.terms_snapshot || {};
-  const summary = XLSX.utils.aoa_to_sheet([
+  const items = order.items || [];
+  const sheetRows: Array<Array<string | number>> = [
     ["IDEAL PRIME — PEDIDO EMPRESARIAL"],
-    ["Número", order.order_number || ""],
-    ["Empresa", order.trade_name || order.legal_name || ""],
-    ["Criado em", dateTime(order.created_at)],
-    ["Status comercial", order.commercial_status || ""],
-    ["Pagamento", order.payment_status || ""],
-    ["Expedição", order.fulfillment_status || ""],
-    ["Origem", (terms as any).quoteNumber ? `Cotação ${(terms as any).quoteNumber}` : "Pedido direto"],
-    ["Referência do cliente", (delivery as any).customerReference || ""],
-    ["Entrega desejada", dateOnly((delivery as any).requestedDeliveryDate)],
-    ["Endereço/observação de entrega", (delivery as any).deliveryAddress || ""],
-    ["Subtotal da cotação", cents((delivery as any).subtotalCents || order.total_cents)],
-    ["Desconto", cents((delivery as any).discountCents)],
-    ["Frete", cents((delivery as any).freightCents)],
-    ["TOTAL DO PEDIDO", cents(order.total_cents)],
-    ["Condição de pagamento", (terms as any).paymentTermsText || ""],
-    ["Condição de entrega", (delivery as any).deliveryTermsText || ""],
-    ["Observações comerciais", (terms as any).commercialNotes || ""],
-  ]);
-  summary["!cols"] = [{ wch: 31 }, { wch: 70 }];
-  summary["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 1 } }];
-  ["B12", "B13", "B14", "B15"].forEach((cell) => {
-    if (summary[cell]) summary[cell].z = 'R$ #,##0.00';
-  });
+    ["Pedido detalhado · itens, valores, origem e condições comerciais"],
+    [],
+    ["PEDIDO", order.order_number || "", "CRIADO EM", dateTime(order.created_at), "ORIGEM", (terms as any).quoteNumber ? `Cotação ${(terms as any).quoteNumber}` : "Pedido direto", "TOTAL", cents(order.total_cents)],
+    ["STATUS COMERCIAL", order.commercial_status || "", "PAGAMENTO", order.payment_status || "", "EXPEDIÇÃO", order.fulfillment_status || "", "", ""],
+    [],
+    ["EMPRESA E ENTREGA"],
+    ["Empresa", order.trade_name || order.legal_name || "", "Referência / OC", (delivery as any).customerReference || "", "Entrega desejada", dateOnly((delivery as any).requestedDeliveryDate), "", ""],
+    ["Entrega / local", (delivery as any).deliveryAddress || "", "", "", "", "", "", ""],
+    [],
+    ["ITENS DO PEDIDO"],
+    ["SKU", "Produto", "Un.", "Qtd.", "Preço unitário", "Total do item", "", ""],
+    ...items.map((item) => [item.sku_snapshot || "", item.name_snapshot || "", item.unit_snapshot || "UN", Number(item.quantity || 0), cents(item.unit_price_cents), cents(item.total_cents), "", ""]),
+  ];
 
-  const itemsData = (order.items || []).map((item) => ({
-    SKU: item.sku_snapshot || "",
-    Produto: item.name_snapshot || "",
-    Unidade: item.unit_snapshot || "UN",
-    Quantidade: Number(item.quantity || 0),
-    "Preço unitário": cents(item.unit_price_cents),
-    "Total do item": cents(item.total_cents),
-  }));
-  const items = XLSX.utils.json_to_sheet(itemsData);
-  items["!cols"] = [{ wch: 16 }, { wch: 48 }, { wch: 11 }, { wch: 12 }, { wch: 18 }, { wch: 18 }];
-  const range = XLSX.utils.decode_range(items["!ref"] || "A1:F1");
-  items["!autofilter"] = { ref: items["!ref"] || "A1:F1" };
-  for (let row = 1; row <= range.e.r; row++) {
+  const firstItemRow = 12;
+  const lastItemRow = firstItemRow + Math.max(items.length - 1, 0);
+  const totalsStart = sheetRows.length + 1;
+  sheetRows.push(
+    [],
+    ["", "", "", "", "", "", "Subtotal", cents((delivery as any).subtotalCents || order.total_cents)],
+    ["", "", "", "", "", "", "Desconto", cents((delivery as any).discountCents)],
+    ["", "", "", "", "", "", "Frete", cents((delivery as any).freightCents)],
+    ["", "", "", "", "", "", "TOTAL DO PEDIDO", cents(order.total_cents)],
+    [],
+    ["CONDIÇÕES"],
+    ["Pagamento", (terms as any).paymentTermsText || "Conforme cadastro comercial", "", "", "Entrega", (delivery as any).deliveryTermsText || "Conforme confirmação operacional", "", ""],
+    ["Observações", (terms as any).commercialNotes || "", "", "", "", "", "", ""],
+    [],
+    [(delivery as any).partialFromQuote ? "Pedido gerado parcialmente a partir da cotação: somente os itens selecionados pela empresa foram incluídos." : "Pedido gerado pela Área da Empresa Ideal Prime."],
+  );
+
+  const sheet = XLSX.utils.aoa_to_sheet(sheetRows);
+  sheet["!cols"] = [
+    { wch: 16 }, { wch: 50 }, { wch: 10 }, { wch: 12 },
+    { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 20 },
+  ];
+  sheet["!rows"] = [{ hpt: 28 }, { hpt: 20 }];
+  sheet["!merges"] = [
+    { s: { r: 0, c: 0 }, e: { r: 0, c: 7 } },
+    { s: { r: 1, c: 0 }, e: { r: 1, c: 7 } },
+    { s: { r: 6, c: 0 }, e: { r: 6, c: 7 } },
+    { s: { r: 8, c: 1 }, e: { r: 8, c: 7 } },
+    { s: { r: 10, c: 0 }, e: { r: 10, c: 7 } },
+    { s: { r: totalsStart + 5, c: 0 }, e: { r: totalsStart + 5, c: 7 } },
+    { s: { r: totalsStart + 6, c: 1 }, e: { r: totalsStart + 6, c: 3 } },
+    { s: { r: totalsStart + 6, c: 5 }, e: { r: totalsStart + 6, c: 7 } },
+    { s: { r: totalsStart + 7, c: 1 }, e: { r: totalsStart + 7, c: 7 } },
+    { s: { r: totalsStart + 9, c: 0 }, e: { r: totalsStart + 9, c: 7 } },
+  ];
+  if (items.length) sheet["!autofilter"] = { ref: `A12:F${lastItemRow + 1}` };
+  sheet["!margins"] = { left: 0.35, right: 0.35, top: 0.5, bottom: 0.5, header: 0.2, footer: 0.2 };
+  const totalCell = XLSX.utils.encode_cell({ r: 3, c: 7 });
+  if (sheet[totalCell]) sheet[totalCell].z = 'R$ #,##0.00';
+  for (let row = firstItemRow; row <= lastItemRow; row++) {
     [4, 5].forEach((col) => {
       const ref = XLSX.utils.encode_cell({ r: row, c: col });
-      if (items[ref]) items[ref].z = 'R$ #,##0.00';
+      if (sheet[ref]) sheet[ref].z = 'R$ #,##0.00';
     });
   }
-  XLSX.utils.book_append_sheet(workbook, summary, "Resumo do pedido");
-  XLSX.utils.book_append_sheet(workbook, items, "Itens");
-  XLSX.writeFile(workbook, `${fileName(order.order_number || "pedido-ideal-prime")}.xlsx`);
+  for (let row = totalsStart; row <= totalsStart + 3; row++) {
+    const ref = XLSX.utils.encode_cell({ r: row, c: 7 });
+    if (sheet[ref]) sheet[ref].z = 'R$ #,##0.00';
+  }
+
+  XLSX.utils.book_append_sheet(workbook, sheet, "Pedido");
+  XLSX.writeFile(workbook, `${fileName(order.order_number || "pedido-ideal-prime")}.xlsx`, { compression: true });
 }
 
 function openPrintDocument(title: string, body: string) {
@@ -225,7 +271,7 @@ export function printOrderDocument(order: OrderDocument) {
     <div class="grid"><div class="field"><b>Empresa</b>${esc(order.trade_name || order.legal_name || "")}</div><div class="field"><b>Criado em</b>${esc(dateTime(order.created_at))}</div><div class="field"><b>Referência do cliente</b>${esc((delivery as any).customerReference || "—")}</div><div class="field"><b>Origem</b>${esc((terms as any).quoteNumber ? `Cotação ${(terms as any).quoteNumber}` : "Pedido direto")}</div><div class="field"><b>Pagamento</b>${esc(order.payment_status || "")}</div><div class="field"><b>Expedição</b>${esc(order.fulfillment_status || "")}</div><div class="field"><b>Entrega desejada</b>${esc(dateOnly((delivery as any).requestedDeliveryDate))}</div><div class="field"><b>Endereço/observação de entrega</b>${esc((delivery as any).deliveryAddress || "—")}</div></div>
     <table><thead><tr><th>SKU</th><th>Produto</th><th>Un.</th><th class="num">Qtd.</th><th class="num">Preço unit.</th><th class="num">Total</th></tr></thead><tbody>${(order.items || []).map((item) => `<tr><td>${esc(item.sku_snapshot || "")}</td><td>${esc(item.name_snapshot || "")}</td><td>${esc(item.unit_snapshot || "")}</td><td class="num">${esc(item.quantity || 0)}</td><td class="num">${esc(money(item.unit_price_cents))}</td><td class="num"><b>${esc(money(item.total_cents))}</b></td></tr>`).join("")}</tbody></table>
     <div class="totals"><div><span>Subtotal</span><b>${esc(money((delivery as any).subtotalCents || order.total_cents))}</b></div><div><span>Desconto</span><b>− ${esc(money((delivery as any).discountCents))}</b></div><div><span>Frete</span><b>${esc(money((delivery as any).freightCents))}</b></div><div class="grand"><span>Total do pedido</span><span>${esc(money(order.total_cents))}</span></div></div>
-    <div class="panel"><h3>Condições</h3><div><b>Pagamento:</b> ${esc((terms as any).paymentTermsText || "Conforme cadastro comercial")}</div><div><b>Entrega:</b> ${esc((delivery as any).deliveryTermsText || "Conforme confirmação operacional")}</div>${(terms as any).commercialNotes ? `<div style="margin-top:6px"><b>Observações:</b> ${esc((terms as any).commercialNotes)}</div>` : ""}</div>
+    <div class="panel"><h3>Condições</h3><div><b>Pagamento:</b> ${esc((terms as any).paymentTermsText || "Conforme cadastro comercial")}</div><div><b>Entrega:</b> ${esc((delivery as any).deliveryTermsText || "Conforme confirmação operacional")}</div>${(terms as any).commercialNotes ? `<div style="margin-top:6px"><b>Observações:</b> ${esc((terms as any).commercialNotes)}</div>` : ""}${(delivery as any).partialFromQuote ? `<div style="margin-top:8px;padding:8px 10px;background:#fff7e6;border-radius:8px"><b>Pedido parcial:</b> somente os itens selecionados pela empresa foram convertidos da cotação.</div>` : ""}</div>
     <div class="footer">Ideal Prime · Documento gerado pela Área da Empresa.</div>`;
   openPrintDocument(order.order_number || "Pedido Ideal Prime", body);
 }

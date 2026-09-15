@@ -1048,7 +1048,7 @@ export async function transitionQuote(id: number, action: B2BQuoteAction) {
  * substituir o valor cotado; apenas estoque, múltiplo e disponibilidade são
  * revalidados no momento do pedido.
  */
-async function createOrderFromQuoteAttempt(userId: number, quoteId: number, idempotencyKey: string) {
+async function createOrderFromQuoteAttempt(userId: number, quoteId: number, idempotencyKey: string, selectedQuoteItemIds?: number[]) {
   const c = await getPool().connect();
   try {
     await c.query('BEGIN ISOLATION LEVEL SERIALIZABLE');
@@ -1087,8 +1087,18 @@ async function createOrderFromQuoteAttempt(userId: number, quoteId: number, idem
       return previous.rows[0];
     }
 
-    const itemRows = (await c.query(`select * from permupay_b2b_quote_items where quote_id=$1 order by id`, [quoteId])).rows;
-    if (!itemRows.length) throw new Error('Cotação sem itens');
+    const allItemRows = (await c.query(`select * from permupay_b2b_quote_items where quote_id=$1 order by id`, [quoteId])).rows;
+    if (!allItemRows.length) throw new Error('Cotação sem itens');
+
+    let itemRows = allItemRows;
+    if (selectedQuoteItemIds?.length) {
+      const requestedIds = [...new Set(selectedQuoteItemIds.map(Number))];
+      const requestedSet = new Set(requestedIds);
+      itemRows = allItemRows.filter((item) => requestedSet.has(Number(item.id)));
+      if (!itemRows.length) throw new Error('Selecione ao menos um item da cotação para gerar o pedido');
+      if (itemRows.length !== requestedIds.length) throw new Error('A seleção contém item que não pertence a esta cotação');
+    }
+
     const ids = itemRows.map((item) => Number(item.product_id));
     const products = await c.query(
       `select id,sku,name,unit,sales_multiple,stock_quantity
@@ -1115,21 +1125,43 @@ async function createOrderFromQuoteAttempt(userId: number, quoteId: number, idem
       if (quantity > available) throw new Error(`${item.name_snapshot}: estoque disponível ${available}`);
     }
 
-    const total = Number(quote.total_cents || 0);
+    const selectedSubtotal = itemRows.reduce(
+      (sum, item) => sum + Number(item.quoted_total_cents ?? (Number(item.quantity) * Number(item.quoted_unit_price_cents || 0))),
+      0,
+    );
+    const originalSubtotal = Math.max(0, Number(quote.subtotal_cents || allItemRows.reduce(
+      (sum, item) => sum + Number(item.quoted_total_cents ?? (Number(item.quantity) * Number(item.quoted_unit_price_cents || 0))),
+      0,
+    )));
+    const originalDiscount = Math.max(0, Number(quote.discount_cents || 0));
+    const freight = Math.max(0, Number(quote.freight_cents || 0));
+    const partialOrder = itemRows.length !== allItemRows.length;
+    // Em pedido parcial, o desconto global da proposta é rateado proporcionalmente
+    // ao subtotal selecionado. O frete permanece conforme a proposta comercial.
+    const discount = partialOrder && originalSubtotal > 0
+      ? Math.min(selectedSubtotal, Math.round(originalDiscount * (selectedSubtotal / originalSubtotal)))
+      : Math.min(selectedSubtotal, originalDiscount);
+    const total = Math.max(0, selectedSubtotal - discount + freight);
     if (total < Number(quote.min_order_cents || 0)) {
       throw new Error(`Pedido mínimo: R$ ${(Number(quote.min_order_cents) / 100).toFixed(2)}`);
     }
 
+    const selectedItemIds = itemRows.map((item) => Number(item.id));
+    const excludedQuoteItemIds = allItemRows.filter((item) => !selectedItemIds.includes(Number(item.id))).map((item) => Number(item.id));
     const orderNumber = `IP-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
     const deliverySnapshot = {
       quoteId,
       customerReference: quote.customer_reference || null,
       requestedDeliveryDate: quote.requested_delivery_date || null,
       deliveryAddress: quote.delivery_address || null,
-      freightCents: Number(quote.freight_cents || 0),
-      discountCents: Number(quote.discount_cents || 0),
-      subtotalCents: Number(quote.subtotal_cents || 0),
-      quoteTotalCents: total,
+      freightCents: freight,
+      discountCents: discount,
+      subtotalCents: selectedSubtotal,
+      quoteOriginalSubtotalCents: originalSubtotal,
+      quoteOriginalTotalCents: Number(quote.total_cents || 0),
+      partialFromQuote: partialOrder,
+      selectedQuoteItemIds: selectedItemIds,
+      excludedQuoteItemIds,
       deliveryTermsText: quote.delivery_terms_text || null,
     };
     const termsSnapshot = {
@@ -1198,11 +1230,11 @@ async function createOrderFromQuoteAttempt(userId: number, quoteId: number, idem
   }
 }
 
-export async function createOrderFromQuote(userId: number, quoteId: number, idempotencyKey: string) {
+export async function createOrderFromQuote(userId: number, quoteId: number, idempotencyKey: string, selectedQuoteItemIds?: number[]) {
   const MAX_ATTEMPTS = 5;
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
-      return await createOrderFromQuoteAttempt(userId, quoteId, idempotencyKey);
+      return await createOrderFromQuoteAttempt(userId, quoteId, idempotencyKey, selectedQuoteItemIds);
     } catch (e: any) {
       if (e?.code === '40001' && attempt < MAX_ATTEMPTS) continue;
       if (e?.code === '40001') throw new Error('Cotação alterada por outra operação concorrente; tente novamente');

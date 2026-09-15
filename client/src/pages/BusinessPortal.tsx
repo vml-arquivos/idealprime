@@ -107,7 +107,7 @@ const dateOnly = (value?: string | Date | null) => value ? new Date(`${String(va
 
 const statusLabel: Record<string, string> = {
   PENDING: "Em análise",
-  APPROVED: "Aprovada",
+  APPROVED: "Pronta para pedido",
   CONVERTED: "Convertida em pedido",
   REJECTED: "Recusada",
   CANCELLED: "Cancelada",
@@ -121,7 +121,7 @@ const statusLabel: Record<string, string> = {
 };
 
 function StatusBadge({ status }: { status: string }) {
-  const approved = status === "APPROVED" || status === "ACEITO" || status === "PAGO" || status === "ENTREGUE";
+  const approved = status === "APPROVED" || status === "CONVERTED" || status === "ACEITO" || status === "PAGO" || status === "ENTREGUE";
   const rejected = ["REJECTED", "CANCELLED", "CANCELADO"].includes(status);
   return (
     <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-semibold ${approved ? "bg-[#e1f5ec] text-[#067c52]" : rejected ? "bg-red-50 text-red-700" : "bg-[#e8f1fb] text-[#215b94]"}`}>
@@ -157,8 +157,8 @@ export default function BusinessPortal() {
   const canHistory = hasPermission(user?.permissions, PERMISSIONS.B2B_ORDER_HISTORY, user?.role);
   const approved = me.data?.status === "APPROVED";
   const catalog = trpc.b2b.catalog.useQuery(undefined, { enabled: Boolean(approved && canCatalog) });
-  const quotes = trpc.b2b.myQuotes.useQuery(undefined, { enabled: Boolean(approved && canQuotes) });
-  const orders = trpc.b2b.myOrders.useQuery(undefined, { enabled: Boolean(approved && canHistory) });
+  const quotes = trpc.b2b.myQuotes.useQuery(undefined, { enabled: Boolean(approved && canQuotes), refetchInterval: 15000, refetchOnWindowFocus: true });
+  const orders = trpc.b2b.myOrders.useQuery(undefined, { enabled: Boolean(approved && canHistory), refetchInterval: 15000, refetchOnWindowFocus: true });
 
   const [activeTab, setActiveTab] = useState<Tab>(canCatalog ? "catalog" : canQuotes ? "quotes" : "orders");
   const [query, setQuery] = useState("");
@@ -167,6 +167,7 @@ export default function BusinessPortal() {
   const [quoteForm, setQuoteForm] = useState<QuoteForm>(initialQuoteForm);
   const [expandedQuoteId, setExpandedQuoteId] = useState<number | null>(null);
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
+  const [quoteOrderSelections, setQuoteOrderSelections] = useState<Record<number, number[]>>({});
 
   const orderDetail = trpc.b2b.order.useQuery(
     { id: selectedOrderId || 1 },
@@ -220,6 +221,18 @@ export default function BusinessPortal() {
   const setQuoteField = <K extends keyof QuoteForm>(field: K, value: QuoteForm[K]) =>
     setQuoteForm((current) => ({ ...current, [field]: value }));
 
+  const quoteSelection = (quote: QuoteRow) =>
+    quoteOrderSelections[quote.id] ?? (quote.items || []).map((item) => Number(item.id));
+
+  const toggleQuoteOrderItem = (quote: QuoteRow, itemId: number) => {
+    setQuoteOrderSelections((current) => {
+      const allIds = (quote.items || []).map((item) => Number(item.id));
+      const selected = current[quote.id] ?? allIds;
+      const next = selected.includes(itemId) ? selected.filter((id) => id !== itemId) : [...selected, itemId];
+      return { ...current, [quote.id]: next };
+    });
+  };
+
   const refreshPortal = async () => {
     await Promise.all([
       utils.b2b.catalog.invalidate(),
@@ -252,6 +265,7 @@ export default function BusinessPortal() {
   const convertQuote = trpc.b2b.createOrderFromQuote.useMutation({
     onSuccess: async (order: any) => {
       toast.success(`Pedido ${order.order_number || "gerado"} criado a partir da cotação.`);
+      setQuoteOrderSelections({});
       await refreshPortal();
       setSelectedOrderId(Number(order.id));
       setActiveTab("orders");
@@ -537,6 +551,16 @@ export default function BusinessPortal() {
                       const referenceTotal = (quote.items || []).reduce((sum, item) => sum + Number(item.totalCents || 0), 0);
                       const quotedItemsTotal = (quote.items || []).reduce((sum, item) => sum + Number(item.quotedTotalCents ?? item.totalCents ?? 0), 0);
                       const savings = Math.max(0, referenceTotal - quotedItemsTotal + Number(quote.discount_cents || 0));
+                      const selectedQuoteItemIds = quoteSelection(quote);
+                      const selectedQuoteItems = (quote.items || []).filter((item) => selectedQuoteItemIds.includes(Number(item.id)));
+                      const selectedSubtotal = selectedQuoteItems.reduce((sum, item) => sum + Number(item.quotedTotalCents ?? (Number(item.quantity || 0) * Number(item.quotedUnitPriceCents ?? item.unitPriceCents ?? 0))), 0);
+                      const proposalSubtotal = Math.max(0, Number(quote.subtotal_cents ?? quotedItemsTotal));
+                      const proposalDiscount = Math.max(0, Number(quote.discount_cents || 0));
+                      const selectedDiscount = selectedQuoteItems.length !== (quote.items || []).length && proposalSubtotal > 0
+                        ? Math.min(selectedSubtotal, Math.round(proposalDiscount * (selectedSubtotal / proposalSubtotal)))
+                        : Math.min(selectedSubtotal, proposalDiscount);
+                      const selectedOrderTotal = Math.max(0, selectedSubtotal - selectedDiscount + Number(quote.freight_cents || 0));
+                      const convertedOrder = ((orders.data || []) as any[]).find((order) => Number(order.delivery_snapshot?.quoteId) === Number(quote.id));
                       return (
                         <article key={quote.id} className="overflow-hidden rounded-2xl border border-[#dcebe5] bg-white shadow-sm">
                           <button className="flex w-full flex-col justify-between gap-4 p-5 text-left md:flex-row md:items-center" onClick={() => setExpandedQuoteId(expanded ? null : quote.id)}>
@@ -560,11 +584,23 @@ export default function BusinessPortal() {
                                 <LabelValue label="Contato" value={quote.contact_name || quote.contact_email} />
                               </div>
 
-                              <div className="mt-5 overflow-x-auto rounded-xl border border-[#e0ebe6] bg-white">
-                                <table className="w-full min-w-[760px] text-left text-xs">
-                                  <thead className="bg-[#f2f8f5] text-[9px] uppercase tracking-[0.09em] text-[#71877e]"><tr><th className="px-3 py-2.5">SKU</th><th className="px-3 py-2.5">Produto</th><th className="px-3 py-2.5 text-right">Qtd.</th><th className="px-3 py-2.5 text-right">Referência</th><th className="px-3 py-2.5 text-right">Cotado</th><th className="px-3 py-2.5 text-right">Total</th></tr></thead>
-                                  <tbody className="divide-y divide-[#edf3f0]">{(quote.items || []).map((item) => <tr key={item.id}><td className="px-3 py-3 text-[#6f837a]">{item.sku}</td><td className="px-3 py-3 font-medium">{item.name}<span className="ml-1 text-[10px] font-normal text-[#82958d]">/{item.unit}</span></td><td className="px-3 py-3 text-right font-semibold">{item.quantity}</td><td className="px-3 py-3 text-right">{money(Number(item.catalogUnitPriceCents ?? item.unitPriceCents ?? 0))}</td><td className="px-3 py-3 text-right font-semibold text-[#087A55]">{Number(item.quotedUnitPriceCents ?? item.unitPriceCents ?? 0) > 0 ? money(Number(item.quotedUnitPriceCents ?? item.unitPriceCents ?? 0)) : "Em análise"}</td><td className="px-3 py-3 text-right font-semibold">{money(Number(item.quotedTotalCents ?? item.totalCents ?? 0))}</td></tr>)}</tbody>
+                              {quote.status === "APPROVED" && canOrders && (
+                                <div className="mt-5 rounded-2xl border border-[#b8decf] bg-[#edf8f3] p-4">
+                                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                                    <div><p className="font-semibold text-[#066542]">Proposta liberada para pedido</p><p className="mt-1 text-xs leading-5 text-[#557168]">Revise os itens abaixo. Você pode desmarcar produtos que não deseja incluir antes de confirmar o pedido.</p></div>
+                                    <div className="shrink-0 text-left md:text-right"><p className="text-[9px] uppercase tracking-[0.1em] text-[#71877e]">Pedido selecionado</p><p className="text-xl font-bold text-[#087A55]">{money(selectedOrderTotal)}</p><p className="text-[10px] text-[#71877e]">{selectedQuoteItems.length} de {(quote.items || []).length} item(ns)</p></div>
+                                  </div>
+                                </div>
+                              )}
+
+                              <div className="mt-5 hidden overflow-hidden rounded-xl border border-[#e0ebe6] bg-white md:block">
+                                <table className="w-full table-fixed text-left text-xs">
+                                  <thead className="bg-[#f2f8f5] text-[9px] uppercase tracking-[0.09em] text-[#71877e]"><tr>{quote.status === "APPROVED" && canOrders && <th className="w-[7%] px-3 py-2.5 text-center">Pedido</th>}<th className="w-[13%] px-3 py-2.5">SKU</th><th className="px-3 py-2.5">Produto</th><th className="w-[8%] px-3 py-2.5 text-right">Qtd.</th><th className="w-[14%] px-3 py-2.5 text-right">Referência</th><th className="w-[14%] px-3 py-2.5 text-right">Cotado</th><th className="w-[14%] px-3 py-2.5 text-right">Total</th></tr></thead>
+                                  <tbody className="divide-y divide-[#edf3f0]">{(quote.items || []).map((item) => { const included = selectedQuoteItemIds.includes(Number(item.id)); return <tr key={item.id} className={quote.status === "APPROVED" && canOrders && !included ? "bg-slate-50 opacity-55" : ""}>{quote.status === "APPROVED" && canOrders && <td className="px-3 py-3 text-center"><input type="checkbox" className="h-4 w-4 accent-[#087A55]" checked={included} onChange={() => toggleQuoteOrderItem(quote, Number(item.id))} aria-label={`Incluir ${item.name} no pedido`} /></td>}<td className="break-words px-3 py-3 text-[#6f837a]">{item.sku}</td><td className="px-3 py-3 font-medium leading-5">{item.name}<span className="ml-1 text-[10px] font-normal text-[#82958d]">/{item.unit}</span></td><td className="px-3 py-3 text-right font-semibold">{item.quantity}</td><td className="px-3 py-3 text-right">{money(Number(item.catalogUnitPriceCents ?? item.unitPriceCents ?? 0))}</td><td className="px-3 py-3 text-right font-semibold text-[#087A55]">{Number(item.quotedUnitPriceCents ?? item.unitPriceCents ?? 0) > 0 ? money(Number(item.quotedUnitPriceCents ?? item.unitPriceCents ?? 0)) : "Em análise"}</td><td className="px-3 py-3 text-right font-semibold">{money(Number(item.quotedTotalCents ?? item.totalCents ?? 0))}</td></tr>; })}</tbody>
                                 </table>
+                              </div>
+                              <div className="mt-5 space-y-3 md:hidden">
+                                {(quote.items || []).map((item) => { const included = selectedQuoteItemIds.includes(Number(item.id)); return <div key={item.id} className={`rounded-2xl border border-[#e0ebe6] bg-white p-4 ${quote.status === "APPROVED" && canOrders && !included ? "opacity-55" : ""}`}><div className="flex items-start gap-3">{quote.status === "APPROVED" && canOrders && <input type="checkbox" className="mt-1 h-4 w-4 accent-[#087A55]" checked={included} onChange={() => toggleQuoteOrderItem(quote, Number(item.id))} aria-label={`Incluir ${item.name} no pedido`} />}<div className="min-w-0 flex-1"><p className="text-[10px] font-semibold text-[#6f837a]">{item.sku}</p><p className="mt-1 font-medium">{item.name}</p><p className="text-xs text-[#82958d]">{item.quantity} {item.unit}</p><div className="mt-3 grid grid-cols-3 gap-2 text-xs"><div><p className="text-[9px] uppercase text-[#82958d]">Referência</p><b>{money(Number(item.catalogUnitPriceCents ?? item.unitPriceCents ?? 0))}</b></div><div><p className="text-[9px] uppercase text-[#82958d]">Cotado</p><b className="text-[#087A55]">{Number(item.quotedUnitPriceCents ?? item.unitPriceCents ?? 0) > 0 ? money(Number(item.quotedUnitPriceCents ?? item.unitPriceCents ?? 0)) : "Em análise"}</b></div><div className="text-right"><p className="text-[9px] uppercase text-[#82958d]">Total</p><b>{money(Number(item.quotedTotalCents ?? item.totalCents ?? 0))}</b></div></div></div></div></div>; })}
                               </div>
 
                               <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_330px]">
@@ -585,10 +621,12 @@ export default function BusinessPortal() {
                                 </div>
                               </div>
 
-                              <div className="mt-5 flex flex-wrap gap-2">
+                              <div className="mt-5 flex flex-wrap items-center gap-2">
                                 <Button size="sm" variant="outline" className="gap-2" onClick={() => exportQuoteSpreadsheet(quote).catch((error) => toast.error(error instanceof Error ? error.message : "Não foi possível exportar a planilha."))}><FileSpreadsheet className="h-4 w-4" />Baixar planilha</Button>
                                 <Button size="sm" variant="outline" className="gap-2" onClick={() => { try { printQuoteDocument(quote); } catch (error) { toast.error(error instanceof Error ? error.message : "Não foi possível abrir a impressão."); } }}><Printer className="h-4 w-4" />Imprimir / PDF</Button>
-                                {quote.status === "APPROVED" && canOrders && <Button size="sm" className="gap-2 bg-[#087A55] hover:bg-[#066542]" onClick={() => convertQuote.mutate({ quoteId: quote.id, idempotencyKey: crypto.randomUUID() })} disabled={convertQuote.isPending}><PackageCheck className="h-4 w-4" />Transformar em pedido</Button>}
+                                {quote.status === "PENDING" && <span className="ml-auto text-xs font-medium text-[#557168]">Aguardando a Ideal Prime concluir e liberar a proposta.</span>}
+                                {quote.status === "APPROVED" && canOrders && <Button size="sm" className="ml-auto gap-2 bg-[#087A55] px-5 hover:bg-[#066542]" onClick={() => { if (!selectedQuoteItemIds.length) { toast.error("Selecione ao menos um item para gerar o pedido."); return; } convertQuote.mutate({ quoteId: quote.id, idempotencyKey: crypto.randomUUID(), selectedQuoteItemIds }); }} disabled={convertQuote.isPending || !selectedQuoteItemIds.length}><PackageCheck className="h-4 w-4" />{convertQuote.isPending ? "Gerando pedido…" : "Aceitar cotação e gerar pedido"}</Button>}
+                                {quote.status === "CONVERTED" && convertedOrder && <Button size="sm" className="ml-auto gap-2 bg-[#087A55] hover:bg-[#066542]" onClick={() => { setSelectedOrderId(Number(convertedOrder.id)); setActiveTab("orders"); }}><ClipboardList className="h-4 w-4" />Abrir pedido {convertedOrder.order_number}</Button>}
                               </div>
                             </div>
                           )}
@@ -634,10 +672,23 @@ export default function BusinessPortal() {
                           <LabelValue label="Pagamento" value={statusLabel[orderDetail.data.payment_status] || orderDetail.data.payment_status} />
                           <LabelValue label="Expedição" value={statusLabel[orderDetail.data.fulfillment_status] || orderDetail.data.fulfillment_status} />
                         </div>
-                        <div className="mt-5 overflow-x-auto rounded-xl border border-[#e0ebe6]">
-                          <table className="w-full min-w-[650px] text-xs"><thead className="bg-[#f6faf8] text-[9px] uppercase tracking-[0.08em] text-[#72877f]"><tr><th className="px-3 py-2.5 text-left">SKU</th><th className="px-3 py-2.5 text-left">Produto</th><th className="px-3 py-2.5 text-right">Qtd.</th><th className="px-3 py-2.5 text-right">Unitário</th><th className="px-3 py-2.5 text-right">Total</th></tr></thead><tbody className="divide-y divide-[#edf3f0]">{(orderDetail.data.items || []).map((item: any) => <tr key={item.id}><td className="px-3 py-3 text-[#71867d]">{item.sku_snapshot}</td><td className="px-3 py-3 font-medium">{item.name_snapshot}</td><td className="px-3 py-3 text-right">{item.quantity} {item.unit_snapshot}</td><td className="px-3 py-3 text-right">{money(item.unit_price_cents)}</td><td className="px-3 py-3 text-right font-semibold">{money(item.total_cents)}</td></tr>)}</tbody></table>
+                        <div className="mt-5 hidden overflow-hidden rounded-xl border border-[#e0ebe6] md:block">
+                          <table className="w-full table-fixed text-xs"><thead className="bg-[#f6faf8] text-[9px] uppercase tracking-[0.08em] text-[#72877f]"><tr><th className="w-[16%] px-3 py-2.5 text-left">SKU</th><th className="px-3 py-2.5 text-left">Produto</th><th className="w-[14%] px-3 py-2.5 text-right">Qtd.</th><th className="w-[17%] px-3 py-2.5 text-right">Unitário</th><th className="w-[17%] px-3 py-2.5 text-right">Total</th></tr></thead><tbody className="divide-y divide-[#edf3f0]">{(orderDetail.data.items || []).map((item: any) => <tr key={item.id}><td className="break-words px-3 py-3 text-[#71867d]">{item.sku_snapshot}</td><td className="px-3 py-3 font-medium leading-5">{item.name_snapshot}</td><td className="px-3 py-3 text-right">{item.quantity} {item.unit_snapshot}</td><td className="px-3 py-3 text-right">{money(item.unit_price_cents)}</td><td className="px-3 py-3 text-right font-semibold">{money(item.total_cents)}</td></tr>)}</tbody></table>
                         </div>
-                        {orderDetail.data.delivery_snapshot && <div className="mt-5 grid gap-3 sm:grid-cols-2"><LabelValue label="Referência do cliente" value={(orderDetail.data.delivery_snapshot as any).customerReference} /><LabelValue label="Entrega desejada" value={dateOnly((orderDetail.data.delivery_snapshot as any).requestedDeliveryDate)} /><div className="sm:col-span-2"><LabelValue label="Local / instruções de entrega" value={(orderDetail.data.delivery_snapshot as any).deliveryAddress} /></div></div>}
+                        <div className="mt-5 space-y-3 md:hidden">{(orderDetail.data.items || []).map((item: any) => <div key={item.id} className="rounded-2xl border border-[#e0ebe6] bg-white p-4"><p className="text-[10px] font-semibold text-[#71867d]">{item.sku_snapshot}</p><p className="mt-1 font-medium">{item.name_snapshot}</p><div className="mt-3 flex items-end justify-between gap-4 text-xs"><span className="text-[#71867d]">{item.quantity} {item.unit_snapshot} × {money(item.unit_price_cents)}</span><b>{money(item.total_cents)}</b></div></div>)}</div>
+                        <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_320px]">
+                          <div className="space-y-3">
+                            {orderDetail.data.delivery_snapshot && <div className="grid gap-3 sm:grid-cols-2"><LabelValue label="Referência do cliente" value={(orderDetail.data.delivery_snapshot as any).customerReference} /><LabelValue label="Entrega desejada" value={dateOnly((orderDetail.data.delivery_snapshot as any).requestedDeliveryDate)} /><div className="sm:col-span-2"><LabelValue label="Local / instruções de entrega" value={(orderDetail.data.delivery_snapshot as any).deliveryAddress} /></div></div>}
+                            <div className="grid gap-3 sm:grid-cols-2"><LabelValue label="Origem" value={(orderDetail.data.terms_snapshot as any)?.quoteNumber ? `Cotação ${(orderDetail.data.terms_snapshot as any).quoteNumber}` : "Pedido direto"} /><LabelValue label="Pagamento" value={(orderDetail.data.terms_snapshot as any)?.paymentTermsText || "Conforme cadastro comercial"} /><div className="sm:col-span-2"><LabelValue label="Condição de entrega" value={(orderDetail.data.delivery_snapshot as any)?.deliveryTermsText || "Conforme confirmação operacional"} /></div></div>
+                            {(orderDetail.data.delivery_snapshot as any)?.partialFromQuote && <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">Pedido parcial: foram incluídos somente os produtos selecionados na cotação aprovada.</div>}
+                          </div>
+                          <div className="h-fit rounded-2xl border border-[#d9e8e1] bg-[#f7fbf9] p-4 text-sm">
+                            <div className="flex justify-between py-1.5"><span className="text-[#6d8179]">Subtotal</span><b>{money(Number((orderDetail.data.delivery_snapshot as any)?.subtotalCents || orderDetail.data.total_cents || 0))}</b></div>
+                            <div className="flex justify-between py-1.5"><span className="text-[#6d8179]">Desconto</span><b className="text-[#087A55]">− {money(Number((orderDetail.data.delivery_snapshot as any)?.discountCents || 0))}</b></div>
+                            <div className="flex justify-between py-1.5"><span className="text-[#6d8179]">Frete</span><b>{money(Number((orderDetail.data.delivery_snapshot as any)?.freightCents || 0))}</b></div>
+                            <div className="mt-2 flex justify-between border-t border-[#dfe9e5] pt-3"><span className="font-semibold">Total do pedido</span><strong className="text-xl text-[#087A55]">{money(Number(orderDetail.data.total_cents || 0))}</strong></div>
+                          </div>
+                        </div>
                         <div className="mt-5 flex flex-wrap gap-2"><Button size="sm" variant="outline" className="gap-2" onClick={() => exportOrderSpreadsheet(orderDetail.data as OrderDocument).catch((error) => toast.error(error instanceof Error ? error.message : "Não foi possível exportar o pedido."))}><Download className="h-4 w-4" />Baixar XLSX</Button><Button size="sm" variant="outline" className="gap-2" onClick={() => { try { printOrderDocument(orderDetail.data as OrderDocument); } catch (error) { toast.error(error instanceof Error ? error.message : "Não foi possível imprimir o pedido."); } }}><Printer className="h-4 w-4" />Imprimir / PDF</Button></div>
                       </div>
                     </div>

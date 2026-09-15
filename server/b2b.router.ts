@@ -66,8 +66,12 @@ export const b2bRouter = router({
     .input(z.object({ items: orderItems, paymentMethod: z.string().max(30).optional(), delivery: z.record(z.string(), z.unknown()).optional(), idempotencyKey: z.string().min(8).max(120) }))
     .mutation(({ ctx, input }) => b2b.createOrder(ctx.user.id, input)),
   createOrderFromQuote: buyerPermissionProcedure(PERMISSIONS.B2B_ORDERS)
-    .input(z.object({ quoteId: z.number().int().positive(), idempotencyKey: z.string().min(8).max(120) }))
-    .mutation(({ ctx, input }) => b2b.createOrderFromQuote(ctx.user.id, input.quoteId, input.idempotencyKey)),
+    .input(z.object({
+      quoteId: z.number().int().positive(),
+      idempotencyKey: z.string().min(8).max(120),
+      selectedQuoteItemIds: z.array(z.number().int().positive()).min(1).max(200).optional(),
+    }))
+    .mutation(({ ctx, input }) => b2b.createOrderFromQuote(ctx.user.id, input.quoteId, input.idempotencyKey, input.selectedQuoteItemIds)),
   myOrders: buyerPermissionProcedure(PERMISSIONS.B2B_ORDER_HISTORY).query(({ ctx }) => b2b.myOrders(ctx.user.id)),
   order: authenticatedProcedure
     .input(z.object({ id: z.number().int().positive() }))

@@ -29,9 +29,9 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Building2, CheckCircle2, Download, FileSpreadsheet, FileText, Plus, Save, ShieldCheck, ShoppingBag, Upload, UserPlus } from "lucide-react";
+import { Building2, CheckCircle2, ClipboardList, Download, FileSpreadsheet, FileText, Plus, Printer, Save, ShieldCheck, ShoppingBag, Upload, UserPlus } from "lucide-react";
 import { toast } from "sonner";
-import { exportQuoteSpreadsheet, printQuoteDocument } from "@/lib/b2bDocuments";
+import { exportOrderSpreadsheet, exportQuoteSpreadsheet, printOrderDocument, printQuoteDocument, type OrderDocument } from "@/lib/b2bDocuments";
 
 const money = (value: number) => (value / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -58,6 +58,7 @@ const STATUS_VARIANT: Record<string, "secondary" | "outline" | "destructive"> = 
 const DISPLAY_STATUS: Record<string, string> = {
   PENDING: "Aguardando",
   APPROVED: "Aprovado",
+  CONVERTED: "Convertida em pedido",
   SUSPENDED: "Suspenso",
   REJECTED: "Recusado",
   CANCELLED: "Cancelado",
@@ -116,8 +117,8 @@ export default function B2BAdmin() {
   const utils = trpc.useUtils();
   const businesses = trpc.b2b.admin.businesses.useQuery();
   const lists = trpc.b2b.admin.priceLists.useQuery();
-  const orders = trpc.b2b.admin.orders.useQuery();
-  const quotes = trpc.b2b.admin.quotes.useQuery();
+  const orders = trpc.b2b.admin.orders.useQuery(undefined, { refetchInterval: 15000, refetchOnWindowFocus: true });
+  const quotes = trpc.b2b.admin.quotes.useQuery(undefined, { refetchInterval: 15000, refetchOnWindowFocus: true });
   const imports = trpc.b2b.admin.imports.useQuery();
   const [name, setName] = useState("Tabela B2B padrão");
   const [businessForm, setBusinessForm] = useState<BusinessForm>(initialBusinessForm);
@@ -128,6 +129,7 @@ export default function B2BAdmin() {
   const [importPriceListId, setImportPriceListId] = useState("");
   const [isImporting, setIsImporting] = useState(false);
   const [selectedQuoteId, setSelectedQuoteId] = useState<number | null>(null);
+  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
   const [quotePriceEdits, setQuotePriceEdits] = useState<Record<number, string>>({});
   const [quoteFreight, setQuoteFreight] = useState("0,00");
   const [quoteDiscount, setQuoteDiscount] = useState("0,00");
@@ -139,6 +141,10 @@ export default function B2BAdmin() {
   const quoteDetail = trpc.b2b.quote.useQuery(
     { id: selectedQuoteId || 1 },
     { enabled: Boolean(selectedQuoteId) },
+  );
+  const orderDetail = trpc.b2b.order.useQuery(
+    { id: selectedOrderId || 1 },
+    { enabled: Boolean(selectedOrderId) },
   );
 
   const createList = trpc.b2b.admin.createPriceList.useMutation({ onSuccess: () => utils.b2b.admin.priceLists.invalidate(), onError: (error) => toast.error(error.message) });
@@ -576,6 +582,7 @@ export default function B2BAdmin() {
               </div>
               <div className="mt-1 text-xs text-muted-foreground">{displayStatus(order.commercial_status)} · {displayStatus(order.payment_status)} · {displayStatus(order.fulfillment_status)}</div>
               <div className="mt-3 flex flex-wrap gap-2">
+                <Button size="sm" className="gap-2 bg-[#067c52] hover:bg-[#056343]" onClick={() => setSelectedOrderId(Number(order.id))}><ClipboardList className="h-4 w-4" />Abrir pedido</Button>
                 {[["ACCEPT", "Aceitar"], ["PAY", "Confirmar pagamento"], ["SHIP", "Expedir"], ["CANCEL", "Cancelar"]].map(([action, label]) => (
                   <Button key={action} size="sm" variant="outline" onClick={() => transition.mutate({ id: order.id, action: action as "ACCEPT" | "PAY" | "SHIP" | "CANCEL" })}>{label}</Button>
                 ))}
@@ -593,88 +600,93 @@ export default function B2BAdmin() {
       </section>
 
       <Dialog open={Boolean(selectedQuoteId)} onOpenChange={(open) => !open && setSelectedQuoteId(null)}>
-        <DialogContent className="max-h-[92vh] max-w-5xl overflow-y-auto">
-          <DialogTitle>Preparar proposta comercial</DialogTitle>
-          <DialogDescription>
-            Defina preço final, frete, desconto, validade e condições. A empresa verá o comparativo e poderá gerar o pedido com estes mesmos valores.
-          </DialogDescription>
+        <DialogContent className="flex h-[min(94vh,920px)] w-[min(96vw,1400px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[min(96vw,1400px)]">
+          <div className="shrink-0 border-b bg-white px-5 py-4 pr-12 md:px-7">
+            <DialogTitle>Preparar proposta comercial</DialogTitle>
+            <DialogDescription className="mt-1">
+              Revise os itens, informe os valores finais e libere a proposta para a empresa transformar em pedido.
+            </DialogDescription>
+          </div>
           {quoteDetail.isLoading ? (
-            <div className="py-10 text-center text-sm text-muted-foreground">Carregando cotação...</div>
+            <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">Carregando cotação...</div>
           ) : quoteDetail.data ? (
-            <div className="space-y-5 pt-2">
-              <div className="grid gap-3 rounded-xl border bg-muted/20 p-4 md:grid-cols-4">
-                <div><p className="text-[10px] uppercase text-muted-foreground">Cotação</p><p className="mt-1 font-semibold">{(quoteDetail.data as any).quote_number}</p></div>
-                <div><p className="text-[10px] uppercase text-muted-foreground">Empresa</p><p className="mt-1 font-semibold">{(quoteDetail.data as any).trade_name || (quoteDetail.data as any).legal_name}</p></div>
-                <div><p className="text-[10px] uppercase text-muted-foreground">Comprador</p><p className="mt-1 font-semibold">{(quoteDetail.data as any).buyer_name}</p></div>
-                <div><p className="text-[10px] uppercase text-muted-foreground">Status</p><p className="mt-1 font-semibold">{displayStatus((quoteDetail.data as any).status)}</p></div>
-                {(quoteDetail.data as any).customer_reference && <div><p className="text-[10px] uppercase text-muted-foreground">Referência / OC</p><p className="mt-1 text-sm">{(quoteDetail.data as any).customer_reference}</p></div>}
-                {(quoteDetail.data as any).requested_delivery_date && <div><p className="text-[10px] uppercase text-muted-foreground">Entrega desejada</p><p className="mt-1 text-sm">{new Date(`${String((quoteDetail.data as any).requested_delivery_date).slice(0,10)}T12:00:00`).toLocaleDateString("pt-BR")}</p></div>}
-                {(quoteDetail.data as any).contact_name && <div><p className="text-[10px] uppercase text-muted-foreground">Contato</p><p className="mt-1 text-sm">{(quoteDetail.data as any).contact_name}</p></div>}
-                {(quoteDetail.data as any).delivery_address && <div className="md:col-span-4"><p className="text-[10px] uppercase text-muted-foreground">Entrega / local</p><p className="mt-1 text-sm">{(quoteDetail.data as any).delivery_address}</p></div>}
-                {(quoteDetail.data as any).notes && <div className="md:col-span-4"><p className="text-[10px] uppercase text-muted-foreground">Observação do cliente</p><p className="mt-1 whitespace-pre-wrap text-sm">{(quoteDetail.data as any).notes}</p></div>}
-              </div>
+            <>
+              <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 md:px-7">
+                <div className="space-y-5">
+                  <div className="grid gap-3 rounded-2xl border bg-muted/20 p-4 sm:grid-cols-2 xl:grid-cols-4">
+                    <div><p className="text-[10px] uppercase text-muted-foreground">Cotação</p><p className="mt-1 font-semibold">{(quoteDetail.data as any).quote_number}</p></div>
+                    <div><p className="text-[10px] uppercase text-muted-foreground">Empresa</p><p className="mt-1 font-semibold">{(quoteDetail.data as any).trade_name || (quoteDetail.data as any).legal_name}</p></div>
+                    <div><p className="text-[10px] uppercase text-muted-foreground">Comprador</p><p className="mt-1 font-semibold">{(quoteDetail.data as any).buyer_name}</p></div>
+                    <div><p className="text-[10px] uppercase text-muted-foreground">Status</p><p className="mt-1 font-semibold">{displayStatus((quoteDetail.data as any).status)}</p></div>
+                    {(quoteDetail.data as any).customer_reference && <div><p className="text-[10px] uppercase text-muted-foreground">Referência / OC</p><p className="mt-1 text-sm">{(quoteDetail.data as any).customer_reference}</p></div>}
+                    {(quoteDetail.data as any).requested_delivery_date && <div><p className="text-[10px] uppercase text-muted-foreground">Entrega desejada</p><p className="mt-1 text-sm">{new Date(`${String((quoteDetail.data as any).requested_delivery_date).slice(0,10)}T12:00:00`).toLocaleDateString("pt-BR")}</p></div>}
+                    {(quoteDetail.data as any).contact_name && <div><p className="text-[10px] uppercase text-muted-foreground">Contato</p><p className="mt-1 text-sm">{(quoteDetail.data as any).contact_name}</p></div>}
+                    {(quoteDetail.data as any).delivery_address && <div className="sm:col-span-2 xl:col-span-4"><p className="text-[10px] uppercase text-muted-foreground">Entrega / local</p><p className="mt-1 text-sm">{(quoteDetail.data as any).delivery_address}</p></div>}
+                    {(quoteDetail.data as any).notes && <div className="sm:col-span-2 xl:col-span-4"><p className="text-[10px] uppercase text-muted-foreground">Observação do cliente</p><p className="mt-1 whitespace-pre-wrap text-sm">{(quoteDetail.data as any).notes}</p></div>}
+                  </div>
 
-              <div className="overflow-x-auto rounded-xl border">
-                <table className="w-full min-w-[820px] text-sm">
-                  <thead className="bg-muted/50 text-xs"><tr><th className="px-3 py-2 text-left">SKU</th><th className="px-3 py-2 text-left">Produto</th><th className="px-3 py-2 text-right">Qtd.</th><th className="px-3 py-2 text-right">Referência</th><th className="px-3 py-2 text-right">Preço cotado</th><th className="px-3 py-2 text-right">Total</th></tr></thead>
-                  <tbody className="divide-y">
+                  <div className="hidden overflow-hidden rounded-2xl border md:block">
+                    <table className="w-full table-fixed text-sm">
+                      <thead className="bg-muted/50 text-xs"><tr><th className="w-[12%] px-3 py-2.5 text-left">SKU</th><th className="w-[34%] px-3 py-2.5 text-left">Produto</th><th className="w-[8%] px-3 py-2.5 text-right">Qtd.</th><th className="w-[14%] px-3 py-2.5 text-right">Referência</th><th className="w-[17%] px-3 py-2.5 text-right">Preço cotado</th><th className="w-[15%] px-3 py-2.5 text-right">Total</th></tr></thead>
+                      <tbody className="divide-y">
+                        {((quoteDetail.data as any).items || []).map((item: any) => {
+                          const quotedCents = moneyInputToCents(quotePriceEdits[Number(item.id)] ?? "0");
+                          return <tr key={item.id}><td className="px-3 py-3 text-xs text-muted-foreground break-words">{item.sku}</td><td className="px-3 py-3"><div className="font-medium leading-5">{item.name}</div><div className="text-xs text-muted-foreground">{item.unit}</div></td><td className="px-3 py-3 text-right font-medium">{item.quantity}</td><td className="px-3 py-3 text-right">{money(Number(item.catalogUnitPriceCents ?? item.unitPriceCents ?? 0))}</td><td className="px-3 py-3"><Input className="ml-auto w-full max-w-36 text-right" value={quotePriceEdits[Number(item.id)] ?? ""} onChange={(e) => setQuotePriceEdits((current) => ({ ...current, [Number(item.id)]: e.target.value }))} disabled={(quoteDetail.data as any).status !== "PENDING"} /></td><td className="px-3 py-3 text-right font-semibold text-[#067c52]">{money(Number(item.quantity || 0) * quotedCents)}</td></tr>;
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="space-y-3 md:hidden">
                     {((quoteDetail.data as any).items || []).map((item: any) => {
                       const quotedCents = moneyInputToCents(quotePriceEdits[Number(item.id)] ?? "0");
-                      return (
-                        <tr key={item.id}>
-                          <td className="px-3 py-3 text-xs text-muted-foreground">{item.sku}</td>
-                          <td className="px-3 py-3"><div className="font-medium">{item.name}</div><div className="text-xs text-muted-foreground">{item.unit}</div></td>
-                          <td className="px-3 py-3 text-right font-medium">{item.quantity}</td>
-                          <td className="px-3 py-3 text-right">{money(Number(item.catalogUnitPriceCents ?? item.unitPriceCents ?? 0))}</td>
-                          <td className="px-3 py-3"><Input className="ml-auto w-32 text-right" value={quotePriceEdits[Number(item.id)] ?? ""} onChange={(e) => setQuotePriceEdits((current) => ({ ...current, [Number(item.id)]: e.target.value }))} disabled={(quoteDetail.data as any).status !== "PENDING"} /></td>
-                          <td className="px-3 py-3 text-right font-semibold text-[#067c52]">{money(Number(item.quantity || 0) * quotedCents)}</td>
-                        </tr>
-                      );
+                      return <div key={item.id} className="rounded-2xl border bg-white p-4"><div className="flex items-start justify-between gap-3"><div><p className="text-[10px] font-semibold text-muted-foreground">{item.sku}</p><p className="mt-1 font-medium">{item.name}</p><p className="text-xs text-muted-foreground">{item.quantity} {item.unit}</p></div><p className="font-semibold text-[#067c52]">{money(Number(item.quantity || 0) * quotedCents)}</p></div><div className="mt-3 grid grid-cols-2 gap-3"><div><Label className="text-xs">Referência</Label><div className="mt-1 rounded-md bg-muted/50 px-3 py-2 text-right text-sm">{money(Number(item.catalogUnitPriceCents ?? item.unitPriceCents ?? 0))}</div></div><div><Label className="text-xs">Preço cotado</Label><Input className="mt-1 text-right" value={quotePriceEdits[Number(item.id)] ?? ""} onChange={(e) => setQuotePriceEdits((current) => ({ ...current, [Number(item.id)]: e.target.value }))} disabled={(quoteDetail.data as any).status !== "PENDING"} /></div></div></div>;
                     })}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2"><Label>Validade da proposta</Label><Input type="date" value={quoteValidUntil} onChange={(e) => setQuoteValidUntil(e.target.value)} disabled={(quoteDetail.data as any).status !== "PENDING"} /></div>
-                  <div className="space-y-2"><Label>Condição de pagamento</Label><Input placeholder="Ex.: boleto 28 dias / PIX" value={quotePaymentTerms} onChange={(e) => setQuotePaymentTerms(e.target.value)} disabled={(quoteDetail.data as any).status !== "PENDING"} /></div>
-                  <div className="space-y-2 md:col-span-2"><Label>Condição / prazo de entrega</Label><Input placeholder="Ex.: até 5 dias úteis após confirmação" value={quoteDeliveryTerms} onChange={(e) => setQuoteDeliveryTerms(e.target.value)} disabled={(quoteDetail.data as any).status !== "PENDING"} /></div>
-                  <div className="space-y-2 md:col-span-2"><Label>Observações comerciais</Label><Textarea className="min-h-24" placeholder="Informações que devem constar na proposta enviada ao cliente." value={quoteCommercialNotes} onChange={(e) => setQuoteCommercialNotes(e.target.value)} disabled={(quoteDetail.data as any).status !== "PENDING"} /></div>
-                </div>
-                <div className="rounded-xl border bg-[#f4f9f6] p-4">
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-                    <div className="space-y-2"><Label>Desconto total</Label><Input value={quoteDiscount} onChange={(e) => setQuoteDiscount(e.target.value)} disabled={(quoteDetail.data as any).status !== "PENDING"} /></div>
-                    <div className="space-y-2"><Label>Frete</Label><Input value={quoteFreight} onChange={(e) => setQuoteFreight(e.target.value)} disabled={(quoteDetail.data as any).status !== "PENDING"} /></div>
                   </div>
-                  <div className="mt-4 space-y-2 border-t pt-4 text-sm">
-                    <div className="flex justify-between"><span>Subtotal</span><b>{money(quoteProposalSubtotal)}</b></div>
-                    <div className="flex justify-between"><span>Desconto</span><b className="text-[#067c52]">− {money(quoteProposalDiscount)}</b></div>
-                    <div className="flex justify-between"><span>Frete</span><b>{money(quoteProposalFreight)}</b></div>
-                    <div className="flex justify-between border-t pt-3 text-base"><span className="font-semibold">Total da proposta</span><strong className="text-[#067c52]">{money(quoteProposalTotal)}</strong></div>
+
+                  <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-2"><Label>Validade da proposta</Label><Input type="date" value={quoteValidUntil} onChange={(e) => setQuoteValidUntil(e.target.value)} disabled={(quoteDetail.data as any).status !== "PENDING"} /></div>
+                      <div className="space-y-2"><Label>Condição de pagamento</Label><Input placeholder="Ex.: boleto 28 dias / PIX" value={quotePaymentTerms} onChange={(e) => setQuotePaymentTerms(e.target.value)} disabled={(quoteDetail.data as any).status !== "PENDING"} /></div>
+                      <div className="space-y-2 sm:col-span-2"><Label>Condição / prazo de entrega</Label><Input placeholder="Ex.: até 5 dias úteis após confirmação" value={quoteDeliveryTerms} onChange={(e) => setQuoteDeliveryTerms(e.target.value)} disabled={(quoteDetail.data as any).status !== "PENDING"} /></div>
+                      <div className="space-y-2 sm:col-span-2"><Label>Observações comerciais</Label><Textarea className="min-h-24" placeholder="Informações que devem constar na proposta enviada ao cliente." value={quoteCommercialNotes} onChange={(e) => setQuoteCommercialNotes(e.target.value)} disabled={(quoteDetail.data as any).status !== "PENDING"} /></div>
+                    </div>
+                    <div className="rounded-2xl border bg-[#f4f9f6] p-4">
+                      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1"><div className="space-y-2"><Label>Desconto total</Label><Input value={quoteDiscount} onChange={(e) => setQuoteDiscount(e.target.value)} disabled={(quoteDetail.data as any).status !== "PENDING"} /></div><div className="space-y-2"><Label>Frete</Label><Input value={quoteFreight} onChange={(e) => setQuoteFreight(e.target.value)} disabled={(quoteDetail.data as any).status !== "PENDING"} /></div></div>
+                      <div className="mt-4 space-y-2 border-t pt-4 text-sm"><div className="flex justify-between"><span>Subtotal</span><b>{money(quoteProposalSubtotal)}</b></div><div className="flex justify-between"><span>Desconto</span><b className="text-[#067c52]">− {money(quoteProposalDiscount)}</b></div><div className="flex justify-between"><span>Frete</span><b>{money(quoteProposalFreight)}</b></div><div className="flex justify-between border-t pt-3 text-base"><span className="font-semibold">Total da proposta</span><strong className="text-[#067c52]">{money(quoteProposalTotal)}</strong></div></div>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div className="flex flex-wrap justify-end gap-2 border-t pt-4">
-                <Button variant="outline" className="gap-2" onClick={() => exportQuoteSpreadsheet(quoteDetail.data as any).catch((error) => toast.error(error instanceof Error ? error.message : "Não foi possível exportar a cotação."))}><FileSpreadsheet className="h-4 w-4" />XLSX</Button>
-                <Button variant="outline" onClick={() => { try { printQuoteDocument(quoteDetail.data as any); } catch (error) { toast.error(error instanceof Error ? error.message : "Não foi possível imprimir a cotação."); } }}>Imprimir / PDF</Button>
-                <Button variant="outline" onClick={() => setSelectedQuoteId(null)}>Fechar</Button>
-                {(quoteDetail.data as any).status === "PENDING" && (
-                  <>
-                    <Button variant="outline" className="gap-2" onClick={() => handleSaveQuoteProposal(false)} disabled={saveQuoteProposal.isPending}><Save className="h-4 w-4" />Salvar proposta</Button>
-                    {isAdmin ? (
-                      <Button className="gap-2 bg-[#067c52] hover:bg-[#056343]" onClick={() => handleSaveQuoteProposal(true)} disabled={saveQuoteProposal.isPending || transitionQuote.isPending}><CheckCircle2 className="h-4 w-4" />Salvar e aprovar</Button>
-                    ) : (
-                      <span className="self-center text-xs text-muted-foreground">A aprovação final é restrita ao administrador.</span>
-                    )}
-                  </>
-                )}
+              <div className="shrink-0 border-t bg-white px-5 py-4 md:px-7">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex flex-wrap gap-2"><Button variant="outline" className="gap-2" onClick={() => exportQuoteSpreadsheet(quoteDetail.data as any).catch((error) => toast.error(error instanceof Error ? error.message : "Não foi possível exportar a cotação."))}><FileSpreadsheet className="h-4 w-4" />Baixar XLSX</Button><Button variant="outline" className="gap-2" onClick={() => { try { printQuoteDocument(quoteDetail.data as any); } catch (error) { toast.error(error instanceof Error ? error.message : "Não foi possível imprimir a cotação."); } }}><Printer className="h-4 w-4" />Imprimir / PDF</Button><Button variant="outline" onClick={() => setSelectedQuoteId(null)}>Fechar</Button></div>
+                  {(quoteDetail.data as any).status === "PENDING" && <div className="flex flex-col gap-2 sm:flex-row"><Button variant="outline" className="gap-2" onClick={() => handleSaveQuoteProposal(false)} disabled={saveQuoteProposal.isPending}><Save className="h-4 w-4" />Salvar proposta</Button>{isAdmin ? <Button className="gap-2 bg-[#067c52] px-5 hover:bg-[#056343]" onClick={() => handleSaveQuoteProposal(true)} disabled={saveQuoteProposal.isPending || transitionQuote.isPending}><CheckCircle2 className="h-4 w-4" />Salvar e liberar para pedido</Button> : <span className="self-center text-xs text-muted-foreground">A aprovação final é restrita ao administrador.</span>}</div>}
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-1 items-center justify-center text-sm text-red-600">Não foi possível carregar a cotação.</div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(selectedOrderId)} onOpenChange={(open) => !open && setSelectedOrderId(null)}>
+        <DialogContent className="flex h-[min(92vh,860px)] w-[min(96vw,1180px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[min(96vw,1180px)]">
+          <div className="shrink-0 border-b bg-white px-5 py-4 pr-12 md:px-7"><DialogTitle>Pedido empresarial</DialogTitle><DialogDescription className="mt-1">Visualize itens, valores, origem da cotação e condições comerciais.</DialogDescription></div>
+          {orderDetail.isLoading ? <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">Carregando pedido...</div> : orderDetail.data ? <>
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 md:px-7">
+              <div className="grid gap-3 rounded-2xl border bg-[#f4f9f6] p-4 sm:grid-cols-2 lg:grid-cols-4"><div><p className="text-[10px] uppercase text-muted-foreground">Pedido</p><p className="mt-1 font-semibold">{orderDetail.data.order_number}</p></div><div><p className="text-[10px] uppercase text-muted-foreground">Empresa</p><p className="mt-1 font-semibold">{orderDetail.data.trade_name || orderDetail.data.legal_name}</p></div><div><p className="text-[10px] uppercase text-muted-foreground">Total</p><p className="mt-1 font-semibold text-[#067c52]">{money(Number(orderDetail.data.total_cents || 0))}</p></div><div><p className="text-[10px] uppercase text-muted-foreground">Origem</p><p className="mt-1 font-semibold">{(orderDetail.data.terms_snapshot as any)?.quoteNumber ? `Cotação ${(orderDetail.data.terms_snapshot as any).quoteNumber}` : "Pedido direto"}</p></div></div>
+              <div className="mt-5 hidden overflow-hidden rounded-2xl border md:block"><table className="w-full table-fixed text-sm"><thead className="bg-muted/50 text-xs"><tr><th className="w-[15%] px-3 py-2.5 text-left">SKU</th><th className="w-[43%] px-3 py-2.5 text-left">Produto</th><th className="w-[12%] px-3 py-2.5 text-right">Qtd.</th><th className="w-[15%] px-3 py-2.5 text-right">Unitário</th><th className="w-[15%] px-3 py-2.5 text-right">Total</th></tr></thead><tbody className="divide-y">{(orderDetail.data.items || []).map((item: any) => <tr key={item.id}><td className="px-3 py-3 text-xs text-muted-foreground">{item.sku_snapshot}</td><td className="px-3 py-3 font-medium">{item.name_snapshot}</td><td className="px-3 py-3 text-right">{item.quantity} {item.unit_snapshot}</td><td className="px-3 py-3 text-right">{money(item.unit_price_cents)}</td><td className="px-3 py-3 text-right font-semibold">{money(item.total_cents)}</td></tr>)}</tbody></table></div>
+              <div className="mt-5 space-y-3 md:hidden">{(orderDetail.data.items || []).map((item: any) => <div key={item.id} className="rounded-2xl border p-4"><div className="flex justify-between gap-3"><div><p className="text-xs text-muted-foreground">{item.sku_snapshot}</p><p className="mt-1 font-medium">{item.name_snapshot}</p><p className="text-xs text-muted-foreground">{item.quantity} {item.unit_snapshot} × {money(item.unit_price_cents)}</p></div><b>{money(item.total_cents)}</b></div></div>)}</div>
+              <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_330px]">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"><div><p className="text-[10px] uppercase text-muted-foreground">Comercial</p><p className="mt-1 font-medium">{displayStatus(orderDetail.data.commercial_status)}</p></div><div><p className="text-[10px] uppercase text-muted-foreground">Pagamento</p><p className="mt-1 font-medium">{displayStatus(orderDetail.data.payment_status)}</p></div><div><p className="text-[10px] uppercase text-muted-foreground">Expedição</p><p className="mt-1 font-medium">{displayStatus(orderDetail.data.fulfillment_status)}</p></div><div><p className="text-[10px] uppercase text-muted-foreground">Referência</p><p className="mt-1 font-medium">{(orderDetail.data.delivery_snapshot as any)?.customerReference || "—"}</p></div><div><p className="text-[10px] uppercase text-muted-foreground">Pagamento acordado</p><p className="mt-1 font-medium">{(orderDetail.data.terms_snapshot as any)?.paymentTermsText || "—"}</p></div><div><p className="text-[10px] uppercase text-muted-foreground">Entrega acordada</p><p className="mt-1 font-medium">{(orderDetail.data.delivery_snapshot as any)?.deliveryTermsText || "—"}</p></div>{(orderDetail.data.delivery_snapshot as any)?.partialFromQuote && <div className="sm:col-span-2 lg:col-span-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">Pedido parcial originado da cotação: a empresa retirou um ou mais itens antes da confirmação.</div>}</div>
+                <div className="h-fit rounded-2xl border bg-[#f4f9f6] p-4 text-sm"><div className="flex justify-between py-1.5"><span className="text-muted-foreground">Subtotal</span><b>{money(Number((orderDetail.data.delivery_snapshot as any)?.subtotalCents || orderDetail.data.total_cents || 0))}</b></div><div className="flex justify-between py-1.5"><span className="text-muted-foreground">Desconto</span><b className="text-[#067c52]">− {money(Number((orderDetail.data.delivery_snapshot as any)?.discountCents || 0))}</b></div><div className="flex justify-between py-1.5"><span className="text-muted-foreground">Frete</span><b>{money(Number((orderDetail.data.delivery_snapshot as any)?.freightCents || 0))}</b></div><div className="mt-2 flex justify-between border-t pt-3"><span className="font-semibold">Total</span><strong className="text-xl text-[#067c52]">{money(Number(orderDetail.data.total_cents || 0))}</strong></div></div>
               </div>
             </div>
-          ) : (
-            <div className="py-10 text-center text-sm text-red-600">Não foi possível carregar a cotação.</div>
-          )}
+            <div className="shrink-0 border-t bg-white px-5 py-4 md:px-7"><div className="flex flex-wrap justify-end gap-2"><Button variant="outline" className="gap-2" onClick={() => exportOrderSpreadsheet(orderDetail.data as OrderDocument).catch((error) => toast.error(error instanceof Error ? error.message : "Não foi possível exportar o pedido."))}><FileSpreadsheet className="h-4 w-4" />Baixar XLSX</Button><Button variant="outline" className="gap-2" onClick={() => { try { printOrderDocument(orderDetail.data as OrderDocument); } catch (error) { toast.error(error instanceof Error ? error.message : "Não foi possível imprimir o pedido."); } }}><Printer className="h-4 w-4" />Imprimir / PDF</Button><Button onClick={() => setSelectedOrderId(null)}>Fechar</Button></div></div>
+          </> : <div className="flex flex-1 items-center justify-center text-sm text-red-600">Não foi possível carregar o pedido.</div>}
         </DialogContent>
       </Dialog>
 

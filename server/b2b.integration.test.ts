@@ -334,6 +334,50 @@ describe.skipIf(!DATABASE_URL)("B2B — integração contra PostgreSQL real", ()
     expect(savedOrder.terms_snapshot.paymentTermsText).toBe("Boleto 28 dias");
   });
 
+  it("empresa pode excluir itens da cotação aprovada antes de gerar o pedido", async () => {
+    const { buyerId, productId, priceListId } = await seedApprovedBusiness({ priceCents: 1000, stock: 20 });
+    const suffix = randomUUID().slice(0, 6);
+    const version = await pool.query(`select id from permupay_price_list_versions where price_list_id=$1 order by version desc limit 1`, [priceListId]);
+    const secondProduct = await pool.query(
+      `insert into permupay_products(sku,name,category,category_label,unit,sales_multiple,b2b_enabled,active,published,stock_quantity)
+       values($1,'Produto Teste 2','OUTRO','Outro','UN',1,true,true,false,20) returning id`,
+      [`TEST-PARCIAL-${suffix}`],
+    );
+    await pool.query(`insert into permupay_price_list_items(version_id,product_id,price_cents,active) values($1,$2,2000,true)`, [version.rows[0].id, secondProduct.rows[0].id]);
+
+    const quote = await b2b.createQuote(buyerId, {
+      items: [{ productId, quantity: 2 }, { productId: secondProduct.rows[0].id, quantity: 1 }],
+      idempotencyKey: randomUUID(),
+    });
+    const detail = await b2b.getQuote(buyerId, quote.id, false);
+    expect(detail.items).toHaveLength(2);
+    await b2b.saveQuoteProposal({
+      quoteId: quote.id,
+      items: detail.items.map((item: any) => ({
+        itemId: item.id,
+        quotedUnitPriceCents: item.productId === productId ? 900 : 1800,
+      })),
+      discountCents: 300,
+      freightCents: 100,
+      validUntil: "2099-12-31",
+    });
+    await b2b.transitionQuote(quote.id, "APPROVE");
+
+    const firstItemId = Number(detail.items.find((item: any) => item.productId === productId).id);
+    const order = await b2b.createOrderFromQuote(buyerId, quote.id, randomUUID(), [firstItemId]);
+    const savedOrder = await b2b.getOrder(buyerId, order.id, false);
+
+    expect(savedOrder.items).toHaveLength(1);
+    expect(Number(savedOrder.items[0].product_id)).toBe(productId);
+    expect(Number(savedOrder.items[0].unit_price_cents)).toBe(900);
+    // Cotação: 3.600 subtotal, desconto 300. Pedido parcial: 1.800 subtotal,
+    // desconto proporcional 150 + frete 100 = 1.750.
+    expect(Number(savedOrder.total_cents)).toBe(1750);
+    expect(savedOrder.delivery_snapshot.partialFromQuote).toBe(true);
+    expect(savedOrder.delivery_snapshot.selectedQuoteItemIds).toEqual([firstItemId]);
+    expect(savedOrder.delivery_snapshot.excludedQuoteItemIds).toHaveLength(1);
+  });
+
   it("cotação aprovada convertida em pedido não pode ser convertida duas vezes (concorrência)", async () => {
     const { buyerId, productId } = await seedApprovedBusiness({ priceCents: 1000, stock: 10 });
     const quote = await b2b.createQuote(buyerId, { items: [{ productId, quantity: 2 }], idempotencyKey: randomUUID() });
